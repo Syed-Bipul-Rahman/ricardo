@@ -1,21 +1,13 @@
 import 'dart:convert';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:ricardo/feature/models/home/ride_status_model.dart'
+    as rideModel;
 import 'package:ricardo/feature/models/socket/accept_ride_driver_model.dart';
 import 'package:ricardo/feature/models/socket/accept_ride_model.dart';
-import 'package:ricardo/feature/models/socket/ride_details_socket_model.dart';
-import 'package:ricardo/feature/view/home/map/custom_header.dart';
-import 'package:ricardo/feature/view/home/map/draggable_bottom_sheet.dart';
-import 'package:ricardo/widgets/accepted_ride_button.dart';
-import 'package:ricardo/widgets/custom_passenger_waiting_gif.dart';
-import 'package:ricardo/widgets/custom_primary_button.dart';
-import 'package:ricardo/widgets/glass_background_multiple_children_widget.dart';
-import 'package:ricardo/widgets/glass_background_widget.dart';
-import 'package:ricardo/widgets/map_custom_header_back.dart';
-import 'package:ricardo/widgets/no_internet_message_map.dart';
-import 'package:ricardo/widgets/request_ride_handler.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:ricardo/feature/models/socket/get_ride_driver_location.dart';
+import 'package:ricardo/feature/view/home/map/driver_location_service.dart';
+import 'package:ricardo/feature/view/home/map/passenger_info_card.dart';
 import 'link_export_file.dart';
 
 class MapScreen extends StatefulWidget {
@@ -31,7 +23,6 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
       Get.find<GoogleSearchLocationController>();
   final rideController = Get.find<RideController>();
   final mapOPTController = Get.find<MapOPTController>();
-
   GoogleMapController? _mapController;
   Set<Marker> markers = {};
   Set<Polyline> _polylines = {};
@@ -41,7 +32,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
   BitmapDescriptor? customMarker;
   BitmapDescriptor? customCarMarker;
 
-  double currentZoom = 14.0;
+  double currentZoom = 18.5;
   bool _isLoading = true;
   bool _hasLocation = false;
   String _errorMessage = '';
@@ -49,6 +40,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
   // Default location (will be replaced when real location is obtained)
   static const LatLng _defaultLocation = LatLng(37.7749, -122.4194);
 
+  /* Init State are start here */
   @override
   void initState() {
     super.initState();
@@ -58,8 +50,8 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
     _initMarkers();
 
     // Initialize location and map
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      await _initializeMap();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initializeMap();
     });
 
     // Listen to ride accepted changes
@@ -68,317 +60,101 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
         _loadRoute();
       }
     });
+    loadStatus();
+    _setupSocketReconnection();
   }
 
-  Future<void> _initMarkers() async {
-    customMarker = await BitmapDescriptor.fromAssetImage(
-      const ImageConfiguration(
-        devicePixelRatio: 1.0,
-        size: Size(50, 50),
-      ),
-      "assets/images/location_black_marker.png",
-    );
-
-    customCarMarker = await BitmapDescriptor.fromAssetImage(
-      const ImageConfiguration(
-        devicePixelRatio: 1.0,
-        size: Size(50, 50),
-      ),
-      "assets/images/car_marker.png",
-    );
-    setState(() {});
-  }
-
-  Future<void> _initializeMap() async {
-    setState(() {
-      _isLoading = true;
-      _errorMessage = '';
-    });
-
-    // ✅ Restore ride state if app was closed mid-ride
-    await _restoreRideState();
-    await _restoreDriverRideState();
-
-    bool hasPermission = await _requestLocationPermission();
-    if (!hasPermission) {
-      setState(() {
-        _isLoading = false;
-        _errorMessage = 'Location permission is required to use this app';
-      });
-      return;
-    }
-
-    await _getCurrentLocation();
-    await connectSocket();
-    await userController.fetchUser();
-    await _loadRoute();
-
-    setState(() {
-      _isLoading = false;
-    });
-  }
-
-  // Local Storage data are here
-  Future<void> _restoreRideState() async {
-    final status = await PrefsHelper.getString('status');
-    if (status != 'ride-accepted') return;
-
-    final savedData = await PrefsHelper.getString('ride-accepted-data');
-    if (savedData == null || savedData.isEmpty) return;
-
-    try {
-      final Map<String, dynamic> data = jsonDecode(savedData);
-      final driver = data['driver'];
-
-      rideController.isRideAccepted.value = true;
-      rideController.acceptedRideDriverName.value =
-          (driver is Map ? driver['driverName'] : null) ?? '';
-      rideController.acceptRideModel.value = AcceptRideModel.fromJson(data);
-
-      debugPrint('✅ Ride state restored from prefs');
-    } catch (e) {
-      debugPrint('Restore ride state error: $e');
-      // Clear corrupted data
-      await PrefsHelper.setString('status', '');
-      await PrefsHelper.setString('ride-accepted-data', '');
+  Future<void> loadStatus() async {
+    final bool? data = await userController.fetchActiveRideStatus();
+    if (data == true) {
+      await _setupSocketReconnection();
     }
   }
 
-  Future<void> _restoreDriverRideState() async {
-    final status = await PrefsHelper.getString('driver-status');
-    if (status != 'ride-accepted-driver') return;
-
-    final savedData = await PrefsHelper.getString('ride-accepted-driver-data');
-    if (savedData == null || savedData.isEmpty) return;
-
-    try {
-      final Map<String, dynamic> data = jsonDecode(savedData);
-
-      mapOPTController.acceptedRideDriverDataStatus.value = true;
-      mapOPTController.acceptedRideDriverData.value =
-          AcceptRideDriverModel.fromJson(data);
-
-      debugPrint('✅ Driver ride state restored from prefs');
-
-      // Reload the route after restoring
-      await _loadAcceptedRideRoute();
-    } catch (e) {
-      debugPrint('Restore driver ride state error: $e');
-      await PrefsHelper.setString('status', '');
-      await PrefsHelper.setString('ride-accepted-driver-data', '');
-    }
-  }
-
-  Future<bool> _requestLocationPermission() async {
-    LocationPermission permission = await Geolocator.checkPermission();
-
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied) {
-        _showPermissionDeniedDialog();
-        return false;
-      }
-    }
-
-    if (permission == LocationPermission.deniedForever) {
-      _showPermissionPermanentlyDeniedDialog();
-      return false;
-    }
-
-    return true;
-  }
-
-  void _showPermissionDeniedDialog() {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        title: const Text('Location Permission Required'),
-        content: const Text(
-          'This app needs location access to show your position on the map and find nearby rides.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _initializeMap();
-            },
-            child: const Text('Retry'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showPermissionPermanentlyDeniedDialog() {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        title: const Text('Location Permission Required'),
-        content: const Text(
-          'Location permission is permanently denied. Please enable it in settings to use this app.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              Geolocator.openAppSettings();
-            },
-            child: const Text('Open Settings'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _getCurrentLocation() async {
-    try {
-      // Get current position
-      Position position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-      ).timeout(const Duration(seconds: 15));
-
-      // Update controllers
-      mapOPTController.currentLatitudePosition?.value = position.latitude;
-      mapOPTController.currentLongitudePosition?.value = position.longitude;
-
-      // Get address from coordinates
-      await mapOPTController.getLocation();
-
-      setState(() {
-        _hasLocation = true;
-      });
-
-      // Start location tracking stream
-      _startLocationTracking();
-
-      // Animate camera to current location
-      if (_mapController != null) {
-        _mapController?.animateCamera(
-          CameraUpdate.newCameraPosition(
-            CameraPosition(
-              target: LatLng(position.latitude, position.longitude),
-              zoom: currentZoom,
-            ),
-          ),
-        );
-      }
-    } catch (e) {
-      print('Error getting location: $e');
-      setState(() {
-        _errorMessage = 'Could not get your location. Using default location.';
-        _hasLocation = true; // Still show map with default location
-      });
-    }
-  }
-
-  void _startLocationTracking() async {
-    String? token = await PrefsHelper.getString(AppConstants.bearerToken);
-
-    positionStream = Geolocator.getPositionStream(
-      locationSettings: const LocationSettings(
-        accuracy: LocationAccuracy.high,
-        distanceFilter: 10,
-      ),
-    ).listen((Position position) {
-      LatLng newLocation = LatLng(position.latitude, position.longitude);
-
-      // Update controller
-      mapOPTController.currentLatitudePosition?.value = position.latitude;
-      mapOPTController.currentLongitudePosition?.value = position.longitude;
-
-      // Emit to socket
-      if (token != null) {
-        SocketServices.socket?.emit('update-user-location', {
-          "accessToken": token,
-          "location": {
-            "type": "Point",
-            "coordinates": [newLocation.longitude, newLocation.latitude]
-          }
-        });
-      }
-
-      // Update map if needed
-      if (_mapController != null && mounted) {
-        _mapController?.animateCamera(
-          CameraUpdate.newCameraPosition(
-            CameraPosition(target: newLocation, zoom: currentZoom),
-          ),
-        );
-      }
-    }, onError: (error) {
-      print('Location stream error: $error');
-    });
-  }
-
-  Future<void> connectSocket() async {
-    String? fcmToken = await FirebaseNotificationService.getFCMToken();
-    await PrefsHelper.setString(AppConstants.fcmToken, fcmToken);
-
-    // New ride request
-    SocketServices.socket?.on('new-ride-request', (data) {
-      if (data['newRideRequest'] == true) {
-        mapOPTController.isPassengerRequest.value = true;
-        mapOPTController.rideDetailsData.value =
-            RideDetailsSocketModel.fromJson(data['rideDetails']);
-      }
-    });
-
-    // Cancel ride request
-    SocketServices.socket?.on('cancel-ride-request', (data) {
-      if (data['isCancelPickRequest'] == true) {
-        mapOPTController.isPassengerRequest.value = false;
-      }
-    });
-
-    SocketServices.socket?.on('ride-accepted', (data) {
-      if (data is! Map<String, dynamic>) return;
-      if (data['isRideAccepted'] != true) return;
-
-      final driver = data['driver'];
-      rideController.isRideAccepted.value = true;
-      rideController.acceptedRideDriverName.value =
-          (driver is Map ? driver['driverName'] : null) ?? '';
-
+  Future<void> _setupSocketReconnection() async {
+    SocketServices.socket?.on('ride-status', (data) {
       try {
-        rideController.acceptRideModel.value = AcceptRideModel.fromJson(data);
-        _loadRoute();
-        // ✅ Save status AND full ride data
-        PrefsHelper.setString('status', 'ride-accepted');
-        PrefsHelper.setString(
-            'ride-accepted-data', jsonEncode(data)); // save full data
-      } catch (e) {
-        debugPrint('ride-accepted parse error: $e');
-      }
-    });
+        Map<String, dynamic> jsonData;
 
-    // Ride accepted (driver side)
-    SocketServices.socket?.on('ride-accepted-driver', (data) {
-      if (data is Map<String, dynamic>) {
-        if (data['isRideAcceptedDriver'] == true) {
-          mapOPTController.acceptedRideDriverDataStatus.value = true;
-          mapOPTController.acceptedRideDriverData.value =
-              AcceptRideDriverModel.fromJson(data);
-          _loadAcceptedRideRoute();
-          PrefsHelper.setString('driver-status', 'ride-accepted-driver');
-          PrefsHelper.setString('ride-accepted-driver-data', jsonEncode(data));
+        if (data is List) {
+          jsonData = Map<String, dynamic>.from(data[0]);
+        } else if (data is String) {
+          jsonData = jsonDecode(data);
+        } else if (data is Map) {
+          jsonData = Map<String, dynamic>.from(data);
+        } else {
+          return;
         }
+
+        final rideModel.RideStatusModel rideStatus =
+            rideModel.RideStatusModel.fromJson(jsonData);
+
+        // ✅ Store in controller so UI can react
+        mapOPTController.rideStatusData.value = rideStatus;
+        if (rideStatus.acceptRide == true) {
+          rideController.drivers.clear();
+          mapOPTController.isCurrentMarkerShow.value = true;
+          _loadAcceptedRideRoute();
+          debugPrint('🚗 ride-status: Driver Accepted');
+        } else if (rideStatus.ongoingRide == true) {
+          _loadAcceptedRideRoute();
+          debugPrint('🚗 ride-status: Driver arriving');
+        } else if (rideStatus.arrivingRide == true) {
+          debugPrint('🛣️ ride-status: Ride ongoing');
+        } else if (rideStatus.completeRide == true) {
+          // ✅ Ride done — clear all state and stop listening
+          debugPrint('🏁 ride-status: Ride complete');
+          rideController.isRideAccepted.value = false;
+          rideController.acceptRideModel.value = null;
+          mapOPTController.acceptedRideDriverDataStatus.value = false;
+          mapOPTController.acceptedRideDriverData.value = null;
+          mapOPTController.isPassengerRequest.value = false;
+          mapOPTController.rideStatusData.value = null;
+          mapOPTController.rideRequestReceivedAt.value = null;
+          PrefsHelper.setString('status', '');
+          PrefsHelper.setString('ride-accepted-data', '');
+          PrefsHelper.setString('driver-status', '');
+          PrefsHelper.setString('ride-accepted-driver-data', '');
+          SocketServices.socket
+              ?.off('ride-status'); // ✅ Stop listening after complete
+        } else if (rideStatus.driverCancel == true ||
+            rideStatus.passengerCancel == true) {
+          // ✅ Cancelled — clear all state and stop listening
+          debugPrint('❌ ride-status: Ride cancelled');
+          rideController.isRideAccepted.value = false;
+          rideController.acceptRideModel.value = null;
+          mapOPTController.acceptedRideDriverDataStatus.value = false;
+          mapOPTController.acceptedRideDriverData.value = null;
+          mapOPTController.isPassengerRequest.value = false;
+          mapOPTController.rideStatusData.value = null;
+          mapOPTController.rideRequestReceivedAt.value = null;
+          PrefsHelper.setString('status', '');
+          PrefsHelper.setString('ride-accepted-data', '');
+          PrefsHelper.setString('driver-status', '');
+          PrefsHelper.setString('ride-accepted-driver-data', '');
+          SocketServices.socket
+              ?.off('ride-status'); // ✅ Stop listening after cancel
+        }
+      } catch (e, stackTrace) {
+        print('ride-status ERROR: $e');
+        print('STACK: $stackTrace');
       }
     });
+    final String? rideId = mapOPTController.rideStatusData.value?.ride?.id ??
+        mapOPTController.acceptedRideDriverData.value?.ride?.sId;
+
+    if (rideId != null && rideId.isNotEmpty) {
+      DriverLocationService().startEmitting(rideId);
+    } else {
+      debugPrint('❌ rideId is null, skipping startEmitting');
+    }
   }
 
+  /* Init State are end here */
   Future<void> _loadRoute() async {
     try {
-      final acceptedRide = rideController.acceptRideModel.value;
+      // final acceptedRide = rideController.acceptRideModel.value;
+       final acceptedRide = mapOPTController.rideStatusData.value;
 
       if (acceptedRide == null) return;
 
@@ -453,11 +229,11 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
             m.markerId.value == 'Destination');
 
         markers.addAll({
-          Marker(
-            markerId: const MarkerId('current-location'),
-            position: acceptedLocation,
-            icon: customCarMarker ?? BitmapDescriptor.defaultMarker,
-          ),
+          // Marker(
+          //   markerId: const MarkerId('current-location'),
+          //   position: acceptedLocation,
+          //   icon: customCarMarker ?? BitmapDescriptor.defaultMarker,
+          // ),
           Marker(
             markerId: const MarkerId('Pick-Up-Location'),
             position: origin,
@@ -482,7 +258,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
 
   Future<void> _loadAcceptedRideRoute() async {
     try {
-      final acceptedRide = mapOPTController.acceptedRideDriverData.value;
+      final acceptedRide = mapOPTController.rideStatusData.value;
       if (acceptedRide == null) return;
 
       final Position currentPosition = await Geolocator.getCurrentPosition(
@@ -508,64 +284,99 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
         return;
       }
 
-      final List<LatLng> driverToPickup = await DirectionsService.getPolyline(
-        driverLocation,
-        pickupLocation,
-      );
-      final List<LatLng> pickupToDestination =
-          await DirectionsService.getPolyline(
-        pickupLocation,
-        destinationLocation,
-      );
+      // ✅ Determine which route to show based on ride status.
+      // If the driver has pressed "Start Ride", ongoingRide becomes true.
+      final bool accepted = acceptedRide.acceptRide == true;
+      final bool onGoingRide = acceptedRide.ongoingRide == true;
+      final bool arrivingRide = acceptedRide.arrivingRide == true;
+      final bool complete = acceptedRide.completeRide == true;
+      final bool driverCancel = acceptedRide.driverCancel == true;
+      final bool passengerCancel = acceptedRide.passengerCancel == true;
 
-      if (driverToPickup.isEmpty || pickupToDestination.isEmpty) return;
+      List<LatLng> activeRoutePoints = [];
+
+      if ( accepted ||  onGoingRide ) {
+        // Show route to Destination
+        activeRoutePoints = await DirectionsService.getPolyline(
+          // Note: Using driverLocation is better here for live navigation tracking,
+          // but if you specifically want it drawn from the exact pickup point, change driverLocation to pickupLocation.
+          driverLocation,
+          pickupLocation,
+        );
+      } else {
+        // Show route to Pickup
+        activeRoutePoints = await DirectionsService.getPolyline(
+          pickupLocation,
+          destinationLocation,
+        );
+      }
+
+      if (activeRoutePoints.isEmpty) return;
 
       setState(() {
-        _polylines = {
-          Polyline(
-            polylineId: const PolylineId('driver_to_pickup'),
-            points: driverToPickup,
-            color: Colors.black87,
-            width: 6,
-            startCap: Cap.roundCap,
-            endCap: Cap.roundCap,
-          ),
-          Polyline(
-            polylineId: const PolylineId('pickup_to_destination'),
-            points: pickupToDestination,
-            color: Colors.green,
-            width: 6,
-            startCap: Cap.roundCap,
-            endCap: Cap.roundCap,
-          ),
-        };
+        _polylines.clear(); // Clear old polylines
 
+        // Remove old markers
         markers.removeWhere((m) =>
             m.markerId.value == 'driver_location' ||
             m.markerId.value == 'pickup_location' ||
             m.markerId.value == 'destination_location');
 
-        markers.addAll({
-          Marker(
-            markerId: const MarkerId('driver_location'),
-            position: driverLocation,
-            icon: customCarMarker ?? BitmapDescriptor.defaultMarker,
-          ),
-          Marker(
-            markerId: const MarkerId('pickup_location'),
-            position: pickupLocation,
-            icon: BitmapDescriptor.defaultMarker,
-          ),
-          Marker(
-            markerId: const MarkerId('destination_location'),
-            position: destinationLocation,
-            icon: BitmapDescriptor.defaultMarker,
-          ),
-        });
+        if ( accepted ||  onGoingRide) {
+          // ✅ Build Polylines & Markers for the DESTINATION route
+          _polylines.add(
+            Polyline(
+              polylineId: const PolylineId('pickup_to_destination'),
+              points: activeRoutePoints,
+              color: Colors.green,
+              width: 6,
+              startCap: Cap.roundCap,
+              endCap: Cap.roundCap,
+            ),
+          );
+
+          markers.addAll({
+            // Marker(
+            //   markerId: const MarkerId('driver_location'),
+            //   position: driverLocation,
+            //   icon: customCarMarker ?? BitmapDescriptor.defaultMarker,
+            // ),
+            Marker(
+              markerId: const MarkerId('destination_location'),
+              position: destinationLocation,
+              icon: BitmapDescriptor.defaultMarker,
+            ),
+          });
+        } else {
+          // ✅ Build Polylines & Markers for the PICKUP route
+          _polylines.add(
+            Polyline(
+              polylineId: const PolylineId('driver_to_pickup'),
+              points: activeRoutePoints,
+              color: Colors.black87,
+              width: 6,
+              startCap: Cap.roundCap,
+              endCap: Cap.roundCap,
+            ),
+          );
+
+          markers.addAll({
+            // Marker(
+            //   markerId: const MarkerId('driver_location'),
+            //   position: driverLocation,
+            //   icon: customCarMarker ?? BitmapDescriptor.defaultMarker,
+            // ),
+            Marker(
+              markerId: const MarkerId('pickup_location'),
+              position: pickupLocation,
+              icon: BitmapDescriptor.defaultMarker,
+            ),
+          });
+        }
       });
 
-      final allPoints = [...driverToPickup, ...pickupToDestination];
-      final bounds = _boundsFromLatLng(allPoints);
+      // ✅ Animate camera to neatly fit the active line inside the screen
+      final bounds = _boundsFromLatLng(activeRoutePoints);
       _mapController?.animateCamera(
         CameraUpdate.newLatLngBounds(bounds, 80),
       );
@@ -663,6 +474,357 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
     return result;
   }
 
+  // Initial Marker are here
+  Future<void> _initMarkers() async {
+    customMarker = await BitmapDescriptor.fromAssetImage(
+      const ImageConfiguration(
+        devicePixelRatio: 1.0,
+        size: Size(50, 50),
+      ),
+      "assets/images/location_black_marker.png",
+    );
+
+    customCarMarker = await BitmapDescriptor.fromAssetImage(
+      const ImageConfiguration(
+        devicePixelRatio: 1.0,
+        size: Size(50, 50),
+      ),
+      "assets/images/car_marker.png",
+    );
+    setState(() {});
+  }
+
+  Future<void> _initializeMap() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = '';
+    });
+
+    bool hasPermission = await _requestLocationPermission();
+    if (!hasPermission) {
+      setState(() {
+        _isLoading = false;
+        _errorMessage = 'Location permission is required to use this app';
+      });
+      return;
+    }
+
+    await _getCurrentLocation();
+    await connectSocket();
+    await userController.fetchUser();
+    await _loadRoute();
+
+    setState(() {
+      _isLoading = false;
+    });
+  }
+
+  // Permission Related work
+  Future<bool> _requestLocationPermission() async {
+    LocationPermission permission = await Geolocator.checkPermission();
+
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        _showPermissionDeniedDialog();
+        return false;
+      }
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      _showPermissionPermanentlyDeniedDialog();
+      return false;
+    }
+
+    return true;
+  }
+
+  void _showPermissionDeniedDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('Location Permission Required'),
+        content: const Text(
+          'This app needs location access to show your position on the map and find nearby rides.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _initializeMap();
+            },
+            child: const Text('Retry'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showPermissionPermanentlyDeniedDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('Location Permission Required'),
+        content: const Text(
+          'Location permission is permanently denied. Please enable it in settings to use this app.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              Geolocator.openAppSettings();
+            },
+            child: const Text('Open Settings'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Current Location Related work are here
+  Future<void> _getCurrentLocation() async {
+    try {
+      // Get current position
+      Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      ).timeout(const Duration(seconds: 15));
+
+      // Update controllers
+      mapOPTController.currentLatitudePosition?.value = position.latitude;
+      mapOPTController.currentLongitudePosition?.value = position.longitude;
+
+      // Get address from coordinates
+      await mapOPTController.getLocation();
+
+      setState(() {
+        _hasLocation = true;
+      });
+
+      // Start location tracking stream
+      _startLocationTracking();
+
+      // Animate camera to current location
+      if (_mapController != null) {
+        _mapController?.animateCamera(
+          CameraUpdate.newCameraPosition(
+            CameraPosition(
+              target: LatLng(position.latitude, position.longitude),
+              zoom: currentZoom,
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      print('Error getting location: $e');
+      setState(() {
+        _errorMessage = 'Could not get your location. Using default location.';
+        _hasLocation = true; // Still show map with default location
+      });
+    }
+  }
+
+  // Socket Related work are here
+  Future<void> connectSocket() async {
+    String? fcmToken = await FirebaseNotificationService.getFCMToken();
+    await PrefsHelper.setString(AppConstants.fcmToken, fcmToken);
+
+    // New ride request
+    SocketServices.socket?.on('new-ride-request', (data) {
+      if (data['newRideRequest'] == true) {
+        mapOPTController.startRideRequestTimer(); // ✅ add this line
+        mapOPTController.isPassengerRequest.value = true;
+        mapOPTController.rideDetailsData.value =
+            RideDetailsSocketModel.fromJson(data['rideDetails']);
+      }
+    });
+
+    // Cancel ride request
+    SocketServices.socket?.on('cancel-ride-request', (data) {
+      if (data['isCancelPickRequest'] == true) {
+        mapOPTController.isPassengerRequest.value = false;
+        mapOPTController.cancelRideRequestTimer(); // ✅ add this line
+      }
+    });
+
+    SocketServices.socket?.on('ride-accepted', (data) {
+      if (data is! Map<String, dynamic>) return;
+      if (data['isRideAccepted'] != true) return;
+
+      final driver = data['driver'];
+      rideController.isRideAccepted.value = true;
+      rideController.acceptedRideDriverName.value =
+          (driver is Map ? driver['driverName'] : null) ?? '';
+
+      try {
+        rideController.acceptRideModel.value = AcceptRideModel.fromJson(data);
+      } catch (e) {
+        debugPrint('ride-accepted parse error: $e');
+      }
+    });
+
+    // Ride accepted (driver side)
+    SocketServices.socket?.on('ride-accepted-driver', (data) {
+      if (data is Map<String, dynamic>) {
+        if (data['isRideAcceptedDriver'] == true) {
+          mapOPTController.acceptedRideDriverDataStatus.value = true;
+          mapOPTController.acceptedRideDriverData.value =
+              AcceptRideDriverModel.fromJson(data);
+          // _loadAcceptedRideRoute();
+        }
+      }
+    });
+
+    SocketServices.socket?.on('get-ride-driver-location', (data) {
+      Map<String, dynamic> jsonData;
+
+      if (data is List) {
+        jsonData = Map<String, dynamic>.from(data[0]);
+      } else if (data is String) {
+        jsonData = jsonDecode(data);
+      } else if (data is Map) {
+        jsonData = Map<String, dynamic>.from(data);
+      } else {
+        return;
+      }
+
+      final cnt = Get.find<MapOPTController>();
+      final GetRideDriverLocation getRideDriverLocation =
+          GetRideDriverLocation.fromJson(jsonData);
+      cnt.getRideDriverLocation.value = getRideDriverLocation;
+    });
+
+    SocketServices.socket?.on('ride-status', (data) {
+      try {
+        Map<String, dynamic> jsonData;
+
+        if (data is List) {
+          jsonData = Map<String, dynamic>.from(data[0]);
+        } else if (data is String) {
+          jsonData = jsonDecode(data);
+        } else if (data is Map) {
+          jsonData = Map<String, dynamic>.from(data);
+        } else {
+          return;
+        }
+
+        final rideModel.RideStatusModel rideStatus =
+            rideModel.RideStatusModel.fromJson(jsonData);
+
+        // ✅ Store in controller so UI can react
+        mapOPTController.rideStatusData.value = rideStatus;
+
+        if (rideStatus.acceptRide == true) {
+          rideController.drivers.clear();
+          mapOPTController.isCurrentMarkerShow.value = true;
+          _loadAcceptedRideRoute();
+          debugPrint('🚗 ride-status: Driver Accepted');
+        } else if (rideStatus.ongoingRide == true) {
+          _loadAcceptedRideRoute();
+          debugPrint('🚗 ride-status: Driver arriving');
+        } else if (rideStatus.arrivingRide == true) {
+          debugPrint('🛣️ ride-status: Ride ongoing');
+        } else if (rideStatus.completeRide == true) {
+          // ✅ Ride done — clear all state and stop listening
+          debugPrint('🏁 ride-status: Ride complete');
+          rideController.isRideAccepted.value = false;
+          rideController.acceptRideModel.value = null;
+          mapOPTController.acceptedRideDriverDataStatus.value = false;
+          mapOPTController.acceptedRideDriverData.value = null;
+          mapOPTController.isPassengerRequest.value = false;
+          mapOPTController.rideStatusData.value = null;
+          mapOPTController.rideRequestReceivedAt.value = null;
+          PrefsHelper.setString('status', '');
+          PrefsHelper.setString('ride-accepted-data', '');
+          PrefsHelper.setString('driver-status', '');
+          PrefsHelper.setString('ride-accepted-driver-data', '');
+          SocketServices.socket
+              ?.off('ride-status'); // ✅ Stop listening after complete
+        } else if (rideStatus.driverCancel == true ||
+            rideStatus.passengerCancel == true) {
+          // ✅ Cancelled — clear all state and stop listening
+          debugPrint('❌ ride-status: Ride cancelled');
+          rideController.isRideAccepted.value = false;
+          rideController.acceptRideModel.value = null;
+          mapOPTController.acceptedRideDriverDataStatus.value = false;
+          mapOPTController.acceptedRideDriverData.value = null;
+          mapOPTController.isPassengerRequest.value = false;
+          mapOPTController.rideStatusData.value = null;
+          mapOPTController.rideRequestReceivedAt.value = null;
+          PrefsHelper.setString('status', '');
+          PrefsHelper.setString('ride-accepted-data', '');
+          PrefsHelper.setString('driver-status', '');
+          PrefsHelper.setString('ride-accepted-driver-data', '');
+          SocketServices.socket
+              ?.off('ride-status'); // ✅ Stop listening after cancel
+        }
+      } catch (e, stackTrace) {
+        print('ride-status ERROR: $e');
+        print('STACK: $stackTrace');
+      }
+    });
+  }
+
+  // Update location every 3 seconds related work
+  Timer? _locationTimer;
+  bool _isTracking = false;
+  void _startLocationTracking() async {
+    if (_isTracking) return;
+    _isTracking = true;
+
+    String? token = await PrefsHelper.getString(AppConstants.bearerToken);
+
+    // Use Timer.periodic to send location every 3 seconds
+    _locationTimer = Timer.periodic(Duration(seconds: 3), (timer) async {
+      try {
+        // Get current position
+        Position position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high,
+        );
+
+        LatLng newLocation = LatLng(position.latitude, position.longitude);
+
+        // Update controller
+        mapOPTController.currentLatitudePosition?.value = position.latitude;
+        mapOPTController.currentLongitudePosition?.value = position.longitude;
+
+        // Emit to socket
+        SocketServices.socket?.emit('update-user-location', {
+          "accessToken": token,
+          "location": {
+            "type": "Point",
+            "coordinates": [newLocation.longitude, newLocation.latitude]
+          }
+        });
+
+        // Update map if needed
+        if (_mapController != null && mounted) {
+          _mapController?.animateCamera(
+            CameraUpdate.newCameraPosition(
+              CameraPosition(target: newLocation, zoom: currentZoom),
+            ),
+          );
+        }
+      } catch (error) {
+        print('Location error: $error');
+      }
+    });
+  }
+  void _stopLocationTracking() {
+    _locationTimer?.cancel();
+    _isTracking = false;
+    positionStream?.cancel(); // Cancel the old stream if exists
+  }
+
   void _showDriverDialog(driver) {
     showDialog(
       context: context,
@@ -677,7 +839,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
               borderRadius: BorderRadius.circular(20),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.15),
+                  color: AppColors.darkColor.withValues(alpha: 0.15),
                   blurRadius: 10,
                   spreadRadius: 2,
                 ),
@@ -887,14 +1049,14 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
           width: double.infinity,
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: AppColors.whiteColor.withOpacity(0.3),
+            color: AppColors.whiteColor.withValues(alpha: 0.03),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
               color: AppColors.whiteColor,
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.1),
+                color: AppColors.darkColor.withValues(alpha: 0.01),
                 offset: const Offset(0, -4),
                 blurRadius: 4,
                 spreadRadius: 0,
@@ -928,6 +1090,13 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
           else if (_hasLocation)
             Obx(
               () => GoogleMap(
+                mapToolbarEnabled: false,
+                scrollGesturesEnabled: true,
+                rotateGesturesEnabled: true,
+                trafficEnabled: false,
+                zoomGesturesEnabled: true,
+                fortyFiveDegreeImageryEnabled: true,
+                indoorViewEnabled: true,
                 mapType: MapType.normal,
                 initialCameraPosition: CameraPosition(
                   target: LatLng(
@@ -942,28 +1111,30 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                 polylines: _polylines,
                 onMapCreated: (controller) {
                   _mapController = controller;
-                  _loadRoute();
                 },
-                myLocationEnabled: true,
-                myLocationButtonEnabled: true,
-                zoomControlsEnabled: true,
-                compassEnabled: true,
+                myLocationEnabled: false,
+                myLocationButtonEnabled: false,
+                zoomControlsEnabled: false,
+                compassEnabled: false,
                 circles: {
                   Circle(
-                    circleId: const CircleId('currentPassenger'),
+                    circleId: const CircleId('currentDriver'),
                     center: LatLng(
                       mapOPTController.currentLatitudePosition?.value ?? 0.0,
                       mapOPTController.currentLongitudePosition?.value ?? 0.0,
                     ),
-                    radius: 10,
+                    radius: 30,
                     strokeColor: Colors.white,
-                    strokeWidth: 1,
+                    strokeWidth: 2,
                     fillColor: const Color(0xFF006491).withOpacity(0.2),
-                    consumeTapEvents: true,
                   ),
                 },
               ),
             )
+          // userController.userModel.value?.userProfile?.role ==
+          //         AppConstants.passenger
+          //     ? _buildPassengerMap()
+          //     : _buildDriverMap()
           else
             Center(
               child: Column(
@@ -987,9 +1158,15 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
           if (userController.userModel.value?.userProfile?.role ==
                   AppConstants.passenger &&
               (rideController.acceptRideModel.value?.isRideAccepted == true ||
-                  PrefsHelper.getString('status') == 'ride-accepted'))
+                  mapOPTController.rideStatusData.value?.acceptRide == true ||
+                  mapOPTController.rideStatusData.value?.ongoingRide == true ||
+                  mapOPTController.rideStatusData.value?.arrivingRide == true ||
+                  mapOPTController.rideStatusData.value?.driverCancel == true ||
+                  mapOPTController.rideStatusData.value?.passengerCancel ==
+                      true ||
+                  mapOPTController.rideStatusData.value?.completeRide == true))
             DraggableBottomSheet(
-              acceptRideModel: rideController.acceptRideModel.value,
+              rideStatus: mapOPTController.rideStatusData.value,
               controller: mapOPTController,
             ),
 
@@ -1057,10 +1234,26 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                 ),
                 // Driver toggle switch
                 Obx(() {
-                  if (userController.userModel.value?.userProfile?.role ==
-                          AppConstants.driver &&
-                      mapOPTController.acceptedRideDriverDataStatus.value ==
-                          false) {
+                  final role =
+                      userController.userModel.value?.userProfile?.role;
+                  final isDriver = role == AppConstants.driver;
+
+                  final isAcceptedDriver = mapOPTController
+                          .acceptedRideDriverData.value?.isRideAcceptedDriver ??
+                      false;
+
+                  final status = mapOPTController.rideStatusData.value;
+
+                  if (isDriver &&
+                      !mapOPTController.acceptedRideDriverDataStatus.value &&
+                      !isAcceptedDriver &&
+                      rideController.isRideAccepted.value == false &&
+                      (status?.acceptRide ?? false) == false &&
+                      (status?.ongoingRide ?? false) == false &&
+                      (status?.arrivingRide ?? false) == false &&
+                      (status?.driverCancel ?? false) == false &&
+                      (status?.passengerCancel ?? false) == false &&
+                      (status?.completeRide ?? false) == false) {
                     return AnimatedToggleSwitch();
                   }
                   return const SizedBox.shrink();
@@ -1068,11 +1261,32 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
 
                 // Accepted ride info for driver
                 Obx(() {
-                  if (mapOPTController
-                          .acceptedRideDriverData.value?.isRideAcceptedDriver ==
-                      true) {
+                  if (userController.userModel.value?.userProfile?.role ==
+                          AppConstants.driver &&
+                      (mapOPTController.acceptedRideDriverData.value
+                                  ?.isRideAcceptedDriver ==
+                              true ||
+                          mapOPTController.acceptedRideDriverDataStatus.value ==
+                              true ||
+                          mapOPTController.acceptedRideDriverData.value
+                                      ?.isRideAcceptedDriver ==
+                                  true &&
+                              rideController.isRideAccepted.value == true ||
+                          mapOPTController.rideStatusData.value?.acceptRide ==
+                              true ||
+                          mapOPTController.rideStatusData.value?.ongoingRide ==
+                              true ||
+                          mapOPTController.rideStatusData.value?.arrivingRide ==
+                              true ||
+                          mapOPTController.rideStatusData.value?.driverCancel ==
+                              true ||
+                          mapOPTController
+                                  .rideStatusData.value?.passengerCancel ==
+                              true ||
+                          mapOPTController.rideStatusData.value?.completeRide ==
+                              true)) {
                     return Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 25),
+                      padding: const EdgeInsets.symmetric(horizontal: 15),
                       child: SizedBox(
                         width: double.infinity,
                         child: GlassBackgroundWidget(
@@ -1090,31 +1304,57 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(
-                                      '${mapOPTController.acceptedRideDriverData.value?.ride?.destinationAddress}',
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w700,
-                                        fontFamily: FontFamily.poppins,
-                                        color: const Color(0xff171717),
-                                      ),
-                                      overflow: TextOverflow.ellipsis,
-                                      maxLines: 1,
-                                    ),
-                                    FutureBuilder<String>(
+                                    FutureBuilder<Map<String, String>>(
                                       future: DirectionsService()
-                                          .getCurrentAddress(),
+                                          .getCurrentAddressParts(),
                                       builder: (context, snapshot) {
                                         if (snapshot.connectionState ==
                                             ConnectionState.waiting) {
                                           return const Text('Loading...');
                                         }
-                                        if (snapshot.hasError) {
+                                        if (snapshot.hasError ||
+                                            !snapshot.hasData) {
                                           return const Text(
                                               'Error getting address');
                                         }
+
+                                        final firstLine =
+                                            snapshot.data!['firstLine'] ??
+                                                'No address found';
+
                                         return Text(
-                                          snapshot.data ?? 'No address found',
+                                          firstLine,
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w700,
+                                            fontFamily: FontFamily.poppins,
+                                            color: const Color(0xff171717),
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                          maxLines: 1,
+                                        );
+                                      },
+                                    ),
+                                    FutureBuilder<Map<String, String>>(
+                                      future: DirectionsService()
+                                          .getCurrentAddressParts(),
+                                      builder: (context, snapshot) {
+                                        if (snapshot.connectionState ==
+                                            ConnectionState.waiting) {
+                                          return const Text('Loading...');
+                                        }
+                                        if (snapshot.hasError ||
+                                            !snapshot.hasData) {
+                                          return const Text(
+                                              'Error getting address');
+                                        }
+
+                                        final secondLine =
+                                            snapshot.data!['secondLine'] ??
+                                                'No address found';
+
+                                        return Text(
+                                          secondLine,
                                           style: TextStyle(
                                             fontSize: 14,
                                             fontWeight: FontWeight.w500,
@@ -1141,11 +1381,26 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                 // No internet message
                 Obx(() {
                   final cnt = Get.find<MapOPTController>();
-                  if (userController.userModel.value?.userProfile?.role ==
+
+                  final offlineOnline = userController
+                              .userModel.value?.userProfile?.role ==
                           AppConstants.driver &&
-                      cnt.userController.userModel.value?.driverProfile
-                              ?.isOnline ==
-                          false) {
+                      cnt.userController.userModel.value?.driverProfile?.isOnline ==
+                          false &&
+                      mapOPTController.rideStatusData.value?.acceptRide !=
+                          true &&
+                      mapOPTController.rideStatusData.value?.ongoingRide !=
+                          true &&
+                      mapOPTController.rideStatusData.value?.arrivingRide !=
+                          true &&
+                      mapOPTController.rideStatusData.value?.driverCancel !=
+                          true &&
+                      mapOPTController.rideStatusData.value?.passengerCancel !=
+                          true &&
+                      mapOPTController.rideStatusData.value?.completeRide !=
+                          true;
+
+                  if (offlineOnline) {
                     return const NoInternetMessageMap();
                   }
                   return const SizedBox.shrink();
@@ -1157,11 +1412,25 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                 Obx(() {
                   final role =
                       userController.userModel.value?.userProfile?.role;
-                  if (role == AppConstants.passenger &&
+                  final swippedButton = role == AppConstants.passenger &&
                       googleSearchLocationController.isModalOn.value == false &&
                       rideController.isSwippedButtonShow.value == false &&
                       rideController.viewInMap.value == true &&
-                      rideController.isRideAccepted.value == false) {
+                      rideController.isRideAccepted.value == false &&
+                      mapOPTController.rideStatusData.value?.acceptRide !=
+                          true &&
+                      mapOPTController.rideStatusData.value?.ongoingRide !=
+                          true &&
+                      mapOPTController.rideStatusData.value?.arrivingRide !=
+                          true &&
+                      mapOPTController.rideStatusData.value?.driverCancel !=
+                          true &&
+                      mapOPTController.rideStatusData.value?.passengerCancel !=
+                          true &&
+                      mapOPTController.rideStatusData.value?.completeRide !=
+                          true;
+
+                  if (swippedButton) {
                     return Column(
                       children: [
                         _buildSwippedButton(),
@@ -1174,13 +1443,29 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
 
                 // Driver waiting for passenger
                 Obx(() {
-                  if (userController.userModel.value?.userProfile?.role ==
+                  final showPassengerGif = userController
+                              .userModel.value?.userProfile?.role ==
                           AppConstants.driver &&
                       mapOPTController.isPassengerRequest.value == false &&
                       userController.userModel.value?.driverProfile?.isOnline ==
                           true &&
                       mapOPTController.acceptedRideDriverDataStatus.value ==
-                          false) {
+                          false &&
+                      rideController.isRideAccepted.value == false &&
+                      mapOPTController.rideStatusData.value?.acceptRide !=
+                          true &&
+                      mapOPTController.rideStatusData.value?.ongoingRide !=
+                          true &&
+                      mapOPTController.rideStatusData.value?.arrivingRide !=
+                          true &&
+                      mapOPTController.rideStatusData.value?.driverCancel !=
+                          true &&
+                      mapOPTController.rideStatusData.value?.passengerCancel !=
+                          true &&
+                      mapOPTController.rideStatusData.value?.completeRide !=
+                          true;
+
+                  if (showPassengerGif) {
                     return Container(
                       margin: const EdgeInsets.only(bottom: 90),
                       padding: const EdgeInsets.symmetric(horizontal: 25),
@@ -1192,332 +1477,200 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                           AppConstants.driver &&
                       mapOPTController.isPassengerRequest.value == true &&
                       mapOPTController.acceptedRideDriverDataStatus.value ==
-                          false) {
-                    return GlassBackgroundMultipleChildrenWidget(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      blurOne: 20,
-                      blurTwo: 20,
-                      children: [
-                        Center(
-                          child: Container(
-                            width: 50,
-                            height: 5,
-                            padding: const EdgeInsets.all(2),
-                            decoration: BoxDecoration(
-                                color: const Color(0xFFB9C0C9),
-                                borderRadius: BorderRadius.circular(50)),
-                          ),
-                        ),
-                        const SizedBox(height: 50),
-                        Row(
-                          children: [
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(50),
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(12),
-                                child: Image.network(
-                                  (mapOPTController.rideDetailsData.value
-                                                  ?.passengerImage !=
-                                              null &&
-                                          mapOPTController
-                                              .rideDetailsData
-                                              .value!
-                                              .passengerImage!
-                                              .isNotEmpty)
-                                      ? '${ApiUrls.imageBaseUrl}${mapOPTController.rideDetailsData.value?.passengerImage}'
-                                      : '',
-                                  height: 50,
-                                  width: 50,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (context, error, stackTrace) {
-                                    return Image.asset(
-                                      'assets/images/default_image.png',
-                                      height: 50,
-                                      width: 50,
-                                      fit: BoxFit.cover,
-                                    );
-                                  },
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  mapOPTController.rideDetailsData.value
-                                          ?.passengerName ??
-                                      '',
-                                  style: TextStyle(
-                                    color: const Color(0xff171717),
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w500,
-                                    fontFamily: FontFamily.poppins,
-                                  ),
-                                ),
-                                Row(
-                                  children: [
-                                    Text(
-                                      '\$${mapOPTController.rideDetailsData.value?.fare ?? 0.0} ',
-                                      style: const TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                    Text(
-                                        '(${((mapOPTController.rideDetailsData.value?.destinationMeters ?? 0) * 0.000621371).toStringAsFixed(2)} Miles)')
-                                  ],
-                                ),
-                              ],
-                            )
-                          ],
-                        ),
-                        const SizedBox(height: 20),
-                        Divider(
-                          height: 1,
-                          color: Colors.black.withOpacity(0.2),
-                        ),
-                        const SizedBox(height: 6),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                SvgPicture.asset(
-                                    'assets/images/direct_right.svg'),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        'PICK UP',
-                                        style: TextStyle(
-                                          color: AppColors.labelTextColor,
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w500,
-                                          fontFamily: FontFamily.poppins,
-                                        ),
-                                      ),
-                                      Text(
-                                        mapOPTController.rideDetailsData.value
-                                                ?.pickupAddress ??
-                                            'Pickup location not specified',
-                                        style: _textStyle(),
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
-                                      )
-                                    ],
-                                  ),
-                                )
-                              ],
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.only(
-                                left: 4,
-                                top: 4,
-                                bottom: 4,
-                              ),
-                              child: Container(
-                                width: 4,
-                                height: 40,
-                                decoration:
-                                    const BoxDecoration(color: Colors.white),
-                              ),
-                            ),
-                            Row(
-                              children: [
-                                SvgPicture.asset('assets/images/location.svg'),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        'DROP OFF',
-                                        style: TextStyle(
-                                          color: AppColors.labelTextColor,
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w500,
-                                          fontFamily: FontFamily.poppins,
-                                        ),
-                                      ),
-                                      Text(
-                                        mapOPTController.rideDetailsData.value
-                                                ?.destinationAddress ??
-                                            'Destination not specified',
-                                        style: _textStyle(),
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
-                                      )
-                                    ],
-                                  ),
-                                )
-                              ],
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 6),
-                        Divider(
-                          height: 1,
-                          color: Colors.black.withOpacity(0.2),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Passengers Note',
-                          style: TextStyle(
-                            color: const Color(0xff5E5E5E).withOpacity(0.7),
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        Text(mapOPTController
-                                .rideDetailsData.value?.destinationAddress ??
-                            ''),
-                        const SizedBox(height: 18),
-                        AcceptRideButton(
-                          onPressed: () {
-                            mapOPTController.rideAcceptRide(mapOPTController
-                                .rideDetailsData.value!.rideId
-                                .toString());
-                          },
-                        ),
-                        const SizedBox(height: 80),
-                      ],
-                    );
+                          false &&
+                      mapOPTController.acceptedRideDriverDataStatus.value ==
+                          false &&
+                      rideController.isRideAccepted.value == false &&
+                      mapOPTController.rideStatusData.value?.acceptRide !=
+                          true &&
+                      mapOPTController.rideStatusData.value?.ongoingRide !=
+                          true &&
+                      mapOPTController.rideStatusData.value?.arrivingRide !=
+                          true &&
+                      mapOPTController.rideStatusData.value?.driverCancel !=
+                          true &&
+                      mapOPTController.rideStatusData.value?.passengerCancel !=
+                          true &&
+                      mapOPTController.rideStatusData.value?.completeRide !=
+                          true) {
+                    return const PassengerRideRequestSheet();
                   }
 
-                  if (mapOPTController.acceptedRideDriverData.value
-                              ?.isRideAcceptedDriver ==
-                          true &&
-                      mapOPTController.acceptedRideDriverDataStatus.value ==
-                          true) {
+                  if (userController.userModel.value?.userProfile?.role ==
+                          AppConstants.driver &&
+                      (mapOPTController.acceptedRideDriverData.value
+                                  ?.isRideAcceptedDriver ==
+                              true ||
+                          mapOPTController.acceptedRideDriverDataStatus.value ==
+                              true ||
+                          mapOPTController.acceptedRideDriverData.value
+                                      ?.isRideAcceptedDriver ==
+                                  true &&
+                              rideController.isRideAccepted.value == true ||
+                          mapOPTController.rideStatusData.value?.acceptRide ==
+                              true ||
+                          mapOPTController.rideStatusData.value?.ongoingRide ==
+                              true ||
+                          mapOPTController.rideStatusData.value?.arrivingRide ==
+                              true ||
+                          mapOPTController.rideStatusData.value?.driverCancel ==
+                              true ||
+                          mapOPTController
+                                  .rideStatusData.value?.passengerCancel ==
+                              true ||
+                          mapOPTController.rideStatusData.value?.completeRide ==
+                              true)) {
                     return GlassBackgroundWidget(
-                      child: Column(
-                        children: [
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const SizedBox(height: 40),
-                              Text(
-                                '(4 min) ${((mapOPTController.acceptedRideDriverData.value?.ride?.destinationMeters ?? 0) * 0.000621371).toStringAsFixed(2)} Miles',
-                                style: TextStyle(
-                                  color: const Color(0xff171717),
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                              const SizedBox(height: 28),
-                              Divider(
-                                height: 1,
-                                color: Colors.black.withOpacity(0.2),
-                              ),
-                              const SizedBox(height: 16),
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Row(
-                                    children: [
-                                      ClipRRect(
-                                        borderRadius: BorderRadius.circular(50),
-                                        child: ClipRRect(
-                                          borderRadius:
-                                              BorderRadius.circular(12),
-                                          child: Image.network(
-                                            (mapOPTController
-                                                            .rideDetailsData
-                                                            .value
-                                                            ?.passengerImage !=
-                                                        null &&
-                                                    mapOPTController
-                                                        .rideDetailsData
-                                                        .value!
-                                                        .passengerImage!
-                                                        .isNotEmpty)
-                                                ? '${ApiUrls.imageBaseUrl}${mapOPTController.rideDetailsData.value?.passengerImage}'
-                                                : '',
-                                            height: 50,
-                                            width: 50,
-                                            fit: BoxFit.cover,
-                                            errorBuilder:
-                                                (context, error, stackTrace) {
-                                              return Image.asset(
-                                                'assets/images/default_image.jpg',
-                                                height: 50,
-                                                width: 50,
-                                                fit: BoxFit.cover,
-                                              );
-                                            },
+                      child: Obx(() {
+                        final rideStatus =
+                            mapOPTController.rideStatusData.value;
+
+                        // ── Determine current driver state ──────────────
+                        final bool isOnTheWay =
+                            rideStatus == null || rideStatus.acceptRide == true;
+                        final bool isArriving =
+                            rideStatus?.arrivingRide == true;
+                        final bool isOngoing = rideStatus?.ongoingRide == true;
+
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const SizedBox(height: 20),
+
+                            // ── Distance / time row ─────────────────────
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                Obx(() {
+                                  final rideData = mapOPTController
+                                      .getRideDriverLocation.value;
+
+                                  if (rideData == null) {
+                                    return Text('Loading ride data...');
+                                  }
+
+                                  final distance =
+                                      rideData.driverToPickup?.distance?.text ??
+                                          'N/A';
+                                  final time =
+                                      rideData.driverToPickup?.time?.text ??
+                                          'N/A';
+                                  return Text(
+                                    '($time) $distance',
+                                    style: TextStyle(
+                                      color: AppColors.timeAndDurationColor,
+                                      fontWeight: FontWeight.bold,
+                                      fontFamily: FontFamily.poppins,
+                                      fontSize: 20.sp,
+                                    ),
+                                  );
+                                  // return Column(
+                                  //   children: [
+                                  //     Text('Distance: $distance'),
+                                  //     Text('Time: $time'),
+                                  //     Text('sdfkj'),
+                                  //   ],
+                                  // );
+                                }),
+
+                                // RideScreen(),
+                                // FutureBuilder<GetRideDriverLocation>(
+                                //     future: GetRideDriverLocation,
+                                //     builder: (context, snapshot) {
+                                //       return Text('');
+                                //     },
+                                // ),
+                                // Expanded(
+                                //   child: Text(
+                                //     isOngoing
+                                //         ? 'Ride is in progress'
+                                //         : isArriving
+                                //             ? 'Rider Arrive'
+                                //             : '( ${((mapOPTController.rideStatusData.value?.ride?.destinationMeters ?? 0) * 0.000621371).toStringAsFixed(2)} Miles fdafd',
+                                //     style: const TextStyle(
+                                //       color: Color(0xff171717),
+                                //       fontSize: 20,
+                                //       fontWeight: FontWeight.w500,
+                                //     ),
+                                //     overflow: TextOverflow.ellipsis,
+                                //     // ✅ moved here
+                                //     maxLines: 1,
+                                //   ),
+                                // ),
+
+                                const SizedBox(width: 10),
+                                // ✅ Remove Expanded, use fixed size instead
+                                GestureDetector(
+                                  onTap: () {
+                                    mapOPTController
+                                        .showCancelReasonDialog.value = true;
+                                  },
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 16, vertical: 10),
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(50),
+                                      border: Border.all(
+                                          color: Colors.red, width: 1),
+                                    ),
+                                    child: const Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      // ✅ wrap content
+                                      children: [
+                                        Icon(Icons.block,
+                                            color: Colors.red, size: 18),
+                                        SizedBox(width: 6),
+                                        Text(
+                                          'Cancel',
+                                          style: TextStyle(
+                                            color: Colors.red,
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w500,
                                           ),
                                         ),
-                                      ),
-                                      const SizedBox(width: 10),
-                                      Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            mapOPTController.rideDetailsData
-                                                    .value?.passengerName ??
-                                                '',
-                                            style: TextStyle(
-                                              color: const Color(0xff171717),
-                                              fontSize: 14,
-                                              fontWeight: FontWeight.w500,
-                                              fontFamily: FontFamily.poppins,
-                                            ),
-                                          ),
-                                          Row(
-                                            children: [
-                                              Text(
-                                                '\$${mapOPTController.rideDetailsData.value?.fare ?? 0.0} ',
-                                                style: const TextStyle(
-                                                  fontSize: 16,
-                                                  fontWeight: FontWeight.w600,
-                                                ),
-                                              ),
-                                              Text(
-                                                  '(${((mapOPTController.rideDetailsData.value?.destinationMeters ?? 0) * 0.000621371).toStringAsFixed(2)} Miles)')
-                                            ],
-                                          ),
-                                        ],
-                                      )
-                                    ],
-                                  ),
-                                  GestureDetector(
-                                    onTap: () {
-                                      launchUrl(Uri.parse(
-                                          "tel:${mapOPTController.rideDetailsData.value?.passengerPhone}"));
-                                    },
-                                    child: RepaintBoundary(
-                                      // ✅ isolates rendering
-                                      child: Container(
-                                        decoration: BoxDecoration(
-                                          color: AppColors.whiteColor,
-                                          borderRadius:
-                                              BorderRadius.circular(50),
-                                          border: Border.all(
-                                              color: Colors.grey.shade200),
-                                        ),
-                                        child: SvgPicture.asset(
-                                          Assets.icons.driverCardPhone,
-                                        ),
-                                      ),
+                                      ],
                                     ),
                                   ),
-                                ],
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 40),
-                          CustomPrimaryButton(
-                              title: 'On the way', onHandler: () {}),
-                          const SizedBox(height: 50),
-                          const SizedBox(height: 50),
-                        ],
-                      ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 28),
+                            Divider(
+                                height: 1,
+                                color: Colors.black.withOpacity(0.2)),
+
+                            const SizedBox(height: 16),
+                            // ── Passenger info row ──────────────────────
+                            PassengerInfoCard(
+                                mapOPTController: mapOPTController),
+                            const SizedBox(height: 24),
+
+                            // ── PRIMARY ACTION BUTTON ───────────────────
+                            CustomPrimaryButton(
+                              title: isOngoing
+                                  ? 'Arrive in Place'
+                                  : isArriving
+                                      ? 'Start Ride' // arrivingRide == true
+                                      : isOnTheWay
+                                          ? 'On the way' // acceptRide == true
+                                          : 'Arrive in Place', // null / initial state
+                              onHandler: () async {
+                                if (rideStatus != null) {
+                                  // ✅ Initial — driver heading to pickup
+                                  debugPrint('🚕 On the way to pickup');
+                                  final rideId = mapOPTController
+                                      .rideStatusData.value?.ride?.id;
+                                  mapOPTController.rideStatusChange(
+                                      rideId!, 'ongoing');
+                                }
+                              },
+                            ),
+
+                            const SizedBox(height: 80),
+                          ],
+                        );
+                      }),
                     );
                   }
                   return const SizedBox.shrink();
@@ -1582,19 +1735,176 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
     );
   }
 
-  TextStyle _textStyle() {
-    return TextStyle(
-      color: AppColors.primaryHeadingTextColor,
-      fontSize: 14,
-      fontWeight: FontWeight.w600,
-      fontFamily: FontFamily.poppins,
-    );
-  }
-
   Stream<bool> _locationStatusStream() {
     return Stream.periodic(const Duration(seconds: 5), (_) async {
       return await Geolocator.isLocationServiceEnabled();
     }).asyncMap((event) => event);
+  }
+
+  // Cancel Related work are here
+  void _showCancelReasonDialog(BuildContext context) {
+    final reasons = [
+      'Passenger no show',
+      'Difficult pickup location',
+      'Unaccompanied minor',
+      'No car seat',
+      'Too many bags',
+      'Other safety concern',
+      'Destination changed',
+    ];
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.red,
+      barrierColor: Colors.green,
+      builder: (context) {
+        String? selectedReason;
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return GlassBackgroundWidget(
+              padding: EdgeInsets.only(
+                left: 20,
+                right: 20,
+                top: 16,
+                bottom: MediaQuery.of(context).viewInsets.bottom + 30,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // ── Drag handle ──────────────────────
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      margin: const EdgeInsets.only(bottom: 16),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade400,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                  ),
+
+                  // ── Close button ─────────────────────
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      GestureDetector(
+                        onTap: () => Navigator.pop(context),
+                        child: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade200,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            Icons.close,
+                            size: 18,
+                            color: Colors.grey.shade700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+
+                  // ── Title ────────────────────────────
+                  const Center(
+                    child: Text(
+                      'Choose Reason For Cancelling',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Divider(color: Colors.grey.shade300),
+                  const SizedBox(height: 8),
+
+                  // ── Reason list ──────────────────────
+                  ...reasons.map((reason) => GestureDetector(
+                        onTap: () =>
+                            setDialogState(() => selectedReason = reason),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 22,
+                                height: 22,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: selectedReason == reason
+                                        ? Colors.green
+                                        : Colors.grey,
+                                    width: 2,
+                                  ),
+                                  color: selectedReason == reason
+                                      ? Colors.green
+                                      : Colors.transparent,
+                                ),
+                                child: selectedReason == reason
+                                    ? const Icon(
+                                        Icons.check,
+                                        size: 13,
+                                        color: Colors.white,
+                                      )
+                                    : null,
+                              ),
+                              const SizedBox(width: 14),
+                              Text(
+                                reason,
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )),
+
+                  const SizedBox(height: 24),
+
+                  // ── Cancel button ────────────────────
+                  SizedBox(
+                    width: double.infinity,
+                    height: 52,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red,
+                        disabledBackgroundColor: Colors.red.withOpacity(0.4),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(50),
+                        ),
+                      ),
+                      onPressed: selectedReason == null
+                          ? null
+                          : () {
+                              Navigator.pop(context);
+                              debugPrint('❌ Cancel reason: $selectedReason');
+                              // TODO: emit cancel-ride socket or call API
+                            },
+                      child: const Text(
+                        'Cancel Ride',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
   @override
@@ -1605,6 +1915,8 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
     SocketServices.socket?.off('cancel-ride-request');
     SocketServices.socket?.off('ride-accepted');
     SocketServices.socket?.off('ride-accepted-driver');
+    SocketServices.socket?.off('ride-status');
+    _stopLocationTracking();
     super.dispose();
   }
 }
