@@ -38,18 +38,6 @@ class DriverLocationService with WidgetsBindingObserver {
   }
 
   // ─────────────────────────────────────────────
-  // Listen to response from anywhere
-  // ─────────────────────────────────────────────
-  void listenResponse(Function(dynamic data) onData) {
-    SocketServices.socket?.off('get-ride-driver-location');
-
-    SocketServices.socket?.on('get-ride-driver-location', (data) {
-      debugPrint('📍 Driver location received: $data');
-      onData(data);
-    });
-  }
-
-  // ─────────────────────────────────────────────
   // Stop manually anytime
   // ─────────────────────────────────────────────
   void stop() {

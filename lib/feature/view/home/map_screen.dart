@@ -91,17 +91,22 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
 
         // ✅ Store in controller so UI can react
         mapOPTController.rideStatusData.value = rideStatus;
+
         if (rideStatus.acceptRide == true) {
+          driverServiceFun();
           rideController.drivers.clear();
           mapOPTController.isCurrentMarkerShow.value = true;
           _loadAcceptedRideRoute();
           debugPrint('🚗 ride-status: Driver Accepted');
         } else if (rideStatus.ongoingRide == true) {
+          driverServiceFun();
           _loadAcceptedRideRoute();
           debugPrint('🚗 ride-status: Driver arriving');
         } else if (rideStatus.arrivingRide == true) {
           debugPrint('🛣️ ride-status: Ride ongoing');
+          driverServiceFun();
         } else if (rideStatus.completeRide == true) {
+          driverServiceFun();
           // ✅ Ride done — clear all state and stop listening
           debugPrint('🏁 ride-status: Ride complete');
           rideController.isRideAccepted.value = false;
@@ -119,6 +124,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
               ?.off('ride-status'); // ✅ Stop listening after complete
         } else if (rideStatus.driverCancel == true ||
             rideStatus.passengerCancel == true) {
+          driverServiceFun();
           // ✅ Cancelled — clear all state and stop listening
           debugPrint('❌ ride-status: Ride cancelled');
           rideController.isRideAccepted.value = false;
@@ -140,11 +146,20 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
         print('STACK: $stackTrace');
       }
     });
+  }
+
+  Future<void>driverServiceFun() async{
     final String? rideId = mapOPTController.rideStatusData.value?.ride?.id ??
         mapOPTController.acceptedRideDriverData.value?.ride?.sId;
 
     if (rideId != null && rideId.isNotEmpty) {
       DriverLocationService().startEmitting(rideId);
+      SocketServices.socket?.on('get-ride-driver-location', (data) {
+
+        mapOPTController.getRideDriverLocation.value = GetRideDriverLocation.fromJson(data);
+
+        debugPrint('📍 Driver location received: $data');
+      });
     } else {
       debugPrint('❌ rideId is null, skipping startEmitting');
     }

@@ -156,9 +156,9 @@ class MapOPTController extends GetxController {
     if (response.statusCode == 200 || response.statusCode == 201) {
       print('✅ Ride accepted');
       DriverLocationService().startEmitting(rideId);
-      DriverLocationService().listenResponse((data) {
-        print(data);
-      },);
+      // DriverLocationService().listenResponse((data) {
+      //   print(data);
+      // },);
       isRideAcceptStatus.value = false;
       // SocketServices.socket?.emit('get-driver-location', {
       //   'rideId': rideId

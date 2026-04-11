@@ -81,32 +81,110 @@ class _DraggableBottomSheetState extends State<DraggableBottomSheet> {
                                 ),
                               ),
                               SizedBox(width: 5.w),
-                              Text(
-                                 'Rider is on the way to pickup',
-                                style: TextStyle(
-                                  fontSize: 14.sp,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppColors.darkColor,
-                                  fontFamily: FontFamily.poppins,
-                                ),
-                              ),
+                              Obx((){
+                                final cnt = Get.find<MapOPTController>();
+
+                                // final time = cnt.getRideDriverLocation.value
+                                //     ?.userToDriver
+                                //     ?.time;
+                                // final duration = cnt.getRideDriverLocation.value
+                                //     ?.userToDriver
+                                //     ?.distance;
+
+                                // if( time!.value! < 1 || duration!.value! < 500 ){
+                                //   return Text('Rider Arrive');
+                                // }
+
+                                final acceptStatus = cnt.rideStatusData.value!.acceptRide == true;
+                                final onGoingStatus = cnt.rideStatusData.value!.ongoingRide == true;
+                                final arrivingStatus = cnt.rideStatusData.value!.arrivingRide == true;
+
+                                if(acceptStatus) {
+                                  return Text(
+                                    'Rider is on the way to pickup',
+                                    style: TextStyle(
+                                      fontSize: 14.sp,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.darkColor,
+                                      fontFamily: FontFamily.poppins,
+                                    ),
+                                  );
+                                }
+                                else if( onGoingStatus ){
+                                  return Text(
+                                    'Rider is on the way to pickup',
+                                    style: TextStyle(
+                                      fontSize: 14.sp,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.darkColor,
+                                      fontFamily: FontFamily.poppins,
+                                    ),
+                                  );
+                                }else if( arrivingStatus ){
+                                  return Text(
+                                    'Rider Arrived',
+                                    style: TextStyle(
+                                      fontSize: 14.sp,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.darkColor,
+                                      fontFamily: FontFamily.poppins,
+                                    ),
+                                  );
+                                }else if( arrivingStatus ){
+                                  return Text(
+                                    'Rider Arrived',
+                                    style: TextStyle(
+                                      fontSize: 14.sp,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.darkColor,
+                                      fontFamily: FontFamily.poppins,
+                                    ),
+                                  );
+                                }
+                                return Text('Reached Destination');
+                              }),
+
                             ],
                           ),
                           Container(
                             padding: const EdgeInsets.all(5),
                             decoration: BoxDecoration(
-                              color: AppColors.darkColor,
+                              color: () {
+                                final cnt = Get.find<MapOPTController>();
+                                final time = cnt.getRideDriverLocation.value
+                                    ?.userToDriver
+                                    ?.time;
+                                final distance = cnt.getRideDriverLocation.value
+                                    ?.userToDriver
+                                    ?.distance;
+
+                                if (time?.value == 0 || (distance?.value ?? 9999) <= 500) {
+                                  return Colors.green;
+                                }
+
+                                return AppColors.darkColor;
+                              }(),
                               borderRadius: BorderRadius.circular(3),
                             ),
-                            child: Text(
-                              '100 min',
-                              style: TextStyle(
-                                fontWeight: FontWeight.w500,
-                                fontSize: 12.sp,
-                                fontFamily: FontFamily.poppins,
-                                color: Colors.white,
-                              ),
-                            ),
+                            child: Obx(() {
+                              final cnt = Get.find<MapOPTController>();
+                              final time = cnt.getRideDriverLocation.value
+                                  ?.userToDriver
+                                  ?.time;
+
+                              if (time == null) {
+                                return const Text("Loading...");
+                              }
+
+                              return Text(
+                                time.value! > 3600
+                                    ? '${time.text}'
+                                    : "${time.value} Min",
+                                style: TextStyle(
+                                  color: AppColors.whiteColor,
+                                ),
+                              );
+                            }),
                           ),
                         ],
                       ),
@@ -246,7 +324,6 @@ class _DraggableBottomSheetState extends State<DraggableBottomSheet> {
                                   "tel:${widget.rideStatus?.driver?.phone}"));
                             },
                             child: RepaintBoundary(
-                              // ✅ isolates rendering
                               child: Container(
                                 decoration: BoxDecoration(
                                   color: AppColors.whiteColor,
@@ -299,29 +376,44 @@ class _DraggableBottomSheetState extends State<DraggableBottomSheet> {
                                   color: AppColors.favoriteRitesCarText,
                                 ),
                               ),
-                              FutureBuilder<String>(
-                                future: DirectionsService.calculateDistance(
-                                  widget.rideStatus?.driver?.location
-                                      ?.coordinates?[0],
-                                  widget.rideStatus?.driver?.location
-                                      ?.coordinates?[1],
-                                ),
-                                builder: (context, snapshot) {
-                                  final distanceText =
-                                      snapshot.data ?? 'Calculating...';
-                                  return Text(
-                                    '$distanceText away from you.',
-                                    overflow: TextOverflow.ellipsis,
-                                    // ✅ safety for long text
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w500,
-                                      fontFamily: FontFamily.poppins,
-                                      fontSize: 16.sp,
-                                      color: AppColors.dottedBorderColor,
-                                    ),
-                                  );
-                                },
-                              ),
+                              Obx(() {
+                                final cnt = Get.find<MapOPTController>();
+                                final val = cnt.getRideDriverLocation.value
+                                    ?.userToDriver
+                                    ?.distance;
+
+                                if (val == null) {
+                                  return const Text("Loading...");
+                                }
+
+                                return Text(
+                                  val.value! > 999
+                                      ? val.text ?? "${(val.value! / 1000).toStringAsFixed(2)} km"
+                                      : "${val.value} m",
+                                );
+                              }),
+                              // FutureBuilder<String>(
+                              //   future: DirectionsService.calculateDistance(
+                              //     widget.rideStatus?.driver?.location
+                              //         ?.coordinates?[0],
+                              //     widget.rideStatus?.driver?.location
+                              //         ?.coordinates?[1],
+                              //   ),
+                              //   builder: (context, snapshot) {
+                              //     final distanceText =
+                              //         snapshot.data ?? 'Calculating...';
+                              //     return Text(
+                              //       '$distanceText away from you.',
+                              //       overflow: TextOverflow.ellipsis,
+                              //       style: TextStyle(
+                              //         fontWeight: FontWeight.w500,
+                              //         fontFamily: FontFamily.poppins,
+                              //         fontSize: 16.sp,
+                              //         color: AppColors.dottedBorderColor,
+                              //       ),
+                              //     );
+                              //   },
+                              // ),
                             ],
                           ),
                           ClipRRect(
@@ -335,24 +427,56 @@ class _DraggableBottomSheetState extends State<DraggableBottomSheet> {
                           ),
                         ],
                       ),
-                      SizedBox(height: 32.h),
-                      CustomPrimaryButton(
-                          title: 'Provide a review',
-                          onHandler: () {
-                            Get.toNamed(
-                              AppRoutes.rateReviewDriver,
-                              arguments: {
-                                'name':
-                                    widget.rideStatus?.driver?.name,
-                                'driverId' : widget.rideStatus?.driverCar?.driverId,
-                                'rideId' : widget.rideStatus?.ride?.id
+                      Obx(() {
+                        final cnt = Get.find<MapOPTController>();
+                        final completeStatus =
+                            cnt.rideStatusData.value?.completeRide == true;
+
+                        if (!completeStatus) {
+                          return const SizedBox(); // hide button
+                        }
+
+                        return Column(
+                          children: [
+                            SizedBox(height: 32.h),
+
+                            CustomPrimaryButton(
+                              title: 'Provide a review',
+                              onHandler: () {
+                                Get.toNamed(
+                                  AppRoutes.rateReviewDriver,
+                                  arguments: {
+                                    'name': widget.rideStatus?.driver?.name,
+                                    'driverId': widget.rideStatus?.driverCar?.driverId,
+                                    'rideId': widget.rideStatus?.ride?.id,
+                                  },
+                                );
                               },
-                            );
-                          }),
-                      SizedBox(
-                        height: 14.h,
-                      ),
-                      GestureDetector(
+                            ),
+
+                            SizedBox(height: 14.h),
+                          ],
+                        );
+                      }),
+                      Obx(() {
+                        final complete = Get.find<MapOPTController>()
+                            .rideStatusData.value?.completeRide ==
+                            true;
+
+                        return complete
+                            ? Column(
+                          children: [
+                            SizedBox(height: 32.h),
+                            CustomPrimaryButton(
+                              title: 'Provide a review',
+                              onHandler: () {},
+                            ),
+                            SizedBox(height: 14.h),
+                          ],
+                        )
+                            : const SizedBox();
+                      }),
+                      /*GestureDetector(
                         onTap: () {
                           showDialog(
                             useSafeArea: false,
@@ -505,7 +629,7 @@ class _DraggableBottomSheetState extends State<DraggableBottomSheet> {
                             ),
                           ),
                         ),
-                      ),
+                      ),*/
                     ],
                   ),
                 ),
