@@ -56,8 +56,9 @@ class _SplashScreenState extends State<SplashScreen>
       if (!mounted) return;
 
       final accessToken = await PrefsHelper.getString(AppConstants.bearerToken);
+      final fcmToken = await PrefsHelper.getString(AppConstants.bearerToken);
 
-      if( accessToken.isEmpty ){
+      if( accessToken.isEmpty  || fcmToken.isEmpty ){
         await Get.offAll(
               () => const OnBoardScreen(),
           transition: Transition.fade,
@@ -65,7 +66,7 @@ class _SplashScreenState extends State<SplashScreen>
           curve: Curves.easeInOut,
         );
       }
-      if( accessToken.isNotEmpty ){
+      if( accessToken.isNotEmpty && fcmToken.isNotEmpty ){
         final UserController userController = Get.find<UserController>();
         await userController.fetchUser();
         final UserModel? user = userController.userModel.value;
