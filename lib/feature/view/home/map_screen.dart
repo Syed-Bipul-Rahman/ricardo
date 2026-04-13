@@ -812,23 +812,33 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
         mapOPTController.currentLatitudePosition?.value = position.latitude;
         mapOPTController.currentLongitudePosition?.value = position.longitude;
 
-        //for testing purpose we are going to send fake driver location near to user less then 150m to test our functionalities work perfectly.
-
-        // Emit to socket
+        ///for testing purpose we are going to send fake driver location near to user less then 150m to test our functionalities work perfectly.
+        /// Get pickup coordinates and send a location ~100m away from pickup
+        // final pickupCoords = mapOPTController.rideStatusData.value?.ride?.pickupLocation?.coordinates;
+        // final fakeLng = (pickupCoords != null && pickupCoords.length == 2)
+        //     ? pickupCoords[0] + 0.0008 // ~80m east of pickup
+        //     : newLocation.longitude;
+        // final fakeLat = (pickupCoords != null && pickupCoords.length == 2)
+        //     ? pickupCoords[1] + 0.0005 // ~55m north of pickup
+        //     : newLocation.latitude;
+        // debugPrint('🧪 FAKE driver location: [$fakeLng, $fakeLat] (pickup: $pickupCoords)');
+        //
+        // // Emit to socket
+        // SocketServices.socket?.emit('update-user-location', {
+        //   "accessToken": token,
+        //   "location": {
+        //     "type": "Point",
+        //     "coordinates": [fakeLng, fakeLat]
+        //   }
+        // });
+        // ── REAL location emit (uncomment after testing) ──
         SocketServices.socket?.emit('update-user-location', {
           "accessToken": token,
           "location": {
             "type": "Point",
-            "coordinates": [90.4075613, 23.7808564]
+            "coordinates": [newLocation.longitude, newLocation.latitude]
           }
         });
-        // SocketServices.socket?.emit('update-user-location', {
-        //         "accessToken": token,
-        //         "location": {
-        //           "type": "Point",
-        //           "coordinates": [newLocation.longitude, newLocation.latitude]
-        //         }
-        //       });
 
         // Update map if needed
         if (_mapController != null && mounted) {
