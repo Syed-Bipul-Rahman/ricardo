@@ -29,6 +29,11 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
   List<LatLng> polylineCoordinates = [];
   StreamSubscription<Position>? positionStream;
 
+  // Full route points for live polyline trimming (driver side)
+  List<LatLng> _fullRoutePoints = [];
+  LatLng? _routeTarget; // current target (pickup or destination)
+  bool _isReFetchingRoute = false;
+
   BitmapDescriptor? customMarker;
   BitmapDescriptor? customCarMarker;
 
@@ -327,6 +332,10 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
 
       if (activeRoutePoints.isEmpty) return;
 
+      // Store full route for live trimming as driver moves
+      _fullRoutePoints = List.from(activeRoutePoints);
+      _routeTarget = (accepted || onGoingRide) ? pickupLocation : destinationLocation;
+
       setState(() {
         _polylines.clear(); // Clear old polylines
 
@@ -396,6 +405,80 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
       );
     } catch (e) {
       debugPrint('_loadAcceptedRideRoute error: $e');
+    }
+  }
+
+  // ── Live polyline update: trim/re-fetch as driver moves ──────────
+  void _updatePolylineForDriverPosition(LatLng driverPos) {
+    if (_fullRoutePoints.isEmpty || _routeTarget == null) return;
+
+    // Find the closest point index on the polyline to the driver
+    int closestIndex = 0;
+    double closestDist = double.infinity;
+    for (int i = 0; i < _fullRoutePoints.length; i++) {
+      final d = Geolocator.distanceBetween(
+        driverPos.latitude,
+        driverPos.longitude,
+        _fullRoutePoints[i].latitude,
+        _fullRoutePoints[i].longitude,
+      );
+      if (d < closestDist) {
+        closestDist = d;
+        closestIndex = i;
+      }
+    }
+
+    // If driver is off-route (>0.2m), re-fetch the entire route
+    if (closestDist > 0.2 && !_isReFetchingRoute) {
+      _isReFetchingRoute = true;
+      _reFetchRouteFromDriver(driverPos);
+      return;
+    }
+
+    // Trim: keep only from the closest point onward (+ driver pos at front)
+    final trimmed = _fullRoutePoints.sublist(closestIndex);
+    final updatedPoints = [driverPos, ...trimmed];
+
+    // Also update stored full route so future trims start from here
+    _fullRoutePoints = trimmed;
+
+    if (!mounted) return;
+    setState(() {
+      _polylines.removeWhere((p) =>
+          p.polylineId.value == 'driver_to_pickup' ||
+          p.polylineId.value == 'pickup_to_destination');
+
+      final rideStatus = mapOPTController.rideStatusData.value;
+      final bool isPickupPhase =
+          rideStatus?.acceptRide == true || rideStatus?.ongoingRide == true;
+
+      _polylines.add(
+        Polyline(
+          polylineId: PolylineId(
+              isPickupPhase ? 'driver_to_pickup' : 'pickup_to_destination'),
+          points: updatedPoints,
+          color: isPickupPhase ? Colors.black87 : Colors.green,
+          width: 6,
+          startCap: Cap.roundCap,
+          endCap: Cap.roundCap,
+        ),
+      );
+    });
+  }
+
+  Future<void> _reFetchRouteFromDriver(LatLng driverPos) async {
+    try {
+      if (_routeTarget == null) return;
+      final newRoute =
+          await DirectionsService.getPolyline(driverPos, _routeTarget!);
+      if (newRoute.isNotEmpty) {
+        _fullRoutePoints = newRoute;
+        _updatePolylineForDriverPosition(driverPos);
+      }
+    } catch (e) {
+      debugPrint('_reFetchRouteFromDriver error: $e');
+    } finally {
+      _isReFetchingRoute = false;
     }
   }
 
@@ -839,6 +922,15 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
             "coordinates": [newLocation.longitude, newLocation.latitude]
           }
         });
+
+        // Update polyline to follow driver's live position
+        final rideStatus = mapOPTController.rideStatusData.value;
+        if (rideStatus != null &&
+            (rideStatus.acceptRide == true ||
+                rideStatus.ongoingRide == true ||
+                rideStatus.arrivingRide == true)) {
+          _updatePolylineForDriverPosition(newLocation);
+        }
 
         // Update map if needed
         if (_mapController != null && mounted) {
