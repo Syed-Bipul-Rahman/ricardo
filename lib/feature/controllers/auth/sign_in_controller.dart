@@ -94,7 +94,8 @@ class SignInController extends GetxController {
         }
       }
       clearField();
-    } else if (response.body['data'] != null &&
+    } else if (response.body != null &&
+        response.body['data'] != null &&
         response.body['data']['isVerified'] == false) {
       final email = response.body['data']['email'];
       final verifyResponse = await ApiClient.postData(
@@ -103,8 +104,11 @@ class SignInController extends GetxController {
         Get.offAllNamed(AppRoutes.otpVarifyScreen,
             arguments: {'email': email, 'route': 'sing_up'});
       }
-    }  else {
-      Get.snackbar('Error', response.body['message'] ?? 'An error occurred');
+    } else {
+      final message = response.body is Map
+          ? (response.body['message'] ?? response.statusText ?? 'An error occurred')
+          : (response.statusText ?? 'An error occurred');
+      Get.snackbar('Error', message);
     }
 
     isLoginStatus.value = false;

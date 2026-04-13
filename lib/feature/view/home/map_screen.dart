@@ -1902,16 +1902,17 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                       onPressed: selectedReason == null
                           ? null
                           : () {
-                        final rideId =
-                            mapOPTController.rideStatusData.value?.ride?.id;
+                              final rideId = mapOPTController
+                                  .rideStatusData.value?.ride?.id;
 
-                        if (rideId == null) {
-                          debugPrint('❌ Ride ID is null');
-                          return;
-                        }
+                              if (rideId == null) {
+                                debugPrint('❌ Ride ID is null');
+                                return;
+                              }
 
-                        mapOPTController.cancelRideByDriverHandler(rideId);
-                      },
+                              mapOPTController
+                                  .cancelRideByDriverHandler(rideId);
+                            },
                       child: Obx(() {
                         if (mapOPTController.isRideCanceledLoader.value) {
                           return const SizedBox(

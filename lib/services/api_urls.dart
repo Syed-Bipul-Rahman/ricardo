@@ -1,15 +1,20 @@
-class ApiUrls{
+class ApiUrls {
   // Base, Image, Socket
   // static const String baseUrl = "https://zsv1pz87-5000.inc1.devtunnels.ms/api/v1";
 
-  // static const String baseUrl = "https://api.gogodriver.us/api/v1";
-  // static const String imageBaseUrl = "https://api.gogodriver.us/images/";
-  // static const String socketUrl = "https://api.gogodriver.us";
+  static const String baseUrl = "https://api.gogodriver.us/api/v1";
+  static const String imageBaseUrl = "https://api.gogodriver.us/images/";
+  static const String socketUrl = "https://api.gogodriver.us";
+  static const String serverHealth = "https://api.gogodriver.us/test";
 
-  static const String baseUrl = "https://played-bracelets-zoo-camps.trycloudflare.com/api/v1";
-  static const String imageBaseUrl = "https://played-bracelets-zoo-camps.trycloudflare.com/images/";
-  static const String socketUrl = "https://played-bracelets-zoo-camps.trycloudflare.com";
-  static const String serverHealth = 'https://played-bracelets-zoo-camps.trycloudflare.com/test';
+  // static const String baseUrl =
+  //     "https://played-bracelets-zoo-camps.trycloudflare.com/api/v1";
+  // static const String imageBaseUrl =
+  //     "https://played-bracelets-zoo-camps.trycloudflare.com/images/";
+  // static const String socketUrl =
+  //     "https://played-bracelets-zoo-camps.trycloudflare.com";
+  // static const String serverHealth =
+  //     'https://played-bracelets-zoo-camps.trycloudflare.com/test';
 
   // User Registration Related work
   static const String registration = '/user/register';
@@ -39,12 +44,15 @@ class ApiUrls{
 
   // Favourite Rides
   static const String favouriteRides = '/favorite-rider';
-  static String favouriteRiderDelete( String rideId ) => '/favorite-rider/$rideId';
+  static String favouriteRiderDelete(String rideId) =>
+      '/favorite-rider/$rideId';
 
   // Wallet Related work are here
   static const String paymentCardInfo = '/payment-card/get-all-card-info';
-  static String paymentCardDelete(String cardId) => '/payment-card/delete-card-info?cardId=$cardId';
-  static String paymentRecentHistory( int page, int len ) => '/payment/recent-transactions?page=$page&limit=$len';
+  static String paymentCardDelete(String cardId) =>
+      '/payment-card/delete-card-info?cardId=$cardId';
+  static String paymentRecentHistory(int page, int len) =>
+      '/payment/recent-transactions?page=$page&limit=$len';
   static String paymentCardStore = '/payment-card/store-card-info';
 
   // Payment Related work are here
@@ -59,20 +67,27 @@ class ApiUrls{
 
   //Booked a Ride
   static const String rideBookRide = '/ride/book-ride';
-  static String requestAreaRider(String id ) => '/ride/request-area-rider?rideId=$id';
-  static String sendPickUpRequest( String riderId, String driverId) => '/ride/send-pick-request?rideId=$riderId&driverId=$driverId';
-  static String cancelRequest( String riderId, String driverId) => '/ride/cancel-pick-request?rideId=$riderId&driverId=$driverId';
+  static String requestAreaRider(String id) =>
+      '/ride/request-area-rider?rideId=$id';
+  static String sendPickUpRequest(String riderId, String driverId) =>
+      '/ride/send-pick-request?rideId=$riderId&driverId=$driverId';
+  static String cancelRequest(String riderId, String driverId) =>
+      '/ride/cancel-pick-request?rideId=$riderId&driverId=$driverId';
 
   //Notification
-  static String notification( int limit, int page ) =>'/notification?limit=$limit&page=$page';
+  static String notification(int limit, int page) =>
+      '/notification?limit=$limit&page=$page';
 
-  static String driverSwitchAvailabilityStatus = '/driver/switch-availability-status';
-  static String rideAcceptRideByRideId( String rideId ) => '/ride/accept-ride?rideId=$rideId';
+  static String driverSwitchAvailabilityStatus =
+      '/driver/switch-availability-status';
+  static String rideAcceptRideByRideId(String rideId) =>
+      '/ride/accept-ride?rideId=$rideId';
   static const String sendTips = '/payment/send-tips';
   static const String favoriteRider = '/favorite-rider';
   static const String ratingCreate = '/rating/create';
-  static String rideChangeRideStatus( String rideId) => '/ride/change-ride-status?rideId=$rideId';
+  static String rideChangeRideStatus(String rideId) =>
+      '/ride/change-ride-status?rideId=$rideId';
   static const String getActiveRide = '/ride/check-ride-status';
-  static String cancelRideByDriver( String rideId ) => '/ride/cancel-ride-by-driver?rideId=$rideId';
-
+  static String cancelRideByDriver(String rideId) =>
+      '/ride/cancel-ride-by-driver?rideId=$rideId';
 }

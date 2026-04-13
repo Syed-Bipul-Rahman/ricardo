@@ -139,9 +139,14 @@ class FirebaseNotificationService {
       }
 
       // Now that APNs token is available, get the FCM token
-      final fcmToken = await _firebaseMessaging.getToken();
-      debugPrint("✅ FCM token: $fcmToken");
-      return fcmToken;
+      try {
+        final fcmToken = await _firebaseMessaging.getToken();
+        debugPrint("✅ FCM token: $fcmToken");
+        return fcmToken;
+      } catch (e) {
+        debugPrint("❌ Failed to get FCM token: $e");
+        return null;
+      }
     }
 
     debugPrint("❌ User denied notification permission");

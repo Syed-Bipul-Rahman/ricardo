@@ -1,4 +1,5 @@
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:ricardo/app.dart';
 import 'package:ricardo/app/helpers/device_utils.dart';
@@ -17,8 +18,12 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
   DeviceUtils.lockDevicePortrait();
-  await FirebaseNotificationService.printFCMToken();
-  await FirebaseNotificationService.initialize();
+  try {
+    await FirebaseNotificationService.printFCMToken();
+    await FirebaseNotificationService.initialize();
+  } catch (e) {
+    debugPrint("⚠️ Firebase notification setup failed: $e");
+  }
   // await SocketServices.init();
   // await Get.putAsync(() => SocketServices.init(),permanent: true);
   await SocketServices.init();
