@@ -6,9 +6,10 @@ class ApiUrls{
   // static const String imageBaseUrl = "https://api.gogodriver.us/images/";
   // static const String socketUrl = "https://api.gogodriver.us";
 
-  static const String baseUrl = "https://silence-anticipated-trailer-continental.trycloudflare.com/api/v1";
-  static const String imageBaseUrl = "https://silence-anticipated-trailer-continental.trycloudflare.com/images/";
-  static const String socketUrl = "https://silence-anticipated-trailer-continental.trycloudflare.com";
+  static const String baseUrl = "https://played-bracelets-zoo-camps.trycloudflare.com/api/v1";
+  static const String imageBaseUrl = "https://played-bracelets-zoo-camps.trycloudflare.com/images/";
+  static const String socketUrl = "https://played-bracelets-zoo-camps.trycloudflare.com";
+  static const String serverHealth = 'https://played-bracelets-zoo-camps.trycloudflare.com/test';
 
   // User Registration Related work
   static const String registration = '/user/register';
@@ -72,4 +73,6 @@ class ApiUrls{
   static const String ratingCreate = '/rating/create';
   static String rideChangeRideStatus( String rideId) => '/ride/change-ride-status?rideId=$rideId';
   static const String getActiveRide = '/ride/check-ride-status';
+  static String cancelRideByDriver( String rideId ) => '/ride/cancel-ride-by-driver?rideId=$rideId';
+
 }

@@ -91,17 +91,22 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
 
         // ✅ Store in controller so UI can react
         mapOPTController.rideStatusData.value = rideStatus;
+
         if (rideStatus.acceptRide == true) {
+          driverServiceFun();
           rideController.drivers.clear();
           mapOPTController.isCurrentMarkerShow.value = true;
           _loadAcceptedRideRoute();
           debugPrint('🚗 ride-status: Driver Accepted');
         } else if (rideStatus.ongoingRide == true) {
+          driverServiceFun();
           _loadAcceptedRideRoute();
           debugPrint('🚗 ride-status: Driver arriving');
         } else if (rideStatus.arrivingRide == true) {
           debugPrint('🛣️ ride-status: Ride ongoing');
+          driverServiceFun();
         } else if (rideStatus.completeRide == true) {
+          driverServiceFun();
           // ✅ Ride done — clear all state and stop listening
           debugPrint('🏁 ride-status: Ride complete');
           rideController.isRideAccepted.value = false;
@@ -119,6 +124,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
               ?.off('ride-status'); // ✅ Stop listening after complete
         } else if (rideStatus.driverCancel == true ||
             rideStatus.passengerCancel == true) {
+          driverServiceFun();
           // ✅ Cancelled — clear all state and stop listening
           debugPrint('❌ ride-status: Ride cancelled');
           rideController.isRideAccepted.value = false;
@@ -140,11 +146,19 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
         print('STACK: $stackTrace');
       }
     });
+  }
+
+  Future<void> driverServiceFun() async {
     final String? rideId = mapOPTController.rideStatusData.value?.ride?.id ??
         mapOPTController.acceptedRideDriverData.value?.ride?.sId;
 
     if (rideId != null && rideId.isNotEmpty) {
       DriverLocationService().startEmitting(rideId);
+      SocketServices.socket?.on('get-ride-driver-location', (data) {
+        mapOPTController.getRideDriverLocation.value =
+            GetRideDriverLocation.fromJson(data);
+        debugPrint('📍 Driver location received: $data');
+      });
     } else {
       debugPrint('❌ rideId is null, skipping startEmitting');
     }
@@ -154,7 +168,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
   Future<void> _loadRoute() async {
     try {
       // final acceptedRide = rideController.acceptRideModel.value;
-       final acceptedRide = mapOPTController.rideStatusData.value;
+      final acceptedRide = mapOPTController.rideStatusData.value;
 
       if (acceptedRide == null) return;
 
@@ -295,7 +309,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
 
       List<LatLng> activeRoutePoints = [];
 
-      if ( accepted ||  onGoingRide ) {
+      if (accepted || onGoingRide) {
         // Show route to Destination
         activeRoutePoints = await DirectionsService.getPolyline(
           // Note: Using driverLocation is better here for live navigation tracking,
@@ -322,7 +336,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
             m.markerId.value == 'pickup_location' ||
             m.markerId.value == 'destination_location');
 
-        if ( accepted ||  onGoingRide) {
+        if (accepted || onGoingRide) {
           // ✅ Build Polylines & Markers for the DESTINATION route
           _polylines.add(
             Polyline(
@@ -777,6 +791,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
   // Update location every 3 seconds related work
   Timer? _locationTimer;
   bool _isTracking = false;
+
   void _startLocationTracking() async {
     if (_isTracking) return;
     _isTracking = true;
@@ -819,6 +834,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
       }
     });
   }
+
   void _stopLocationTracking() {
     _locationTimer?.cancel();
     _isTracking = false;
@@ -1095,8 +1111,6 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                 rotateGesturesEnabled: true,
                 trafficEnabled: false,
                 zoomGesturesEnabled: true,
-                fortyFiveDegreeImageryEnabled: true,
-                indoorViewEnabled: true,
                 mapType: MapType.normal,
                 initialCameraPosition: CameraPosition(
                   target: LatLng(
@@ -1605,6 +1619,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                                   onTap: () {
                                     mapOPTController
                                         .showCancelReasonDialog.value = true;
+                                    _showCancelReasonDialog(context);
                                   },
                                   child: Container(
                                     padding: const EdgeInsets.symmetric(
@@ -1756,8 +1771,8 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.red,
-      barrierColor: Colors.green,
+      backgroundColor: Colors.white.withOpacity(0.3),
+      barrierColor: Colors.transparent,
       builder: (context) {
         String? selectedReason;
         return StatefulBuilder(
@@ -1800,8 +1815,9 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                           ),
                           child: Icon(
                             Icons.close,
-                            size: 18,
-                            color: Colors.grey.shade700,
+                            size: 24,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.darkColor,
                           ),
                         ),
                       ),
@@ -1825,8 +1841,10 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
 
                   // ── Reason list ──────────────────────
                   ...reasons.map((reason) => GestureDetector(
-                        onTap: () =>
-                            setDialogState(() => selectedReason = reason),
+                        onTap: () {
+                          setDialogState(() => selectedReason = reason);
+                          mapOPTController.selectedReason?.text = reason;
+                        },
                         child: Padding(
                           padding: const EdgeInsets.symmetric(vertical: 10),
                           child: Row(
@@ -1884,18 +1902,37 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                       onPressed: selectedReason == null
                           ? null
                           : () {
-                              Navigator.pop(context);
-                              debugPrint('❌ Cancel reason: $selectedReason');
-                              // TODO: emit cancel-ride socket or call API
-                            },
-                      child: const Text(
-                        'Cancel Ride',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
+                        final rideId =
+                            mapOPTController.rideStatusData.value?.ride?.id;
+
+                        if (rideId == null) {
+                          debugPrint('❌ Ride ID is null');
+                          return;
+                        }
+
+                        mapOPTController.cancelRideByDriverHandler(rideId);
+                      },
+                      child: Obx(() {
+                        if (mapOPTController.isRideCanceledLoader.value) {
+                          return const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          );
+                        }
+
+                        return const Text(
+                          'Cancel Ride',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        );
+                      }),
                     ),
                   ),
                 ],

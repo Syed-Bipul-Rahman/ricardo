@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:geocoding/geocoding.dart';
+import 'package:pinput/pinput.dart';
 import 'package:ricardo/app/helpers/custom_location_helper.dart';
 import 'package:ricardo/feature/models/home/ride_status_model.dart';
 import 'package:ricardo/feature/models/socket/accept_ride_driver_model.dart';
@@ -156,9 +157,9 @@ class MapOPTController extends GetxController {
     if (response.statusCode == 200 || response.statusCode == 201) {
       print('✅ Ride accepted');
       DriverLocationService().startEmitting(rideId);
-      DriverLocationService().listenResponse((data) {
-        print(data);
-      },);
+      // DriverLocationService().listenResponse((data) {
+      //   print(data);
+      // },);
       isRideAcceptStatus.value = false;
       // SocketServices.socket?.emit('get-driver-location', {
       //   'rideId': rideId
@@ -278,9 +279,31 @@ class MapOPTController extends GetxController {
     }
   }
 
+  RxBool isRideCanceledLoader = false.obs;
+  final TextEditingController? selectedReason = TextEditingController();
+
+  Future<void>cancelRideByDriverHandler( String rideId )async{
+    try{
+      isRideCanceledLoader.value = true;
+      final response = await ApiClient.postData(ApiUrls.cancelRideByDriver(rideId),
+          {
+          "cancellationReason": selectedReason?.text
+          });
+      if( response.statusCode == 200 || response.statusCode == 201 ){
+      }else{
+        Get.snackbar('Error', response.body['message']);
+      }
+    }catch(e){
+      debugPrint(e.toString());
+    }finally{
+      isRideCanceledLoader.value = false;
+    }
+  }
+
   @override
   void dispose() {
     provideTips.dispose();
+    selectedReason?.dispose();
     _rideRequestTimer?.cancel(); // ✅ add this
     DriverLocationService().stop();
     super.dispose();
