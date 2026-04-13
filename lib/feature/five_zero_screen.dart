@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import 'package:ricardo/app/helpers/prefs_helper.dart';
+import 'package:ricardo/app/utils/app_constants.dart';
+import 'package:ricardo/feature/view/home/link_export_file.dart';
 import 'package:ricardo/services/api_client.dart';
 import 'package:ricardo/services/api_urls.dart';
 
@@ -21,7 +25,7 @@ class _FiveZeroScreenState extends State<FiveZeroScreen> {
     });
 
     try {
-      final response = await ApiClient.getData(ApiUrls.imageBaseUrl);
+      final response = await ApiClient.getData(ApiUrls.serverHealth);
 
       if (response.statusCode == 200) {
         _onServerOnline();
@@ -48,9 +52,8 @@ class _FiveZeroScreenState extends State<FiveZeroScreen> {
     _showMessage('Server is back online! Redirecting...', isSuccess: true);
     Future.delayed(const Duration(milliseconds: 1500), () {
       if (mounted) {
-        // PrefsHelper.remove(AppConstants.bearerToken);
-        // PrefsHelper.clearAllDatas();
-        // Get.offAllNamed(AppRoutes.loginScreen);
+        PrefsHelper.remove(AppConstants.bearerToken);
+        Get.offAllNamed(AppRoutes.signInScreen);
       }
     });
   }

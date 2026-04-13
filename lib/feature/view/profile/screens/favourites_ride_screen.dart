@@ -112,11 +112,19 @@ class _FavouritesRideScreenState extends State<FavouritesRideScreen> {
                                     ClipRRect(
                                       borderRadius: BorderRadius.circular(50),
                                       child: Image.network(
-                                        // Assets.images.favoritesProfileImage.path,
-                                        '${ApiUrls.imageBaseUrl}${user.driverProfileImage?.filename}',
-                                        height: 85.h,
-                                        width: 85.w,
-                                        fit: BoxFit.cover,
+                                          // Assets.images.favoritesProfileImage.path,
+                                          '${ApiUrls.imageBaseUrl}${user.driverProfileImage?.filename}',
+                                          height: 85.h,
+                                          width: 85.w,
+                                          fit: BoxFit.cover,
+                                          errorBuilder:
+                                              (context, error, stackTrace) =>
+                                                  Image.asset(
+                                                    'assets/images/default_image.jpg',
+                                                    height: 85.h,
+                                                    width: 85.w,
+                                                    fit: BoxFit.cover,
+                                                  ),
                                       ),
                                     ),
                                     SizedBox(
@@ -203,7 +211,8 @@ class _FavouritesRideScreenState extends State<FavouritesRideScreen> {
                                   onTap: () =>
                                       deleteFavouriteRideHandler(user.driverId),
                                   child: Image.asset(
-                                      Assets.images.favoriteDusbin.path),
+                                    Assets.images.favoriteDusbin.path,
+                                  ),
                                 )
                               ],
                             ),
@@ -276,13 +285,14 @@ class _FavouritesRideScreenState extends State<FavouritesRideScreen> {
                                 ClipRRect(
                                   borderRadius: BorderRadius.circular(15),
                                   child: Image.network(
-                                    // Assets.images.favoriteRidesCar.path,
-
-                                    '${ApiUrls.imageBaseUrl}${user.vehicleImage?.filename}',
-                                    width: 92.w,
-                                    height: 92.h,
-                                    fit: BoxFit.cover,
-                                  ),
+                                      '${ApiUrls.imageBaseUrl}${user.vehicleImage?.filename}',
+                                      width: 92.w,
+                                      height: 92.h,
+                                      fit: BoxFit.cover,
+                                      errorBuilder:
+                                          (context, error, stackTrace) => Icon(
+                                              Icons.directions_car,
+                                              size: 92.h)),
                                 )
                               ],
                             )
@@ -369,7 +379,7 @@ class _FavouritesRideScreenState extends State<FavouritesRideScreen> {
                           width: 10.w,
                         ),
                         Expanded(
-                          child: Obx((){
+                          child: Obx(() {
                             return ElevatedButton(
                               style: ElevatedButton.styleFrom(
                                   backgroundColor: AppColors.errorColor),
@@ -379,7 +389,7 @@ class _FavouritesRideScreenState extends State<FavouritesRideScreen> {
                               },
                               child: Text(
                                 controller.deleteFavouriteRideStatus.value ==
-                                    true
+                                        true
                                     ? 'Delete...'
                                     : 'Delete',
                                 style: TextStyle(

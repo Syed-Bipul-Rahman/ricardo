@@ -1620,6 +1620,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                                   onTap: () {
                                     mapOPTController
                                         .showCancelReasonDialog.value = true;
+                                    _showCancelReasonDialog(context);
                                   },
                                   child: Container(
                                     padding: const EdgeInsets.symmetric(
@@ -1771,8 +1772,8 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.red,
-      barrierColor: Colors.green,
+      backgroundColor: Colors.white.withOpacity(0.3),
+      barrierColor: Colors.transparent,
       builder: (context) {
         String? selectedReason;
         return StatefulBuilder(
@@ -1815,8 +1816,9 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                           ),
                           child: Icon(
                             Icons.close,
-                            size: 18,
-                            color: Colors.grey.shade700,
+                            size: 24,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.darkColor,
                           ),
                         ),
                       ),

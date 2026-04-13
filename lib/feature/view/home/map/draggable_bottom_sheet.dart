@@ -8,282 +8,324 @@ class DraggableBottomSheet extends StatefulWidget {
   final RideStatusModel? rideStatus;
   final MapOPTController? controller;
 
-  const DraggableBottomSheet(
-      {super.key, this.rideStatus, this.controller});
+  const DraggableBottomSheet({super.key, this.rideStatus, this.controller});
 
   @override
   State<DraggableBottomSheet> createState() => _DraggableBottomSheetState();
 }
 
 class _DraggableBottomSheetState extends State<DraggableBottomSheet> {
+  final controller = Get.find<MapOPTController>();
+  late final acceptStatus = controller.rideStatusData.value!.acceptRide == true;
+  late final onGoingStatus =
+      controller.rideStatusData.value!.ongoingRide == true;
+  late final arrivingStatus =
+      controller.rideStatusData.value!.arrivingRide == true;
+  late final completeStatus =
+      controller.rideStatusData.value!.arrivingRide == true;
+
   @override
   Widget build(BuildContext context) {
-    return DraggableScrollableSheet(
-      initialChildSize: 0.49,
-      minChildSize: 0.1,
-      maxChildSize: 0.5,
-      expand: false,
-      // ✅ FIX 1: Required when used inside showModalBottomSheet
-      builder: (context, scrollController) {
-        return GlassBackgroundWidget(
-          blurNumber: 25,
-          padding: EdgeInsets.zero,
-          child: SingleChildScrollView(
-            controller: scrollController,
-            physics: AlwaysScrollableScrollPhysics(),
-            child: Column(
-              children: [
-                // ────────────────────────────────────────
-                // HEADER SECTION (drag handle + status row)
-                // ────────────────────────────────────────
-                Container(
-                  padding: EdgeInsets.symmetric(vertical: 11, horizontal: 18),
-                  decoration: BoxDecoration(
-                    // color: Colors.white.withOpacity(0.7),
-                    color: Colors.white,
-                    borderRadius: BorderRadius.only(
-                      topRight: Radius.circular(20),
-                      topLeft: Radius.circular(20),
-                    ),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const SizedBox(height: 10),
-
-                      // Drag handle indicator
-                      Center(
-                        child: Container(
-                          width: 40,
-                          height: 3,
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(30.r),
-                          ),
+    return Obx(() =>
+        DraggableScrollableSheet(
+          initialChildSize: 0.1,
+          minChildSize: 0.1,
+          expand: false,
+          maxChildSize: completeStatus || arrivingStatus == true ? 0.3 : 0.5,
+          // ✅ FIX 1: Required when used inside showModalBottomSheet
+          builder: (context, scrollController) {
+            return GlassBackgroundWidget(
+              blurNumber: 25,
+              padding: EdgeInsets.zero,
+              child: SingleChildScrollView(
+                controller: scrollController,
+                physics: AlwaysScrollableScrollPhysics(),
+                child: Column(
+                  children: [
+                    // ────────────────────────────────────────
+                    // HEADER SECTION (drag handle + status row)
+                    // ────────────────────────────────────────
+                    Container(
+                      padding:
+                      EdgeInsets.symmetric(vertical: 11, horizontal: 18),
+                      decoration: BoxDecoration(
+                        // color: Colors.white.withOpacity(0.7),
+                        color: Colors.white,
+                        borderRadius: BorderRadius.only(
+                          topRight: Radius.circular(20),
+                          topLeft: Radius.circular(20),
                         ),
                       ),
-
-                      const SizedBox(height: 12),
-
-                      // Status row: "Rider is on the way" + "1 min" badge
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Row(
-                            children: [
-                              Container(
-                                width: 10.w,
-                                height: 10.h,
-                                decoration: const BoxDecoration(
-                                  borderRadius:
-                                      BorderRadius.all(Radius.circular(50)),
-                                  color: Colors.green,
-                                ),
+                          const SizedBox(height: 10),
+
+                          // Drag handle indicator
+                          Center(
+                            child: Container(
+                              width: 40,
+                              height: 3,
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(30.r),
                               ),
-                              SizedBox(width: 5.w),
-                              Obx((){
-                                final cnt = Get.find<MapOPTController>();
-
-                                // final time = cnt.getRideDriverLocation.value
-                                //     ?.userToDriver
-                                //     ?.time;
-                                // final duration = cnt.getRideDriverLocation.value
-                                //     ?.userToDriver
-                                //     ?.distance;
-
-                                // if( time!.value! < 1 || duration!.value! < 500 ){
-                                //   return Text('Rider Arrive');
-                                // }
-
-                                final acceptStatus = cnt.rideStatusData.value!.acceptRide == true;
-                                final onGoingStatus = cnt.rideStatusData.value!.ongoingRide == true;
-                                final arrivingStatus = cnt.rideStatusData.value!.arrivingRide == true;
-
-                                if(acceptStatus) {
-                                  return Text(
-                                    'Rider is on the way to pickup',
-                                    style: TextStyle(
-                                      fontSize: 14.sp,
-                                      fontWeight: FontWeight.w600,
-                                      color: AppColors.darkColor,
-                                      fontFamily: FontFamily.poppins,
-                                    ),
-                                  );
-                                }
-                                else if( onGoingStatus ){
-                                  return Text(
-                                    'Rider is on the way to pickup',
-                                    style: TextStyle(
-                                      fontSize: 14.sp,
-                                      fontWeight: FontWeight.w600,
-                                      color: AppColors.darkColor,
-                                      fontFamily: FontFamily.poppins,
-                                    ),
-                                  );
-                                }else if( arrivingStatus ){
-                                  return Text(
-                                    'Rider Arrived',
-                                    style: TextStyle(
-                                      fontSize: 14.sp,
-                                      fontWeight: FontWeight.w600,
-                                      color: AppColors.darkColor,
-                                      fontFamily: FontFamily.poppins,
-                                    ),
-                                  );
-                                }else if( arrivingStatus ){
-                                  return Text(
-                                    'Rider Arrived',
-                                    style: TextStyle(
-                                      fontSize: 14.sp,
-                                      fontWeight: FontWeight.w600,
-                                      color: AppColors.darkColor,
-                                      fontFamily: FontFamily.poppins,
-                                    ),
-                                  );
-                                }
-                                return Text('Reached Destination');
-                              }),
-
-                            ],
-                          ),
-                          Container(
-                            padding: const EdgeInsets.all(5),
-                            decoration: BoxDecoration(
-                              color: () {
-                                final cnt = Get.find<MapOPTController>();
-                                final time = cnt.getRideDriverLocation.value
-                                    ?.userToDriver
-                                    ?.time;
-                                final distance = cnt.getRideDriverLocation.value
-                                    ?.userToDriver
-                                    ?.distance;
-
-                                if (time?.value == 0 || (distance?.value ?? 9999) <= 500) {
-                                  return Colors.green;
-                                }
-
-                                return AppColors.darkColor;
-                              }(),
-                              borderRadius: BorderRadius.circular(3),
                             ),
-                            child: Obx(() {
-                              final cnt = Get.find<MapOPTController>();
-                              final time = cnt.getRideDriverLocation.value
-                                  ?.userToDriver
-                                  ?.time;
+                          ),
 
-                              if (time == null) {
-                                return const Text("Loading...");
-                              }
+                          const SizedBox(height: 12),
 
-                              return Text(
-                                time.value! > 3600
-                                    ? '${time.text}'
-                                    : "${time.value} Min",
-                                style: TextStyle(
-                                  color: AppColors.whiteColor,
+                          // Status row: "Rider is on the way" + "1 min" badge
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  Container(
+                                    width: 10.w,
+                                    height: 10.h,
+                                    decoration: const BoxDecoration(
+                                      borderRadius:
+                                      BorderRadius.all(Radius.circular(50)),
+                                      color: Colors.green,
+                                    ),
+                                  ),
+                                  SizedBox(width: 5.w),
+                                  Obx(() {
+                                    final cnt = Get.find<MapOPTController>();
+
+                                    // final time = controller.getRideDriverLocation.value
+                                    //     ?.userToDriver
+                                    //     ?.time;
+                                    // final duration = controller.getRideDriverLocation.value
+                                    //     ?.userToDriver
+                                    //     ?.distance;
+
+                                    // if( time!.value! < 1 || duration!.value! < 500 ){
+                                    //   return Text('Rider Arrive');
+                                    // }
+
+                                    controller
+                                        .rideStatusData.value!.acceptRide ==
+                                        true;
+                                    controller.rideStatusData.value!
+                                        .ongoingRide ==
+                                        true;
+                                    controller.rideStatusData.value!
+                                        .arrivingRide ==
+                                        true;
+
+                                    if (acceptStatus) {
+                                      return Text(
+                                        'Rider is on the way to pickup',
+                                        style: TextStyle(
+                                          fontSize: 14.sp,
+                                          fontWeight: FontWeight.w600,
+                                          color: AppColors.darkColor,
+                                          fontFamily: FontFamily.poppins,
+                                        ),
+                                      );
+                                    } else if (onGoingStatus) {
+                                      return Text(
+                                        'Rider is on the way to pickup',
+                                        style: TextStyle(
+                                          fontSize: 14.sp,
+                                          fontWeight: FontWeight.w600,
+                                          color: AppColors.darkColor,
+                                          fontFamily: FontFamily.poppins,
+                                        ),
+                                      );
+                                    } else if (arrivingStatus) {
+                                      return Text(
+                                        'Rider Arrived',
+                                        style: TextStyle(
+                                          fontSize: 14.sp,
+                                          fontWeight: FontWeight.w600,
+                                          color: AppColors.darkColor,
+                                          fontFamily: FontFamily.poppins,
+                                        ),
+                                      );
+                                    } else if (arrivingStatus) {
+                                      return Text(
+                                        'Rider Arrived',
+                                        style: TextStyle(
+                                          fontSize: 14.sp,
+                                          fontWeight: FontWeight.w600,
+                                          color: AppColors.darkColor,
+                                          fontFamily: FontFamily.poppins,
+                                        ),
+                                      );
+                                    }
+                                    return Text('Reached Destination');
+                                  }),
+                                ],
+                              ),
+                              Container(
+                                padding: const EdgeInsets.all(5),
+                                decoration: BoxDecoration(
+                                  color: () {
+                                    final time = controller
+                                        .getRideDriverLocation
+                                        .value
+                                        ?.userToDriver
+                                        ?.time;
+                                    final distance = controller
+                                        .getRideDriverLocation
+                                        .value
+                                        ?.userToDriver
+                                        ?.distance;
+
+                                    if (time?.value == 0 ||
+                                        (distance?.value ?? 9999) <= 500) {
+                                      return Colors.green;
+                                    }
+
+                                    return AppColors.darkColor;
+                                  }(),
+                                  borderRadius: BorderRadius.circular(3),
                                 ),
-                              );
-                            }),
+                                child: Obx(() {
+                                  final time = controller.getRideDriverLocation
+                                      .value?.userToDriver?.time;
+
+                                  if (time == null) {
+                                    return const Text("Loading...");
+                                  }
+
+                                  return Text(
+                                    time.value! > 3600
+                                        ? '${time.text}'
+                                        : "${time.value} Min",
+                                    style: TextStyle(
+                                      color: AppColors.whiteColor,
+                                    ),
+                                  );
+                                }),
+                              ),
+                            ],
                           ),
                         ],
                       ),
-                    ],
-                  ),
-                ),
+                    ),
 
-                // ────────────────────────────────────────
-                // GLASS BODY SECTION (driver info + car info)
-                // ────────────────────────────────────────
-                Container(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: 12.h,
-                    vertical: 16.h,
-                  ),
-                  child: Column(
-                    children: [
-                      // ── Driver info row ──
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    // ────────────────────────────────────────
+                    // GLASS BODY SECTION (driver info + car info)
+                    // ────────────────────────────────────────
+                    Container(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 12.h,
+                        vertical: 16.h,
+                      ),
+                      child: Column(
                         children: [
+                          // ── Driver info row ──
                           Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              // Driver avatar
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(50),
-                                child: Image.network(
-                                  '${ApiUrls.imageBaseUrl}${widget.rideStatus?.driver?.image?.filename}',
-                                  height: 62.h,
-                                  width: 62.w,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (context, error, stackTrace) {
-                                    return Image.asset(
-                                      Assets.images.defaultImage.path,
+                              Row(
+                                children: [
+                                  // Driver avatar
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(50),
+                                    child: Image.network(
+                                      '${ApiUrls.imageBaseUrl}${widget
+                                          .rideStatus?.driver?.image
+                                          ?.filename}',
                                       height: 62.h,
                                       width: 62.w,
                                       fit: BoxFit.cover,
-                                    );
-                                  },
-                                ),
-                              ),
-                              SizedBox(width: 12.w),
-
-                              // ── Driver name, rating, trips, phone
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    '${widget.rideStatus?.driver?.name}',
-                                    style: TextStyle(
-                                      fontFamily: FontFamily.poppins,
-                                      fontSize: 16.sp,
-                                      fontWeight: FontWeight.w600,
-                                      color: AppColors.successColor,
+                                      errorBuilder:
+                                          (context, error, stackTrace) {
+                                        return Image.asset(
+                                          Assets.images.defaultImage.path,
+                                          height: 62.h,
+                                          width: 62.w,
+                                          fit: BoxFit.cover,
+                                        );
+                                      },
                                     ),
                                   ),
+                                  SizedBox(width: 12.w),
 
-                                  // ✅ Extract variables once instead of repeating null checks
-                                  Builder(builder: (context) {
-                                    final totalRatings = widget.rideStatus
+                                  // ── Driver name, rating, trips, phone
+                                  Column(
+                                    crossAxisAlignment:
+                                    CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        '${widget.rideStatus?.driver?.name}',
+                                        style: TextStyle(
+                                          fontFamily: FontFamily.poppins,
+                                          fontSize: 16.sp,
+                                          fontWeight: FontWeight.w600,
+                                          color: AppColors.successColor,
+                                        ),
+                                      ),
+
+                                      // ✅ Extract variables once instead of repeating null checks
+                                      Builder(builder: (context) {
+                                        final totalRatings = widget.rideStatus
                                             ?.driver?.totalRatings ??
-                                        0;
-                                    final ratingAverage = widget.rideStatus
+                                            0;
+                                        final ratingAverage = widget.rideStatus
                                             ?.driver?.averageRating ??
-                                        0.0;
-                                    final totalRides = widget.rideStatus
+                                            0.0;
+                                        final totalRides = widget.rideStatus
                                             ?.driver?.totalCompletedRides ??
-                                        0;
+                                            0;
 
-                                    return Row(
-                                      children: [
-                                        if (totalRatings > 0) ...[
-                                          Icon(Icons.star,
-                                              color: AppColors.orangeColor,
-                                              size: 16),
+                                        return Row(
+                                          children: [
+                                            if (totalRatings > 0) ...[
+                                              Icon(Icons.star,
+                                                  color: AppColors.orangeColor,
+                                                  size: 16),
+                                              const SizedBox(width: 4),
+                                              Text(
+                                                '$totalRatings ( $ratingAverage )',
+                                                style: TextStyle(
+                                                  fontFamily:
+                                                  FontFamily.poppins,
+                                                  fontSize: 14.sp,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: AppColors.blackBText,
+                                                ),
+                                              ),
+                                            ],
+                                            if (totalRides > 0) ...[
+                                              SizedBox(width: 8.w),
+                                              Container(
+                                                width: 2.w,
+                                                height: 15.h,
+                                                decoration: BoxDecoration(
+                                                  color: Colors.black
+                                                      .withOpacity(0.30),
+                                                ),
+                                              ),
+                                              SizedBox(width: 8.w),
+                                              Text(
+                                                '$totalRides Trips',
+                                                style: TextStyle(
+                                                  fontFamily:
+                                                  FontFamily.poppins,
+                                                  fontSize: 14.sp,
+                                                  fontWeight: FontWeight.w500,
+                                                  color: AppColors.blackBText,
+                                                ),
+                                              ),
+                                            ],
+                                          ],
+                                        );
+                                      }),
+
+                                      Row(
+                                        children: [
+                                          Icon(Icons.call,
+                                              color: AppColors.greenColor),
                                           const SizedBox(width: 4),
                                           Text(
-                                            '$totalRatings ( $ratingAverage )',
-                                            style: TextStyle(
-                                              fontFamily: FontFamily.poppins,
-                                              fontSize: 14.sp,
-                                              fontWeight: FontWeight.w600,
-                                              color: AppColors.blackBText,
-                                            ),
-                                          ),
-                                        ],
-                                        if (totalRides > 0) ...[
-                                          SizedBox(width: 8.w),
-                                          Container(
-                                            width: 2.w,
-                                            height: 15.h,
-                                            decoration: BoxDecoration(
-                                              color: Colors.black
-                                                  .withOpacity(0.30),
-                                            ),
-                                          ),
-                                          SizedBox(width: 8.w),
-                                          Text(
-                                            '$totalRides Trips',
+                                            '${widget.rideStatus?.driver
+                                                ?.phone}',
                                             style: TextStyle(
                                               fontFamily: FontFamily.poppins,
                                               fontSize: 14.sp,
@@ -292,191 +334,273 @@ class _DraggableBottomSheetState extends State<DraggableBottomSheet> {
                                             ),
                                           ),
                                         ],
-                                      ],
-                                    );
-                                  }),
-
-                                  Row(
-                                    children: [
-                                      Icon(Icons.call,
-                                          color: AppColors.greenColor),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        '${widget.rideStatus?.driver?.phone}',
-                                        style: TextStyle(
-                                          fontFamily: FontFamily.poppins,
-                                          fontSize: 14.sp,
-                                          fontWeight: FontWeight.w500,
-                                          color: AppColors.blackBText,
-                                        ),
                                       ),
                                     ],
                                   ),
                                 ],
                               ),
+
+                              // Phone call button (SVG icon)
+                              GestureDetector(
+                                onTap: () {
+                                  launchUrl(Uri.parse(
+                                      "tel:${widget.rideStatus?.driver
+                                          ?.phone}"));
+                                },
+                                child: RepaintBoundary(
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      color: AppColors.whiteColor,
+                                      borderRadius: BorderRadius.circular(50),
+                                      border: Border.all(
+                                          color: Colors.grey.shade200),
+                                    ),
+                                    child: SvgPicture.asset(
+                                      Assets.icons.driverCardPhone,
+                                    ),
+                                  ),
+                                ),
+                              ),
                             ],
                           ),
 
-                          // Phone call button (SVG icon)
-                          GestureDetector(
-                            onTap: () {
-                              launchUrl(Uri.parse(
-                                  "tel:${widget.rideStatus?.driver?.phone}"));
-                            },
-                            child: RepaintBoundary(
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  color: AppColors.whiteColor,
-                                  borderRadius: BorderRadius.circular(50),
-                                  border:
-                                      Border.all(color: Colors.grey.shade200),
-                                ),
-                                child: SvgPicture.asset(
-                                  Assets.icons.driverCardPhone,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
+                          SizedBox(height: 20.h),
 
-                      SizedBox(height: 20.h),
-
-                      // ── Car info row ──
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                          // ── Car info row ──
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text(
-                                '${widget.rideStatus?.driverCar?.carName}',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w500,
-                                  fontFamily: FontFamily.poppins,
-                                  fontSize: 14.sp,
-                                  color: AppColors.favoriteRitesCarText,
-                                ),
-                              ),
-                              Text(
-                                '${widget.rideStatus?.driverCar?.numberOfSeat} Seat',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w500,
-                                  fontFamily: FontFamily.poppins,
-                                  fontSize: 14.sp,
-                                  color: AppColors.favoriteRitesCarText,
-                                ),
-                              ),
-                              Text(
-                                '${widget.rideStatus?.driverCar?.carPlateNumber}',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w500,
-                                  fontFamily: FontFamily.poppins,
-                                  fontSize: 14.sp,
-                                  color: AppColors.favoriteRitesCarText,
-                                ),
-                              ),
-                              Obx(() {
-                                final cnt = Get.find<MapOPTController>();
-                                final val = cnt.getRideDriverLocation.value
-                                    ?.userToDriver
-                                    ?.distance;
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    '${widget.rideStatus?.driverCar?.carName}',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w500,
+                                      fontFamily: FontFamily.poppins,
+                                      fontSize: 14.sp,
+                                      color: AppColors.favoriteRitesCarText,
+                                    ),
+                                  ),
+                                  Text(
+                                    '${widget.rideStatus?.driverCar
+                                        ?.numberOfSeat} Seat',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w500,
+                                      fontFamily: FontFamily.poppins,
+                                      fontSize: 14.sp,
+                                      color: AppColors.favoriteRitesCarText,
+                                    ),
+                                  ),
+                                  Text(
+                                    '${widget.rideStatus?.driverCar
+                                        ?.carPlateNumber}',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w500,
+                                      fontFamily: FontFamily.poppins,
+                                      fontSize: 14.sp,
+                                      color: AppColors.favoriteRitesCarText,
+                                    ),
+                                  ),
+                                  Obx(() {
+                                    final val = controller.getRideDriverLocation
+                                        .value?.userToDriver?.distance;
 
-                                if (val == null) {
-                                  return const Text("Loading...");
-                                }
+                                    if (val == null) {
+                                      return const Text("Loading...");
+                                    }
 
-                                return Text(
-                                  val.value! > 999
-                                      ? val.text ?? "${(val.value! / 1000).toStringAsFixed(2)} km"
-                                      : "${val.value} m",
-                                );
-                              }),
-                              // FutureBuilder<String>(
-                              //   future: DirectionsService.calculateDistance(
-                              //     widget.rideStatus?.driver?.location
-                              //         ?.coordinates?[0],
-                              //     widget.rideStatus?.driver?.location
-                              //         ?.coordinates?[1],
-                              //   ),
-                              //   builder: (context, snapshot) {
-                              //     final distanceText =
-                              //         snapshot.data ?? 'Calculating...';
-                              //     return Text(
-                              //       '$distanceText away from you.',
-                              //       overflow: TextOverflow.ellipsis,
-                              //       style: TextStyle(
-                              //         fontWeight: FontWeight.w500,
-                              //         fontFamily: FontFamily.poppins,
-                              //         fontSize: 16.sp,
-                              //         color: AppColors.dottedBorderColor,
-                              //       ),
-                              //     );
-                              //   },
-                              // ),
+                                    return Text(
+                                      val.value! > 999
+                                          ? val.text ??
+                                          "${(val.value! / 1000)
+                                              .toStringAsFixed(2)} km"
+                                          : "${val.value} m",
+                                    );
+                                  }),
+                                  // FutureBuilder<String>(
+                                  //   future: DirectionsService.calculateDistance(
+                                  //     widget.rideStatus?.driver?.location
+                                  //         ?.coordinates?[0],
+                                  //     widget.rideStatus?.driver?.location
+                                  //         ?.coordinates?[1],
+                                  //   ),
+                                  //   builder: (context, snapshot) {
+                                  //     final distanceText =
+                                  //         snapshot.data ?? 'Calculating...';
+                                  //     return Text(
+                                  //       '$distanceText away from you.',
+                                  //       overflow: TextOverflow.ellipsis,
+                                  //       style: TextStyle(
+                                  //         fontWeight: FontWeight.w500,
+                                  //         fontFamily: FontFamily.poppins,
+                                  //         fontSize: 16.sp,
+                                  //         color: AppColors.dottedBorderColor,
+                                  //       ),
+                                  //     );
+                                  //   },
+                                  // ),
+                                ],
+                              ),
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(15),
+                                child: Image.asset(
+                                  Assets.images.favoriteRidesCar.path,
+                                  width: 92.w,
+                                  height: 92.h,
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
                             ],
                           ),
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(15),
-                            child: Image.asset(
-                              Assets.images.favoriteRidesCar.path,
-                              width: 92.w,
-                              height: 92.h,
-                              fit: BoxFit.cover,
-                            ),
-                          ),
-                        ],
-                      ),
-                      Obx(() {
-                        final cnt = Get.find<MapOPTController>();
-                        final completeStatus =
-                            cnt.rideStatusData.value?.completeRide == true;
+                          Obx(() {
+                            final completeStatus =
+                                controller.rideStatusData.value?.completeRide ==
+                                    true;
 
-                        if (!completeStatus) {
-                          return const SizedBox(); // hide button
-                        }
+                            if (!completeStatus) {
+                              return const SizedBox.shrink(); // hide button
+                            }
 
-                        return Column(
-                          children: [
-                            SizedBox(height: 32.h),
-
-                            CustomPrimaryButton(
-                              title: 'Provide a review',
-                              onHandler: () {
-                                Get.toNamed(
-                                  AppRoutes.rateReviewDriver,
-                                  arguments: {
-                                    'name': widget.rideStatus?.driver?.name,
-                                    'driverId': widget.rideStatus?.driverCar?.driverId,
-                                    'rideId': widget.rideStatus?.ride?.id,
+                            return Column(
+                              children: [
+                                SizedBox(height: 32.h),
+                                CustomPrimaryButton(
+                                  title: 'Provide a review',
+                                  onHandler: () {
+                                    Get.toNamed(
+                                      AppRoutes.rateReviewDriver,
+                                      arguments: {
+                                        'name': widget.rideStatus?.driver?.name,
+                                        'driverId': widget
+                                            .rideStatus?.driverCar?.driverId,
+                                        'rideId': widget.rideStatus?.ride?.id,
+                                      },
+                                    );
                                   },
-                                );
-                              },
-                            ),
+                                ),
+                                SizedBox(height: 14.h),
+                              ],
+                            );
+                          }),
+                          Obx(() {
+                            final complete = Get
+                                .find<MapOPTController>()
+                                .rideStatusData
+                                .value
+                                ?.completeRide ==
+                                true;
 
-                            SizedBox(height: 14.h),
-                          ],
-                        );
-                      }),
-                      Obx(() {
-                        final complete = Get.find<MapOPTController>()
-                            .rideStatusData.value?.completeRide ==
-                            true;
+                            return complete
+                                ? Column(
+                              children: [
+                                SizedBox(height: 32.h),
+                                CustomPrimaryButton(
+                                  title: 'Provide a review',
+                                  onHandler: () {},
+                                ),
+                                SizedBox(height: 14.h),
+                              ],
+                            )
+                                : const SizedBox.shrink();
+                          }),
+                          Obx(
+                                () {
+                              final arrived = controller
+                                  .rideStatusData.value?.arrivingRide ==
+                                  false;
 
-                        return complete
-                            ? Column(
-                          children: [
-                            SizedBox(height: 32.h),
-                            CustomPrimaryButton(
-                              title: 'Provide a review',
-                              onHandler: () {},
-                            ),
-                            SizedBox(height: 14.h),
-                          ],
-                        )
-                            : const SizedBox();
-                      }),
-                      /*GestureDetector(
+                              if (!arrived) {
+                                return const SizedBox.shrink();
+                              }
+
+                              return Center(
+                                child: Container(
+                                  padding: const EdgeInsets.all(10),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                    CrossAxisAlignment.center,
+                                    children: [
+                                      Container(
+                                        padding: EdgeInsets.all(8),
+                                        decoration: BoxDecoration(
+                                          color: Color(0x3300FF00).withOpacity(0.1),
+                                          borderRadius: BorderRadius.all(Radius.circular(8))
+                                        ),
+                                        child: RichText(
+                                          textAlign: TextAlign.center,
+                                          text: const TextSpan(
+                                            children: [
+                                              TextSpan(
+                                                text: 'Waiting Time',
+                                                style: TextStyle(
+                                                  color: AppColors
+                                                      .primaryHeadingTextColor,
+                                                  fontSize: 12,
+                                                ),
+                                              ),
+                                              WidgetSpan(
+                                                child: SizedBox(
+                                                  width: 5,
+                                                ),
+                                              ),
+                                              TextSpan(
+                                                text: '(min)',
+                                                style: TextStyle(
+                                                  color: AppColors
+                                                      .primaryHeadingTextColor,
+                                                  fontSize: 8,
+                                                ),
+                                              ),
+                                              WidgetSpan(
+                                                child: SizedBox(
+                                                  width: 3,
+                                                ),
+                                              ),
+                                              TextSpan(
+                                                text: ':',
+                                                style: TextStyle(
+                                                  color: AppColors
+                                                      .darkColor,
+                                                  fontSize: 18,
+                                                ),
+                                              ),
+                                              WidgetSpan(
+                                                child: SizedBox(width: 5,),),
+                                              TextSpan(
+                                                text: '00:07',
+                                                style: TextStyle(
+                                                    fontSize: 14,
+                                                    fontWeight: FontWeight.w700,
+                                                    fontFamily: FontFamily
+                                                        .poppins,
+                                                    color: AppColors.greenColor
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                      SizedBox(height: 18.h),
+                                      Center(
+                                        child: Text(
+                                          'If you have entered the car, please confirm with your driver to start the ride in the app.',
+                                          style: TextStyle(
+                                            fontSize: 12.sp,
+                                            color: AppColors.primaryColor,
+                                            fontFamily: FontFamily.poppins,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                          textAlign: TextAlign.center,
+                                        ),
+                                      )
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                          /*GestureDetector(
                         onTap: () {
                           showDialog(
                             useSafeArea: false,
@@ -630,14 +754,14 @@ class _DraggableBottomSheetState extends State<DraggableBottomSheet> {
                           ),
                         ),
                       ),*/
-                    ],
-                  ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
+              ),
+            );
+          },
+        ));
   }
 }
