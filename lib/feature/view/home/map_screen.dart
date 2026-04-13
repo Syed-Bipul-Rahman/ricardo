@@ -812,14 +812,23 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
         mapOPTController.currentLatitudePosition?.value = position.latitude;
         mapOPTController.currentLongitudePosition?.value = position.longitude;
 
+        //for testing purpose we are going to send fake driver location near to user less then 150m to test our functionalities work perfectly.
+
         // Emit to socket
         SocketServices.socket?.emit('update-user-location', {
           "accessToken": token,
           "location": {
             "type": "Point",
-            "coordinates": [newLocation.longitude, newLocation.latitude]
+            "coordinates": [90.4075613, 23.7808564]
           }
         });
+        // SocketServices.socket?.emit('update-user-location', {
+        //         "accessToken": token,
+        //         "location": {
+        //           "type": "Point",
+        //           "coordinates": [newLocation.longitude, newLocation.latitude]
+        //         }
+        //       });
 
         // Update map if needed
         if (_mapController != null && mounted) {
@@ -1662,25 +1671,41 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                             const SizedBox(height: 24),
 
                             // ── PRIMARY ACTION BUTTON ───────────────────
-                            CustomPrimaryButton(
-                              title: isOngoing
-                                  ? 'Arrive in Place'
-                                  : isArriving
-                                      ? 'Start Ride' // arrivingRide == true
-                                      : isOnTheWay
-                                          ? 'On the way' // acceptRide == true
-                                          : 'Arrive in Place', // null / initial state
-                              onHandler: () async {
-                                if (rideStatus != null) {
-                                  // ✅ Initial — driver heading to pickup
-                                  debugPrint('🚕 On the way to pickup');
-                                  final rideId = mapOPTController
-                                      .rideStatusData.value?.ride?.id;
-                                  mapOPTController.rideStatusChange(
-                                      rideId!, 'ongoing');
-                                }
-                              },
-                            ),
+                            Obx(() {
+                              final driverDistanceToPickup = mapOPTController
+                                  .getRideDriverLocation
+                                  .value
+                                  ?.driverToPickup
+                                  ?.distance
+                                  ?.value;
+
+                              // Disable "Arrive in Place" button until driver is within 150m of passenger
+                              final bool isTooFarFromPassenger = isOngoing &&
+                                  (driverDistanceToPickup == null ||
+                                      driverDistanceToPickup > 150);
+
+                              return CustomPrimaryButton(
+                                title: isOngoing
+                                    ? 'Arrive in Place'
+                                    : isArriving
+                                        ? 'Start Ride' // arrivingRide == true
+                                        : isOnTheWay
+                                            ? 'On the way' // acceptRide == true
+                                            : 'Arrive in Place', // null / initial state
+                                onHandler: isTooFarFromPassenger
+                                    ? null
+                                    : () async {
+                                        if (rideStatus != null) {
+                                          // ✅ Initial — driver heading to pickup
+                                          debugPrint('🚕 On the way to pickup');
+                                          final rideId = mapOPTController
+                                              .rideStatusData.value?.ride?.id;
+                                          mapOPTController.rideStatusChange(
+                                              rideId!, 'ongoing');
+                                        }
+                                      },
+                              );
+                            }),
 
                             const SizedBox(height: 80),
                           ],
