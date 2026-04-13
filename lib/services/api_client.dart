@@ -48,6 +48,31 @@ class ApiClient extends GetxService {
     }
   }
 
+  static Future<Response> getDataWithoutVersion(String uri, {Map<String, String>? headers}) async {
+    bearerToken = await PrefsHelper.getString(AppConstants.bearerToken);
+
+    var mainHeaders = {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer $bearerToken'
+    };
+    try {
+      log.i(
+          '|📍📍📍|-----------------[[ GET ]] method details start -----------------|📍📍📍|');
+      log.i('URL: $uri \n Headers: ${headers ?? mainHeaders}');
+
+      http.Response response = await client.get(
+        Uri.parse(uri),
+        headers: headers ?? mainHeaders,
+      ).timeout(const Duration(seconds: timeoutInSeconds));
+
+      return handleResponse(response, uri);
+    } catch (e, s) {
+      log.e('🐞🐞🐞 Error in getData: ${e.toString()}');
+      log.e('Stacktrace: ${s.toString()}');
+      return const Response(statusCode: 1, statusText: noInternetMessage);
+    }
+  }
+
   //==========================================> Post Data <======================================
   static Future<Response> postData(String uri, dynamic body, {Map<String, String>? headers}) async {
     String bearerToken = await PrefsHelper.getString(AppConstants.bearerToken);

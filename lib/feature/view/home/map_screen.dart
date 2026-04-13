@@ -148,16 +148,15 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
     });
   }
 
-  Future<void>driverServiceFun() async{
+  Future<void> driverServiceFun() async {
     final String? rideId = mapOPTController.rideStatusData.value?.ride?.id ??
         mapOPTController.acceptedRideDriverData.value?.ride?.sId;
 
     if (rideId != null && rideId.isNotEmpty) {
       DriverLocationService().startEmitting(rideId);
       SocketServices.socket?.on('get-ride-driver-location', (data) {
-
-        mapOPTController.getRideDriverLocation.value = GetRideDriverLocation.fromJson(data);
-
+        mapOPTController.getRideDriverLocation.value =
+            GetRideDriverLocation.fromJson(data);
         debugPrint('📍 Driver location received: $data');
       });
     } else {
@@ -169,7 +168,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
   Future<void> _loadRoute() async {
     try {
       // final acceptedRide = rideController.acceptRideModel.value;
-       final acceptedRide = mapOPTController.rideStatusData.value;
+      final acceptedRide = mapOPTController.rideStatusData.value;
 
       if (acceptedRide == null) return;
 
@@ -310,7 +309,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
 
       List<LatLng> activeRoutePoints = [];
 
-      if ( accepted ||  onGoingRide ) {
+      if (accepted || onGoingRide) {
         // Show route to Destination
         activeRoutePoints = await DirectionsService.getPolyline(
           // Note: Using driverLocation is better here for live navigation tracking,
@@ -337,7 +336,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
             m.markerId.value == 'pickup_location' ||
             m.markerId.value == 'destination_location');
 
-        if ( accepted ||  onGoingRide) {
+        if (accepted || onGoingRide) {
           // ✅ Build Polylines & Markers for the DESTINATION route
           _polylines.add(
             Polyline(
@@ -792,6 +791,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
   // Update location every 3 seconds related work
   Timer? _locationTimer;
   bool _isTracking = false;
+
   void _startLocationTracking() async {
     if (_isTracking) return;
     _isTracking = true;
@@ -834,6 +834,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
       }
     });
   }
+
   void _stopLocationTracking() {
     _locationTimer?.cancel();
     _isTracking = false;
@@ -1110,8 +1111,6 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                 rotateGesturesEnabled: true,
                 trafficEnabled: false,
                 zoomGesturesEnabled: true,
-                fortyFiveDegreeImageryEnabled: true,
-                indoorViewEnabled: true,
                 mapType: MapType.normal,
                 initialCameraPosition: CameraPosition(
                   target: LatLng(
@@ -1842,8 +1841,10 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
 
                   // ── Reason list ──────────────────────
                   ...reasons.map((reason) => GestureDetector(
-                        onTap: () =>
-                            setDialogState(() => selectedReason = reason),
+                        onTap: () {
+                          setDialogState(() => selectedReason = reason);
+                          mapOPTController.selectedReason?.text = reason;
+                        },
                         child: Padding(
                           padding: const EdgeInsets.symmetric(vertical: 10),
                           child: Row(
@@ -1901,18 +1902,37 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                       onPressed: selectedReason == null
                           ? null
                           : () {
-                              Navigator.pop(context);
-                              debugPrint('❌ Cancel reason: $selectedReason');
-                              // TODO: emit cancel-ride socket or call API
-                            },
-                      child: const Text(
-                        'Cancel Ride',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
+                        final rideId =
+                            mapOPTController.rideStatusData.value?.ride?.id;
+
+                        if (rideId == null) {
+                          debugPrint('❌ Ride ID is null');
+                          return;
+                        }
+
+                        mapOPTController.cancelRideByDriverHandler(rideId);
+                      },
+                      child: Obx(() {
+                        if (mapOPTController.isRideCanceledLoader.value) {
+                          return const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          );
+                        }
+
+                        return const Text(
+                          'Cancel Ride',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        );
+                      }),
                     ),
                   ),
                 ],

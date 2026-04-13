@@ -26,8 +26,7 @@ class _DraggableBottomSheetState extends State<DraggableBottomSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return Obx(() =>
-        DraggableScrollableSheet(
+    return Obx(() => DraggableScrollableSheet(
           initialChildSize: 0.1,
           minChildSize: 0.1,
           expand: false,
@@ -47,7 +46,7 @@ class _DraggableBottomSheetState extends State<DraggableBottomSheet> {
                     // ────────────────────────────────────────
                     Container(
                       padding:
-                      EdgeInsets.symmetric(vertical: 11, horizontal: 18),
+                          EdgeInsets.symmetric(vertical: 11, horizontal: 18),
                       decoration: BoxDecoration(
                         // color: Colors.white.withOpacity(0.7),
                         color: Colors.white,
@@ -86,33 +85,20 @@ class _DraggableBottomSheetState extends State<DraggableBottomSheet> {
                                     height: 10.h,
                                     decoration: const BoxDecoration(
                                       borderRadius:
-                                      BorderRadius.all(Radius.circular(50)),
+                                          BorderRadius.all(Radius.circular(50)),
                                       color: Colors.green,
                                     ),
                                   ),
                                   SizedBox(width: 5.w),
                                   Obx(() {
-                                    final cnt = Get.find<MapOPTController>();
-
-                                    // final time = controller.getRideDriverLocation.value
-                                    //     ?.userToDriver
-                                    //     ?.time;
-                                    // final duration = controller.getRideDriverLocation.value
-                                    //     ?.userToDriver
-                                    //     ?.distance;
-
-                                    // if( time!.value! < 1 || duration!.value! < 500 ){
-                                    //   return Text('Rider Arrive');
-                                    // }
-
                                     controller
-                                        .rideStatusData.value!.acceptRide ==
+                                            .rideStatusData.value!.acceptRide ==
                                         true;
                                     controller.rideStatusData.value!
-                                        .ongoingRide ==
+                                            .ongoingRide ==
                                         true;
                                     controller.rideStatusData.value!
-                                        .arrivingRide ==
+                                            .arrivingRide ==
                                         true;
 
                                     if (acceptStatus) {
@@ -186,16 +172,21 @@ class _DraggableBottomSheetState extends State<DraggableBottomSheet> {
                                 ),
                                 child: Obx(() {
                                   final time = controller.getRideDriverLocation
-                                      .value?.userToDriver?.time;
+                                      .value?.userToDriver?.time?.value;
 
                                   if (time == null) {
-                                    return const Text("Loading...");
+                                    return const Text(
+                                      "Loading...",
+                                      style: TextStyle(
+                                          color: AppColors.whiteColor,
+                                      ),
+                                    );
                                   }
 
                                   return Text(
-                                    time.value! > 3600
-                                        ? '${time.text}'
-                                        : "${time.value} Min",
+                                    time > 3600
+                                        ? '$time'
+                                        : "$time Min",
                                     style: TextStyle(
                                       color: AppColors.whiteColor,
                                     ),
@@ -228,9 +219,7 @@ class _DraggableBottomSheetState extends State<DraggableBottomSheet> {
                                   ClipRRect(
                                     borderRadius: BorderRadius.circular(50),
                                     child: Image.network(
-                                      '${ApiUrls.imageBaseUrl}${widget
-                                          .rideStatus?.driver?.image
-                                          ?.filename}',
+                                      '${ApiUrls.imageBaseUrl}${widget.rideStatus?.driver?.image?.filename}',
                                       height: 62.h,
                                       width: 62.w,
                                       fit: BoxFit.cover,
@@ -250,7 +239,7 @@ class _DraggableBottomSheetState extends State<DraggableBottomSheet> {
                                   // ── Driver name, rating, trips, phone
                                   Column(
                                     crossAxisAlignment:
-                                    CrossAxisAlignment.start,
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Text(
                                         '${widget.rideStatus?.driver?.name}',
@@ -265,13 +254,13 @@ class _DraggableBottomSheetState extends State<DraggableBottomSheet> {
                                       // ✅ Extract variables once instead of repeating null checks
                                       Builder(builder: (context) {
                                         final totalRatings = widget.rideStatus
-                                            ?.driver?.totalRatings ??
+                                                ?.driver?.totalRatings ??
                                             0;
                                         final ratingAverage = widget.rideStatus
-                                            ?.driver?.averageRating ??
+                                                ?.driver?.averageRating ??
                                             0.0;
                                         final totalRides = widget.rideStatus
-                                            ?.driver?.totalCompletedRides ??
+                                                ?.driver?.totalCompletedRides ??
                                             0;
 
                                         return Row(
@@ -285,7 +274,7 @@ class _DraggableBottomSheetState extends State<DraggableBottomSheet> {
                                                 '$totalRatings ( $ratingAverage )',
                                                 style: TextStyle(
                                                   fontFamily:
-                                                  FontFamily.poppins,
+                                                      FontFamily.poppins,
                                                   fontSize: 14.sp,
                                                   fontWeight: FontWeight.w600,
                                                   color: AppColors.blackBText,
@@ -307,7 +296,7 @@ class _DraggableBottomSheetState extends State<DraggableBottomSheet> {
                                                 '$totalRides Trips',
                                                 style: TextStyle(
                                                   fontFamily:
-                                                  FontFamily.poppins,
+                                                      FontFamily.poppins,
                                                   fontSize: 14.sp,
                                                   fontWeight: FontWeight.w500,
                                                   color: AppColors.blackBText,
@@ -324,8 +313,7 @@ class _DraggableBottomSheetState extends State<DraggableBottomSheet> {
                                               color: AppColors.greenColor),
                                           const SizedBox(width: 4),
                                           Text(
-                                            '${widget.rideStatus?.driver
-                                                ?.phone}',
+                                            '${widget.rideStatus?.driver?.phone}',
                                             style: TextStyle(
                                               fontFamily: FontFamily.poppins,
                                               fontSize: 14.sp,
@@ -344,8 +332,7 @@ class _DraggableBottomSheetState extends State<DraggableBottomSheet> {
                               GestureDetector(
                                 onTap: () {
                                   launchUrl(Uri.parse(
-                                      "tel:${widget.rideStatus?.driver
-                                          ?.phone}"));
+                                      "tel:${widget.rideStatus?.driver?.phone}"));
                                 },
                                 child: RepaintBoundary(
                                   child: Container(
@@ -383,8 +370,7 @@ class _DraggableBottomSheetState extends State<DraggableBottomSheet> {
                                     ),
                                   ),
                                   Text(
-                                    '${widget.rideStatus?.driverCar
-                                        ?.numberOfSeat} Seat',
+                                    '${widget.rideStatus?.driverCar?.numberOfSeat} Seat',
                                     style: TextStyle(
                                       fontWeight: FontWeight.w500,
                                       fontFamily: FontFamily.poppins,
@@ -393,8 +379,7 @@ class _DraggableBottomSheetState extends State<DraggableBottomSheet> {
                                     ),
                                   ),
                                   Text(
-                                    '${widget.rideStatus?.driverCar
-                                        ?.carPlateNumber}',
+                                    '${widget.rideStatus?.driverCar?.carPlateNumber}',
                                     style: TextStyle(
                                       fontWeight: FontWeight.w500,
                                       fontFamily: FontFamily.poppins,
@@ -413,8 +398,7 @@ class _DraggableBottomSheetState extends State<DraggableBottomSheet> {
                                     return Text(
                                       val.value! > 999
                                           ? val.text ??
-                                          "${(val.value! / 1000)
-                                              .toStringAsFixed(2)} km"
+                                              "${(val.value! / 1000).toStringAsFixed(2)} km"
                                           : "${val.value} m",
                                     );
                                   }),
@@ -484,30 +468,29 @@ class _DraggableBottomSheetState extends State<DraggableBottomSheet> {
                             );
                           }),
                           Obx(() {
-                            final complete = Get
-                                .find<MapOPTController>()
-                                .rideStatusData
-                                .value
-                                ?.completeRide ==
+                            final complete = Get.find<MapOPTController>()
+                                    .rideStatusData
+                                    .value
+                                    ?.completeRide ==
                                 true;
 
                             return complete
                                 ? Column(
-                              children: [
-                                SizedBox(height: 32.h),
-                                CustomPrimaryButton(
-                                  title: 'Provide a review',
-                                  onHandler: () {},
-                                ),
-                                SizedBox(height: 14.h),
-                              ],
-                            )
+                                    children: [
+                                      SizedBox(height: 32.h),
+                                      CustomPrimaryButton(
+                                        title: 'Provide a review',
+                                        onHandler: () {},
+                                      ),
+                                      SizedBox(height: 14.h),
+                                    ],
+                                  )
                                 : const SizedBox.shrink();
                           }),
                           Obx(
-                                () {
+                            () {
                               final arrived = controller
-                                  .rideStatusData.value?.arrivingRide ==
+                                      .rideStatusData.value?.arrivingRide ==
                                   false;
 
                               if (!arrived) {
@@ -519,14 +502,15 @@ class _DraggableBottomSheetState extends State<DraggableBottomSheet> {
                                   padding: const EdgeInsets.all(10),
                                   child: Column(
                                     crossAxisAlignment:
-                                    CrossAxisAlignment.center,
+                                        CrossAxisAlignment.center,
                                     children: [
                                       Container(
                                         padding: EdgeInsets.all(8),
                                         decoration: BoxDecoration(
-                                          color: Color(0x3300FF00).withOpacity(0.1),
-                                          borderRadius: BorderRadius.all(Radius.circular(8))
-                                        ),
+                                            color: Color(0x3300FF00)
+                                                .withOpacity(0.1),
+                                            borderRadius: BorderRadius.all(
+                                                Radius.circular(8))),
                                         child: RichText(
                                           textAlign: TextAlign.center,
                                           text: const TextSpan(
@@ -560,22 +544,24 @@ class _DraggableBottomSheetState extends State<DraggableBottomSheet> {
                                               TextSpan(
                                                 text: ':',
                                                 style: TextStyle(
-                                                  color: AppColors
-                                                      .darkColor,
+                                                  color: AppColors.darkColor,
                                                   fontSize: 18,
                                                 ),
                                               ),
                                               WidgetSpan(
-                                                child: SizedBox(width: 5,),),
+                                                child: SizedBox(
+                                                  width: 5,
+                                                ),
+                                              ),
                                               TextSpan(
                                                 text: '00:07',
                                                 style: TextStyle(
                                                     fontSize: 14,
                                                     fontWeight: FontWeight.w700,
-                                                    fontFamily: FontFamily
-                                                        .poppins,
-                                                    color: AppColors.greenColor
-                                                ),
+                                                    fontFamily:
+                                                        FontFamily.poppins,
+                                                    color:
+                                                        AppColors.greenColor),
                                               ),
                                             ],
                                           ),
