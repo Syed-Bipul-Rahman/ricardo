@@ -2,19 +2,19 @@ class ApiUrls {
   // Base, Image, Socket
   // static const String baseUrl = "https://zsv1pz87-5000.inc1.devtunnels.ms/api/v1";
 
-  static const String baseUrl = "https://api.gogodriver.us/api/v1";
-  static const String imageBaseUrl = "https://api.gogodriver.us/images/";
-  static const String socketUrl = "https://api.gogodriver.us";
-  static const String serverHealth = "https://api.gogodriver.us/test";
+  // static const String baseUrl = "https://api.gogodriver.us/api/v1";
+  // static const String imageBaseUrl = "https://api.gogodriver.us/images/";
+  // static const String socketUrl = "https://api.gogodriver.us";
+  // static const String serverHealth = "https://api.gogodriver.us/test";
 
-  // static const String baseUrl =
-  //     "https://played-bracelets-zoo-camps.trycloudflare.com/api/v1";
-  // static const String imageBaseUrl =
-  //     "https://played-bracelets-zoo-camps.trycloudflare.com/images/";
-  // static const String socketUrl =
-  //     "https://played-bracelets-zoo-camps.trycloudflare.com";
-  // static const String serverHealth =
-  //     'https://played-bracelets-zoo-camps.trycloudflare.com/test';
+  static const String baseUrl =
+      "https://knows-thermal-charm-warned.trycloudflare.com/api/v1";
+  static const String imageBaseUrl =
+      "https://knows-thermal-charm-warned.trycloudflare.com/images/";
+  static const String socketUrl =
+      "https://knows-thermal-charm-warned.trycloudflare.com";
+  static const String serverHealth =
+      'https://knows-thermal-charm-warned.trycloudflare.com/test';
 
   // User Registration Related work
   static const String registration = '/user/register';

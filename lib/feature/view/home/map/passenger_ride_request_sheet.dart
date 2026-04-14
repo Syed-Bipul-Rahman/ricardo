@@ -58,7 +58,7 @@ class PassengerRideRequestSheet extends StatelessWidget {
                   fit: BoxFit.cover,
                   errorBuilder: (context, error, stackTrace) {
                     return Image.asset(
-                      'assets/images/default_image.png',
+                      'assets/images/default_image.jng',
                       height: 50,
                       width: 50,
                       fit: BoxFit.cover,
