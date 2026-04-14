@@ -1,8 +1,6 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:ricardo/feature/models/home/ride_status_model.dart';
 import 'package:ricardo/feature/view/home/link_export_file.dart';
-import 'package:ricardo/widgets/custom_text_field.dart';
 
 class DraggableBottomSheet extends StatefulWidget {
   final RideStatusModel? rideStatus;
@@ -27,11 +25,12 @@ class _DraggableBottomSheetState extends State<DraggableBottomSheet> {
   @override
   Widget build(BuildContext context) {
     return Obx(() => DraggableScrollableSheet(
-          initialChildSize: 0.1,
-          minChildSize: 0.1,
-          expand: false,
-          maxChildSize: completeStatus || arrivingStatus == true ? 0.3 : 0.5,
-          // ✅ FIX 1: Required when used inside showModalBottomSheet
+      initialChildSize: 0.40,
+      minChildSize: 0.40,
+      expand: false,
+      maxChildSize: (completeStatus || arrivingStatus)
+          ? 0.35
+          : 0.5,
           builder: (context, scrollController) {
             return GlassBackgroundWidget(
               blurNumber: 25,
@@ -103,7 +102,7 @@ class _DraggableBottomSheetState extends State<DraggableBottomSheet> {
 
                                     if (acceptStatus) {
                                       return Text(
-                                        'Rider is on the way to pickup',
+                                        'Rider is accepted your ride',
                                         style: TextStyle(
                                           fontSize: 14.sp,
                                           fontWeight: FontWeight.w600,
@@ -499,7 +498,12 @@ class _DraggableBottomSheetState extends State<DraggableBottomSheet> {
 
                               return Center(
                                 child: Container(
-                                  padding: const EdgeInsets.all(10),
+                                  padding: const EdgeInsets.only(
+                                  top: 50,
+                                  left: 10,
+                                  right: 10,
+                                  bottom: 10
+                                  ),
                                   child: Column(
                                     crossAxisAlignment:
                                         CrossAxisAlignment.center,

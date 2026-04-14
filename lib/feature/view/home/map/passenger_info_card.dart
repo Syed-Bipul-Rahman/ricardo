@@ -47,7 +47,7 @@ class PassengerInfoCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  mapOPTController.rideStatusData.value?.passenger?.name ?? '',
+                  mapOPTController.rideStatusData.value?.passenger?.name ?? 'gdfsgfd',
                   style: TextStyle(
                     color: const Color(0xff171717),
                     fontSize: 14,
@@ -65,7 +65,7 @@ class PassengerInfoCard extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      '(${((mapOPTController.rideStatusData.value?.ride?.destinationMeters ?? 0) * 0.000621371).toStringAsFixed(2)} KM)',
+                      '(${((mapOPTController.rideStatusData.value?.ride?.destinationMeters ?? 0) * 0.000621371).toStringAsFixed(2)} KM) vzkxlj',
                     ),
                   ],
                 ),

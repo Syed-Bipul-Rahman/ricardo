@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:geocoding/geocoding.dart';
@@ -267,7 +269,7 @@ class MapOPTController extends GetxController {
             "status": status
           });
       if( response.statusCode == 200 || response.statusCode == 201 ){
-        print(response.body);
+        print('===================>>>>>>>>>>>>>> Maruf ${response.body}');
           print('asdjfklajsdflkjasdl');
       }else{
         Get.snackbar('error', response.body['message']);
@@ -297,6 +299,38 @@ class MapOPTController extends GetxController {
       debugPrint(e.toString());
     }finally{
       isRideCanceledLoader.value = false;
+    }
+  }
+
+  //  Driver Service Function are here
+  Future<void> driverServiceFun() async {
+    final String? rideId = rideStatusData.value?.ride?.id ??
+        acceptedRideDriverData.value?.ride?.sId;
+
+    if (rideId != null && rideId.isNotEmpty) {
+      // ✅ Remove old listener FIRST to prevent duplicates
+      SocketServices.socket?.off('get-ride-driver-location');
+
+      SocketServices.socket?.on('get-ride-driver-location', (data) {
+        Map<String, dynamic> jsonData;
+        if (data is List) {
+          jsonData = Map<String, dynamic>.from(data[0]);
+        } else if (data is String) {
+          jsonData = jsonDecode(data);
+        } else if (data is Map) {
+          jsonData = Map<String, dynamic>.from(data);
+        } else {
+          return;
+        }
+
+        // ✅ Force a new object so GetX detects the change
+        getRideDriverLocation.value =
+            GetRideDriverLocation.fromJson(jsonData);
+        debugPrint('📍 Driver location received: $jsonData');
+      });
+      DriverLocationService().startEmitting(rideId);
+    } else {
+      debugPrint('❌ rideId is null, skipping startEmitting');
     }
   }
 
