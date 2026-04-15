@@ -42,16 +42,14 @@ class CustomButtonNavBar extends GetView<CustomBottomNavBarController> {
       final rideCnt = Get.find<RideController>();
 
       final isRideAccepted = userCnt.userModel.value?.userProfile?.role ==
-          AppConstants.passenger &&
+              AppConstants.passenger &&
           (rideCnt.acceptRideModel.value?.isRideAccepted == true ||
               mapOPTController.rideStatusData.value?.acceptRide == true ||
               mapOPTController.rideStatusData.value?.ongoingRide == true ||
               mapOPTController.rideStatusData.value?.arrivingRide == true ||
               mapOPTController.rideStatusData.value?.driverCancel == true ||
-              mapOPTController.rideStatusData.value?.passengerCancel ==
-                  true ||
+              mapOPTController.rideStatusData.value?.passengerCancel == true ||
               mapOPTController.rideStatusData.value?.completeRide == true);
-
 
       final isRideAcceptedRideCnt = rideCnt.isRideAccepted.value;
 
@@ -64,12 +62,16 @@ class CustomButtonNavBar extends GetView<CustomBottomNavBarController> {
       // 3. View in map return is false
       if (googleSLController.isModalOn.value == true &&
           rideCnt.viewInMap.value == true &&
-          rideCnt.viewInMapReturn.value == false) {
+          rideCnt.viewInMapReturn.value == false &&
+          userCnt.userModel.value?.userProfile?.role ==
+              AppConstants.passenger) {
         showNavBar = false;
       }
 
       // Also hide when viewInMap is false (map fullscreen mode)
-      if (rideCnt.viewInMap.value == false) {
+      if (rideCnt.viewInMap.value == false &&
+          userCnt.userModel.value?.userProfile?.role ==
+              AppConstants.passenger) {
         showNavBar = false;
       }
 
@@ -82,10 +84,8 @@ class CustomButtonNavBar extends GetView<CustomBottomNavBarController> {
         extendBody: true,
         backgroundColor: Colors.transparent,
         body: _screenList[controller.selectedIndex.value],
-        floatingActionButtonLocation:
-        FloatingActionButtonLocation.centerFloat,
-        floatingActionButtonAnimator:
-        FloatingActionButtonAnimator.noAnimation,
+        floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+        floatingActionButtonAnimator: FloatingActionButtonAnimator.noAnimation,
         floatingActionButton: Visibility(
           visible: showNavBar,
           child: Container(
@@ -118,7 +118,7 @@ class CustomButtonNavBar extends GetView<CustomBottomNavBarController> {
                     duration: const Duration(milliseconds: 400),
                     curve: Curves.easeIn,
                     padding:
-                    EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+                        EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
                     decoration: BoxDecoration(
                       color: isSelected ? Colors.white : Colors.transparent,
                       borderRadius: BorderRadius.circular(20.r),

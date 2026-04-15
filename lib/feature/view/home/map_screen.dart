@@ -6,7 +6,6 @@ import 'package:ricardo/feature/models/home/ride_status_model.dart'
 import 'package:ricardo/feature/models/socket/accept_ride_driver_model.dart';
 import 'package:ricardo/feature/models/socket/accept_ride_model.dart';
 import 'package:ricardo/feature/models/socket/get_ride_driver_location.dart';
-import 'package:ricardo/feature/view/home/map/driver_location_service.dart';
 import 'package:ricardo/feature/view/home/map/passenger_info_card.dart';
 import 'link_export_file.dart';
 
@@ -1295,7 +1294,8 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
           Obx(() {
             if (googleSearchLocationController.isModalOn.value &&
                 rideController.viewInMap.value &&
-                rideController.viewInMapReturn.value == false) {
+                rideController.viewInMapReturn.value == false && userController.userModel.value?.userProfile?.role ==
+                AppConstants.passenger ) {
               return Positioned(
                 top: 0,
                 bottom: 0,
