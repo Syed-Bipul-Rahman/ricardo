@@ -466,7 +466,7 @@ class _RideRequestBottomSheetState extends State<RideRequestBottomSheet> {
                                           final distanceText = snapshot.data ?? 'Calculating...';
                                           return Text(
                                             '$distanceText away from you.',
-                                            overflow: TextOverflow.ellipsis, // ✅ safety for long text
+                                            overflow: TextOverflow.ellipsis,
                                             style: TextStyle(
                                               fontWeight: FontWeight.w500,
                                               fontFamily: FontFamily.poppins,
@@ -529,16 +529,11 @@ class _RideRequestBottomSheetState extends State<RideRequestBottomSheet> {
                           child: InkWell(
                             borderRadius: BorderRadius.circular(50),
                             onTap: () {
-                              mapOptController.isCurrentMarkerShow.value = false;
+                              mapOptController.isCurrentMarkerShowOrNot.value = false;
                               // Get all controllers
                               final rideController = Get.find<RideController>();
                               final googleSearchController =
                                   Get.find<GoogleSearchLocationController>();
-
-                              print(
-                                  'View in map clicked - hiding all UI elements Ride Request Bottom Sheet ');
-
-                              // Optional: Force refresh the UI
                               setState(() {
                                 // Hide everything
                                 rideController

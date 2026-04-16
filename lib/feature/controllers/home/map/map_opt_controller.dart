@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:geocoding/geocoding.dart';
-import 'package:pinput/pinput.dart';
 import 'package:ricardo/app/helpers/custom_location_helper.dart';
 import 'package:ricardo/feature/models/home/ride_status_model.dart';
 import 'package:ricardo/feature/models/socket/accept_ride_driver_model.dart';
@@ -14,11 +13,11 @@ import 'package:ricardo/services/api_client.dart';
 
 class MapOPTController extends GetxController {
   // Controller are here
-  UserController? _userController;
+  RxBool isCurrentMarkerShowOrNot = true.obs;
 
+  UserController? _userController;
   UserController get userController =>
       _userController ??= Get.find<UserController>();
-  RxBool isCurrentMarkerShow = true.obs;
   RxBool showCancelReasonDialog = false.obs;
   final Rx<GetRideDriverLocation?> getRideDriverLocation =
       Rx<GetRideDriverLocation?>(null);
@@ -152,10 +151,10 @@ class MapOPTController extends GetxController {
   //***************************************************
   // ******* Book a Ride From the Driver  **************
   // ***************************************************
-  final isRideAcceptStatus = false.obs;
+  final isRideAcceptStatusLoading = false.obs;
 
   Future<void> rideAcceptRide(String rideId) async {
-    isRideAcceptStatus.value = true;
+    isRideAcceptStatusLoading.value = true;
     LatLng currentLatLun = await CustomLocationHelper.getCurrentLocation();
 
     final response =
@@ -166,22 +165,9 @@ class MapOPTController extends GetxController {
     if (response.statusCode == 200 || response.statusCode == 201) {
       print('✅ Ride accepted');
       DriverLocationService().startEmitting(rideId);
-      // DriverLocationService().listenResponse((data) {
-      //   print(data);
-      // },);
-      isRideAcceptStatus.value = false;
-      // SocketServices.socket?.emit('get-driver-location', {
-      //   'rideId': rideId
-      // });
-      //
-      // SocketServices.socket?.on("get-ride-driver-location", (data) {
-      //   print('📍 Driver location: $data');
-      // });
-      // SocketServices.socket?.onAny((event, data) {
-      //   print('📡 $event => $data');
-      // });
+      isRideAcceptStatusLoading.value = false;
     } else {
-      isRideAcceptStatus.value = false;
+      isRideAcceptStatusLoading.value = false;
       Get.snackbar('Error', response.body['message']);
     }
   }

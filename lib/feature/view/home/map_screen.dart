@@ -110,7 +110,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
         if (rideStatus.acceptRide == true) {
           mapOPTController.driverServiceFun(); // ✅ called here, not in Obx
           rideController.drivers.clear();
-          mapOPTController.isCurrentMarkerShow.value = true;
+          mapOPTController.isCurrentMarkerShowOrNot.value = true;
           _loadAcceptedRideRoute();
           debugPrint('🚗 ride-status: Driver Accepted');
         } else if (rideStatus.ongoingRide == true) {
@@ -768,7 +768,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
 
         if (rideStatus.acceptRide == true) {
           rideController.drivers.clear();
-          mapOPTController.isCurrentMarkerShow.value = true;
+          mapOPTController.isCurrentMarkerShowOrNot.value = true;
           _loadAcceptedRideRoute();
           debugPrint('🚗 ride-status: Driver Accepted');
         } else if (rideStatus.ongoingRide == true) {
@@ -942,11 +942,21 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                           ],
                         ),
                       ),
-                      CircleAvatar(
-                        backgroundColor: Colors.green,
-                        child: IconButton(
-                          icon: const Icon(Icons.phone, color: Colors.white),
-                          onPressed: () {},
+                      GestureDetector(
+                        onTap: () {
+                          launchUrl(Uri.parse("tel:${driver.phone}"));
+                        },
+                        child: RepaintBoundary(           // ✅ isolates rendering
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: AppColors.whiteColor,
+                              borderRadius: BorderRadius.circular(50),
+                              border: Border.all(color: Colors.grey.shade200),
+                            ),
+                            child: SvgPicture.asset(
+                              Assets.icons.driverCardPhone,
+                            ),
+                          ),
                         ),
                       ),
                     ],
@@ -976,8 +986,30 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                             const SizedBox(height: 4),
                             Text('${driver.vehicle?.carPlateNumber}'),
                             const SizedBox(height: 4),
-                            const Text('1 km away from you.',
-                                style: TextStyle(color: Colors.green)),
+                            FutureBuilder<String>(
+                              future: DirectionsService
+                                  .calculateDistance(
+                                driver.location?.coordinates?[0],
+                                driver.location?.coordinates?[1],
+                              ),
+                              builder: (context, snapshot) {
+                                final distanceText =
+                                    snapshot.data ??
+                                        'Calculating...';
+                                return Text(
+                                  '$distanceText away from you.',
+                                  overflow: TextOverflow.ellipsis,
+                                  // ✅ safety for long text
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w500,
+                                    fontFamily: FontFamily.poppins,
+                                    fontSize: 16.sp,
+                                    color:
+                                    AppColors.dottedBorderColor,
+                                  ),
+                                );
+                              },
+                            ),
                           ],
                         ),
                       ),
