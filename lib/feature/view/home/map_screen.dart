@@ -1034,7 +1034,8 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                   ),
                   const SizedBox(height: 16),
                   RequestRideHandler(
-                      cnt: rideController, cardDetails: driver),
+                      cnt: rideController, cardDetails: driver,
+                  ),
                 ],
               ),
             ),
@@ -1247,8 +1248,15 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
           if (userController.userModel.value?.userProfile?.role ==
               AppConstants.passenger)
             Obx(() {
+              final rideStatus =
+                  mapOPTController.rideStatusData.value;
               if (rideController.viewInMap.value &&
-                  rideController.viewInMapReturn.value == false) {
+                  rideController.viewInMapReturn.value == false ||  rideStatus?.acceptRide == true ||
+                  rideStatus?.ongoingRide == true ||
+                  rideStatus?.arrivingRide == true ||
+                  rideStatus?.driverCancel == true ||
+                  rideStatus?.passengerCancel == true ||
+                  rideStatus?.completeRide == true ) {
                 return CustomHeader(mapOPTController: mapOPTController);
               }
               return MapCustomHeaderBack(rideController: rideController);

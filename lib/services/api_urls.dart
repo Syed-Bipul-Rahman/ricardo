@@ -8,13 +8,13 @@ class ApiUrls {
   // static const String serverHealth = "https://api.gogodriver.us/test";
 
   static const String baseUrl =
-      "https://transparency-issn-abraham-assigned.trycloudflare.com/api/v1";
+      "https://supported-tons-brad-ntsc.trycloudflare.com/api/v1";
   static const String imageBaseUrl =
-      "https://transparency-issn-abraham-assigned.trycloudflare.com/images/";
+      "https://supported-tons-brad-ntsc.trycloudflare.com/images/";
   static const String socketUrl =
-      "https://transparency-issn-abraham-assigned.trycloudflare.com";
+      "https://supported-tons-brad-ntsc.trycloudflare.com";
   static const String serverHealth =
-      'https://transparency-issn-abraham-assigned.trycloudflare.com/test';
+      'https://supported-tons-brad-ntsc.trycloudflare.com/test';
 
   // User Registration Related work
   static const String registration = '/user/register';

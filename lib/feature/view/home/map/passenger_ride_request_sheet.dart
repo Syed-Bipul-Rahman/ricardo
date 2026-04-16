@@ -110,7 +110,7 @@ class PassengerRideRequestSheet extends StatelessWidget {
           children: [
             Row(
               children: [
-                SvgPicture.asset('assets/images/direct_right.svg'),
+                SvgPicture.asset(Assets.images.directRight),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Column(
@@ -148,7 +148,7 @@ class PassengerRideRequestSheet extends StatelessWidget {
             ),
             Row(
               children: [
-                SvgPicture.asset('assets/images/location.svg'),
+                SvgPicture.asset(Assets.images.location),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Column(
