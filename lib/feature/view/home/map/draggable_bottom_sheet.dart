@@ -28,8 +28,8 @@ class _DraggableBottomSheetState extends State<DraggableBottomSheet> {
       final isArriving = data?.arrivingRide == true;
 
       return DraggableScrollableSheet(
-        initialChildSize: 0.40,
-        minChildSize: 0.40,
+        initialChildSize: 0.35,
+        minChildSize: 0.15,
         maxChildSize: (isComplete || isArriving) ? 0.45 : 0.5,
         expand: false,
         builder: (context, scrollController) {

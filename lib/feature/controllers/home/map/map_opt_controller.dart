@@ -296,30 +296,48 @@ class MapOPTController extends GetxController {
     final String? rideId = rideStatusData.value?.ride?.id ??
         acceptedRideDriverData.value?.ride?.sId;
 
-    if (rideId != null && rideId.isNotEmpty) {
-      // ✅ Remove old listener FIRST to prevent duplicates
-      SocketServices.socket?.off('get-ride-driver-location');
+    // ✅ Guard: always remove old listener first, regardless of rideId
+    SocketServices.socket?.off('get-ride-driver-location');
 
-      SocketServices.socket?.on('get-ride-driver-location', (data) {
+    if (rideId == null || rideId.isEmpty) {
+      debugPrint('❌ rideId is null or empty, skipping socket setup');
+      return; // ✅ Early return is cleaner than a big if/else
+    }
+
+    // ✅ Guard: only register if socket is actually connected
+    if (SocketServices.socket == null ||
+        SocketServices.socket?.connected == false) {
+      debugPrint('❌ Socket not connected, skipping listener setup');
+      return;
+    }
+
+    debugPrint('✅ Setting up get-ride-driver-location for rideId: $rideId');
+    DriverLocationService().startEmitting(rideId);
+    SocketServices.socket?.on('get-ride-driver-location', (data) {
+      try {
         Map<String, dynamic> jsonData;
-        if (data is List) {
-          jsonData = Map<String, dynamic>.from(data[0]);
+
+        if (data is List && data.isNotEmpty) {
+          // ✅ Check list is not empty before accessing [0]
+          jsonData = Map<String, dynamic>.from(data[0] as Map);
         } else if (data is String) {
-          jsonData = jsonDecode(data);
+          jsonData = jsonDecode(data) as Map<String, dynamic>;
         } else if (data is Map) {
           jsonData = Map<String, dynamic>.from(data);
         } else {
+          debugPrint('⚠️ Unknown socket data type: ${data.runtimeType}');
           return;
         }
 
         // ✅ Force a new object so GetX detects the change
         getRideDriverLocation.value = GetRideDriverLocation.fromJson(jsonData);
         debugPrint('📍 Driver location received: $jsonData');
-      });
-      DriverLocationService().startEmitting(rideId);
-    } else {
-      debugPrint('❌ rideId is null, skipping startEmitting');
-    }
+
+      } catch (e) {
+        // ✅ Catch malformed data so one bad payload doesn't break the stream
+        debugPrint('❌ Error parsing get-ride-driver-location: $e');
+      }
+    });
   }
 
   //  Complete Related work are here

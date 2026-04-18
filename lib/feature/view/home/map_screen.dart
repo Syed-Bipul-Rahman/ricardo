@@ -1610,8 +1610,190 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                                 color: Colors.black.withOpacity(0.2)),
                             const SizedBox(height: 16),
 
-                            PassengerInfoCard(
-                                mapOPTController: mapOPTController),
+                            // ── Passenger Card Info ──────────────────────────
+                            Obx(() {
+                              final rideStatus = mapOPTController.rideStatusData.value;
+
+                              // ✅ Show loader while data hasn't arrived
+                              if (rideStatus == null) {
+                                return const SizedBox(
+                                  height: 70,
+                                  child: Center(child: CircularProgressIndicator()),
+                                );
+                              }
+
+                              // ✅ Safely resolve image — never pass empty string to Image.network
+                              // final filename = rideStatus.passenger?.image?.filename;
+                              final filename = rideStatus.ride?.passenger?.image?.filename;
+                              final hasImage = filename != null && filename.isNotEmpty;
+                              final imageUrl = hasImage ? '${ApiUrls.imageBaseUrl}$filename' : null;
+
+                              return Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Row(
+                                    children: [
+                                      ClipRRect(
+                                        borderRadius: BorderRadius.circular(50),
+                                        child: imageUrl != null
+                                            ? Image.network(
+                                          imageUrl,
+                                          height: 50,
+                                          width: 50,
+                                          fit: BoxFit.cover,
+                                          errorBuilder: (context, error, stackTrace) {
+                                            return Image.asset(
+                                              'assets/images/default_image.jpg',
+                                              height: 50,
+                                              width: 50,
+                                              fit: BoxFit.cover,
+                                            );
+                                          },
+                                        )
+                                            : Image.asset(
+                                          'assets/images/default_image.jpg',
+                                          height: 50,
+                                          width: 50,
+                                          fit: BoxFit.cover,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            // ✅ No more 'null' — safe fallback
+                                            rideStatus.ride?.passenger?.name ?? 'Unknown Passenger',
+                                            style: TextStyle(
+                                              color: const Color(0xff171717),
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w500,
+                                              fontFamily: FontFamily.poppins,
+                                            ),
+                                          ),
+                                          Row(
+                                            children: [
+                                              Text(
+                                                '\$${rideStatus.ride?.fare ?? 0.0} ',
+                                                style: const TextStyle(
+                                                  fontSize: 16,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                              ),
+                                              Text(
+                                                // ✅ Correct meters → KM conversion
+                                                '(${((rideStatus.ride?.destinationMeters ?? 0) / 1000).toStringAsFixed(2)} KM)',
+                                              ),
+                                            ],
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                  GestureDetector(
+                                    onTap: () {
+                                      launchUrl(
+                                        Uri.parse("tel:${rideStatus.passenger?.phone}"),
+                                      );
+                                    },
+                                    child: RepaintBoundary(
+                                      child: Container(
+                                        decoration: BoxDecoration(
+                                          color: AppColors.whiteColor,
+                                          borderRadius: BorderRadius.circular(50),
+                                          border: Border.all(color: AppColors.greyColor200),
+                                        ),
+                                        child: SvgPicture.asset(Assets.icons.driverCardPhone),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              );
+                            }),
+                            /*Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Row(
+                                  children: [
+                                    ClipRRect(
+                                      borderRadius: BorderRadius.circular(50),
+                                      child: ClipRRect(
+                                        borderRadius: BorderRadius.circular(12),
+                                        child: Image.network(
+                                          (mapOPTController.rideStatusData.value?.passenger?.image
+                                              ?.filename !=
+                                              null &&
+                                              mapOPTController.rideStatusData.value!.passenger!
+                                                  .image!.filename!.isNotEmpty)
+                                              ? '${ApiUrls.imageBaseUrl}${mapOPTController.rideStatusData.value?.passenger?.image?.filename}'
+                                              : '',
+                                          height: 50,
+                                          width: 50,
+                                          fit: BoxFit.cover,
+                                          errorBuilder: (context, error, stackTrace) {
+                                            return Image.asset(
+                                              'assets/images/default_image.jpg',
+                                              height: 50,
+                                              width: 50,
+                                              fit: BoxFit.cover,
+                                            );
+                                          },
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          '${mapOPTController.rideStatusData.value?.passenger?.name}',
+                                          style: TextStyle(
+                                            color: const Color(0xff171717),
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w500,
+                                            fontFamily: FontFamily.poppins,
+                                          ),
+                                        ),
+                                        Row(
+                                          children: [
+                                            Text(
+                                              '\$${mapOPTController.rideStatusData.value?.ride?.fare ?? 0.0} ',
+                                              style: const TextStyle(
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                            Text(
+                                              '(${((mapOPTController.rideStatusData.value?.ride?.destinationMeters ?? 0) * 0.000621371).toStringAsFixed(2)} KM) vzkxlj',
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                                GestureDetector(
+                                  onTap: () {
+                                    launchUrl(Uri.parse(
+                                        "tel:${mapOPTController.rideStatusData.value?.passenger?.phone}"));
+                                  },
+                                  child: RepaintBoundary(
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        color: AppColors.whiteColor,
+                                        borderRadius: BorderRadius.circular(50),
+                                        border: Border.all(
+                                          color: AppColors.greyColor200,
+                                        ),
+                                      ),
+                                      child: SvgPicture.asset(
+                                        Assets.icons.driverCardPhone,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),*/
                             const SizedBox(height: 24),
 
                             // ── PRIMARY ACTION BUTTON ─────────────
