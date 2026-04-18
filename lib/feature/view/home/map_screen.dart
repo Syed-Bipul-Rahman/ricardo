@@ -741,7 +741,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
         mapOPTController.getRideDriverLocation.value =
             GetRideDriverLocation.fromJson(jsonData);
         mapOPTController.getRideDriverLocation.refresh(); // ✅ force Obx update
-        debugPrint('📍 Driver location updated');
+        debugPrint('📍 Driver location updated ');
       } catch (e) {
         debugPrint('get-ride-driver-location error: $e');
       }
@@ -1545,8 +1545,9 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                               MainAxisAlignment.spaceBetween,
                               crossAxisAlignment: CrossAxisAlignment.center,
                               children: [
-                                // ✅ driverServiceFun() is NOT called here
+
                                 Obx(() {
+                                  mapOPTController.driverServiceFun();
                                   final rideData = mapOPTController
                                       .getRideDriverLocation.value;
 

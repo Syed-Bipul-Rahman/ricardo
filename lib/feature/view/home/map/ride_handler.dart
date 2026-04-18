@@ -44,7 +44,7 @@ class RideHandler {
   // Alternative: Get from controller
   static String getPickupInfoFromController() {
     final controller = Get.find<MapOPTController>();
-    final data = controller.getRideDriverLocation?.value;
+    final data = controller.getRideDriverLocation.value;
 
     if (data == null) return '(0 min) 0 KM';
 

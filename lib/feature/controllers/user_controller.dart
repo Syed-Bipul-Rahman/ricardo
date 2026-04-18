@@ -1,12 +1,9 @@
-import 'dart:convert';
 
 import 'package:flutter/cupertino.dart';
-import 'package:get/get.dart';
-import 'package:ricardo/feature/models/home/ride_status_model.dart';
 import 'package:ricardo/feature/models/user_model.dart';
 import 'package:ricardo/feature/view/home/link_export_file.dart';
+import 'package:ricardo/feature/view/home/map/driver_location_service.dart';
 import 'package:ricardo/services/api_client.dart';
-import 'package:ricardo/services/api_urls.dart';
 
 class UserController extends GetxController {
   RxBool isBottomModalSheetStatus = false.obs;
@@ -44,7 +41,7 @@ class UserController extends GetxController {
       print(response.body);
       if( response.statusCode == 200 || response.statusCode == 201 ){
         activeRideStatus.value = response.body['data']['data']!['status'];
-        print('=====================>>>>>> $activeRideStatus');
+        DriverLocationService().startEmitting(response.body['ride']['id']);
         return true;
       }else{
         return false;
@@ -54,6 +51,7 @@ class UserController extends GetxController {
     }finally{
 
     }
+    return null;
   }
 
 }
