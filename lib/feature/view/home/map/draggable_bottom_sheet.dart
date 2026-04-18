@@ -119,13 +119,61 @@ class _DraggableBottomSheetState extends State<DraggableBottomSheet> {
 
                             /// TIME BOX (REACTIVE)
                             Obx(() {
-                              final t = controller.getRideDriverLocation.value
-                                  ?.userToDriver?.time?.value;
+                              controller.driverServiceFun();
+                              final rideData = controller
+                                  .getRideDriverLocation.value;
 
-                              final d = controller.getRideDriverLocation.value
-                                  ?.userToDriver?.distance?.value;
+                              final distance = rideData
+                                  ?.driverToPickup?.distance?.value ??
+                                  0;
+                              final int time =
+                                  rideData?.driverToPickup?.time?.value ??
+                                      0;
+                              String convertSecondsToTime(int seconds) {
+                                if (seconds < 0) return '0 Min';
 
-                              final isNear = (t == 0 || (d ?? 9999) <= 500);
+                                final int days = seconds ~/ 86400;
+                                final int hours = (seconds % 86400) ~/ 3600;
+                                final int minutes = (seconds % 3600) ~/ 60;
+                                final int secs = seconds % 60;
+
+                                if (days > 0) {
+                                  if (hours > 0) return '$days Day${days > 1 ? 's' : ''} $hours Hr${hours > 1 ? 's' : ''}';
+                                  return '$days Day${days > 1 ? 's' : ''}';
+                                }
+
+                                if (hours > 0) {
+                                  if (minutes > 0) return '$hours Hr${hours > 1 ? 's' : ''} $minutes Min';
+                                  return '$hours Hr${hours > 1 ? 's' : ''}';
+                                }
+
+                                if (minutes > 0) {
+                                  if (secs > 0) return '$minutes Min $secs Sec';
+                                  return '$minutes Min';
+                                }
+
+                                return '$secs Sec';
+                              }
+
+                              String convertMetersToDistance(double meters) {
+                                if (meters < 0) return '0 M';
+
+                                if (meters < 1000) {
+                                  return '${meters.toStringAsFixed(0)} M';
+                                }
+
+                                final double km = meters / 1000;
+
+                                if (km < 100) {
+                                  return '${km.toStringAsFixed(2)} KM';
+                                }
+
+                                return '${km.toStringAsFixed(1)} KM';
+                              }
+
+                              final isNear = (time == 0 || (distance ?? 9999) <= 500);
+
+
 
                               return Container(
                                 padding: const EdgeInsets.all(6),
@@ -136,11 +184,7 @@ class _DraggableBottomSheetState extends State<DraggableBottomSheet> {
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: Text(
-                                  t == null
-                                      ? "Loading..."
-                                      : t > 3600
-                                          ? "$t"
-                                          : "$t Min",
+                                convertSecondsToTime(time),
                                   style: const TextStyle(
                                     color: Colors.white,
                                   ),
