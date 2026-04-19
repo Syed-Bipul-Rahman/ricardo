@@ -29,12 +29,12 @@ class _DraggableBottomSheetState extends State<DraggableBottomSheet> {
 
       return DraggableScrollableSheet(
         initialChildSize: 0.35,
-        minChildSize: 0.15,
+        minChildSize: 0.10,
         maxChildSize: (isComplete || isArriving) ? 0.45 : 0.5,
         expand: false,
         builder: (context, scrollController) {
           return GlassBackgroundWidget(
-            blurNumber: 25,
+            blurNumber: 35,
             padding: EdgeInsets.zero,
             child: SingleChildScrollView(
               controller: scrollController,
@@ -119,7 +119,6 @@ class _DraggableBottomSheetState extends State<DraggableBottomSheet> {
 
                             /// TIME BOX (REACTIVE)
                             Obx(() {
-                              controller.driverServiceFun();
                               final rideData = controller
                                   .getRideDriverLocation.value;
 

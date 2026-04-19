@@ -20,7 +20,7 @@ class GoogleSearchLocationController extends GetxController {
   final pickupPlaces = <PlaceSuggestion>[].obs;
   final dropPlaces = <PlaceSuggestion>[].obs;
 
-  // ✅ Explicit visibility flags
+  // Explicit visibility flags
   RxBool showPickupSuggestions = false.obs;
   RxBool showDropSuggestions = false.obs;
 
@@ -61,7 +61,7 @@ class GoogleSearchLocationController extends GetxController {
     _setupListeners();
   }
 
-  // ✅ Named listeners so they can be removed/added
+  // Named listeners so they can be removed/added
   void _pickupListener() {
     final hasText = pickupController.text.isNotEmpty;
     if (showClearPickup.value != hasText) showClearPickup.value = hasText;
@@ -100,7 +100,7 @@ class GoogleSearchLocationController extends GetxController {
   Future<void> _searchPickup(String query) async {
     if (query.isEmpty) {
       pickupPlaces.clear();
-      showPickupSuggestions.value = false; // ✅
+      showPickupSuggestions.value = false;
       isLoadingPickup.value = false;
       return;
     }
@@ -109,7 +109,7 @@ class GoogleSearchLocationController extends GetxController {
     try {
       final results = await PlacesService.getPlaceSuggestions(query);
       pickupPlaces.value = results;
-      showPickupSuggestions.value = results.isNotEmpty; // ✅
+      showPickupSuggestions.value = results.isNotEmpty;
     } finally {
       isLoadingPickup.value = false;
     }

@@ -5,6 +5,7 @@ class RideStatusModel {
   bool? driverCancel;
   bool? passengerCancel;
   bool? completeRide;
+  bool? startRide;
   Ride? ride;
   Passenger? passenger;
   Driver? driver;
@@ -17,6 +18,7 @@ class RideStatusModel {
     this.driverCancel,
     this.passengerCancel,
     this.completeRide,
+    this.startRide,
     this.ride,
     this.passenger,
     this.driver,
@@ -29,6 +31,7 @@ class RideStatusModel {
       ongoingRide: json['ongoingRide'],
       arrivingRide: json['arrivingRide'],
       driverCancel: json['driverCancel'],
+      startRide: json['startRide'],
       passengerCancel: json['passengerCancel'],
       completeRide: json['completeRide'],
       ride: json['ride'] != null ? Ride.fromJson(json['ride']) : null,
@@ -111,7 +114,7 @@ class Ride {
           ? Passenger.fromJson(json['passenger'])
           : null,
       driver:
-          json['driver'] != null ? Passenger.fromJson(json['driver']) : null,
+      json['driver'] != null ? Passenger.fromJson(json['driver']) : null,
       pickupAddress: json['pickupAddress'],
       destinationAddress: json['destinationAddress'],
       pickupLocation: json['pickupLocation'] != null
@@ -211,7 +214,7 @@ class Passenger {
   factory Passenger.fromJson(Map<String, dynamic> json) {
     return Passenger(
       location:
-          json['location'] != null ? Location.fromJson(json['location']) : null,
+      json['location'] != null ? Location.fromJson(json['location']) : null,
       id: json['_id'],
       name: json['name'],
       email: json['email'],
@@ -285,7 +288,7 @@ class Driver {
       email: json['email'],
       image: json['image'] != null ? ImageModel.fromJson(json['image']) : null,
       location:
-          json['location'] != null ? Location.fromJson(json['location']) : null,
+      json['location'] != null ? Location.fromJson(json['location']) : null,
       averageRating: json['averageRating'],
       totalCompletedRides: json['totalCompletedRides'],
       totalRatings: json['totalRatings'],

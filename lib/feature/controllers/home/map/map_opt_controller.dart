@@ -311,8 +311,6 @@ class MapOPTController extends GetxController {
       return;
     }
 
-    debugPrint('✅ Setting up get-ride-driver-location for rideId: $rideId');
-    DriverLocationService().startEmitting(rideId);
     SocketServices.socket?.on('get-ride-driver-location', (data) {
       try {
         Map<String, dynamic> jsonData;

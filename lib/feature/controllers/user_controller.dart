@@ -2,7 +2,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:ricardo/feature/models/user_model.dart';
 import 'package:ricardo/feature/view/home/link_export_file.dart';
-import 'package:ricardo/feature/view/home/map/driver_location_service.dart';
 import 'package:ricardo/services/api_client.dart';
 
 class UserController extends GetxController {
@@ -38,10 +37,11 @@ class UserController extends GetxController {
   Future<bool?> fetchActiveRideStatus() async{
     try{
       final response = await ApiClient.getData(ApiUrls.getActiveRide);
-      print(response.body);
+      print('==========================================STatus');
+      print('========================>>>>>>>>>>>> ${response.body}');
       if( response.statusCode == 200 || response.statusCode == 201 ){
-        activeRideStatus.value = response.body['data']['data']!['status'];
-        DriverLocationService().startEmitting(response.body['ride']['id']);
+        activeRideStatus.value = response.body['data']['status'];
+        print('====================>>>>>>>>>>>> $activeRideStatus');
         return true;
       }else{
         return false;
