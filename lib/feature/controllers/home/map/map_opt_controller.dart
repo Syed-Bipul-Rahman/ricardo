@@ -163,8 +163,6 @@ class MapOPTController extends GetxController {
     });
 
     if (response.statusCode == 200 || response.statusCode == 201) {
-      print('✅ Ride accepted');
-      DriverLocationService().startEmitting(rideId);
       isRideAcceptStatusLoading.value = false;
     } else {
       isRideAcceptStatusLoading.value = false;
@@ -256,8 +254,12 @@ class MapOPTController extends GetxController {
   }
 
   // Ride Status change are here
+  RxBool isRideStatusChangeLoading = false.obs;
+
   Future<void> rideStatusChange(String rideId, String status) async {
     try {
+      isRideStatusChangeLoading.value = true;
+
       final response = await ApiClient.postData(
           ApiUrls.rideChangeRideStatus(rideId), {"status": status});
       if (response.statusCode == 200 || response.statusCode == 201) {
@@ -268,7 +270,9 @@ class MapOPTController extends GetxController {
       }
     } catch (e) {
       debugPrint(e.toString());
-    } finally {}
+    } finally {
+      isRideStatusChangeLoading.value = false;
+    }
   }
 
   RxBool isRideCanceledLoader = false.obs;

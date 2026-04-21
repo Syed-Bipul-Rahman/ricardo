@@ -23,7 +23,6 @@ class AcceptRideButton extends StatelessWidget {
           mapOPTController.isPassengerRequest.value = false;
           mapOPTController.cancelRideRequestTimer();
           userController.userModel.value?.driverProfile?.isOnline = true;
-          await mapOPTController.driverServiceFun();
         }
             : onPressed,
         child: ClipRRect(
