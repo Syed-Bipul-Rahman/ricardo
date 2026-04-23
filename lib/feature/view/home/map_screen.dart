@@ -913,7 +913,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
         if (rideStatus != null &&
             (rideStatus.acceptRide == true ||
                 rideStatus.ongoingRide == true ||
-                rideStatus.arrivingRide == true)) {
+                rideStatus.arrivingRide == true || rideStatus.startRide == true || rideStatus.completeRide == true ) ) {
           _updatePolylineForDriverPosition(newLocation);
         }
 

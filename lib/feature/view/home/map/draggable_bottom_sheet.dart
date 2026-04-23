@@ -34,7 +34,7 @@ class _DraggableBottomSheetState extends State<DraggableBottomSheet> {
         expand: false,
         builder: (context, scrollController) {
           return GlassBackgroundWidget(
-            blurNumber: 35,
+            blurNumber: 16,
             padding: EdgeInsets.zero,
             child: SingleChildScrollView(
               controller: scrollController,
@@ -119,15 +119,14 @@ class _DraggableBottomSheetState extends State<DraggableBottomSheet> {
 
                             /// TIME BOX (REACTIVE)
                             Obx(() {
-                              final rideData = controller
-                                  .getRideDriverLocation.value;
+                              final rideData =
+                                  controller.getRideDriverLocation.value;
 
-                              final distance = rideData
-                                  ?.driverToPickup?.distance?.value ??
-                                  0;
-                              final int time =
-                                  rideData?.driverToPickup?.time?.value ??
+                              final distance =
+                                  rideData?.driverToPickup?.distance?.value ??
                                       0;
+                              final int time =
+                                  rideData?.driverToPickup?.time?.value ?? 0;
                               String convertSecondsToTime(int seconds) {
                                 if (seconds < 0) return '0 Min';
 
@@ -137,12 +136,14 @@ class _DraggableBottomSheetState extends State<DraggableBottomSheet> {
                                 final int secs = seconds % 60;
 
                                 if (days > 0) {
-                                  if (hours > 0) return '$days Day${days > 1 ? 's' : ''} $hours Hr${hours > 1 ? 's' : ''}';
+                                  if (hours > 0)
+                                    return '$days Day${days > 1 ? 's' : ''} $hours Hr${hours > 1 ? 's' : ''}';
                                   return '$days Day${days > 1 ? 's' : ''}';
                                 }
 
                                 if (hours > 0) {
-                                  if (minutes > 0) return '$hours Hr${hours > 1 ? 's' : ''} $minutes Min';
+                                  if (minutes > 0)
+                                    return '$hours Hr${hours > 1 ? 's' : ''} $minutes Min';
                                   return '$hours Hr${hours > 1 ? 's' : ''}';
                                 }
 
@@ -170,9 +171,8 @@ class _DraggableBottomSheetState extends State<DraggableBottomSheet> {
                                 return '${km.toStringAsFixed(1)} KM';
                               }
 
-                              final isNear = (time == 0 || (distance ?? 9999) <= 500);
-
-
+                              final isNear =
+                                  (time == 0 || (distance ?? 9999) <= 500);
 
                               return Container(
                                 padding: const EdgeInsets.all(6),
@@ -183,7 +183,7 @@ class _DraggableBottomSheetState extends State<DraggableBottomSheet> {
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: Text(
-                                convertSecondsToTime(time),
+                                  convertSecondsToTime(time),
                                   style: const TextStyle(
                                     color: Colors.white,
                                   ),
@@ -252,8 +252,28 @@ class _DraggableBottomSheetState extends State<DraggableBottomSheet> {
                                   "tel:${widget.rideStatus?.driver?.phone}",
                                 ));
                               },
-                              child: const Icon(Icons.call),
+                              child: RepaintBoundary(
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    color: AppColors.whiteColor,
+                                    borderRadius:
+                                    BorderRadius.circular(50),
+                                    border: Border.all(
+                                        color: AppColors.greyColor200),
+                                  ),
+                                  child: SvgPicture.asset(
+                                      Assets.icons.driverCardPhone),
+                                ),
+                              ),
                             ),
+                            /*GestureDetector(
+                              onTap: () {
+                                launchUrl(Uri.parse(
+                                  "tel:${widget.rideStatus?.driver?.phone}",
+                                ));
+                              },
+                              child: const Icon(Icons.call),
+                            ),*/
                           ],
                         ),
 
@@ -287,24 +307,74 @@ class _DraggableBottomSheetState extends State<DraggableBottomSheet> {
                         /// COMPLETE BUTTON
                         Obx(() {
                           final complete =
-                              controller.rideStatusData.value?.completeRide ==
-                                  true;
+                              controller.rideStatusData.value?.startRide ==
+                                      true &&
+                                  (controller
+                                              .getRideDriverLocation
+                                              .value
+                                              ?.driverToDestination
+                                              ?.distance
+                                              ?.value ??
+                                          double.infinity) <
+                                      150;
 
                           if (!complete) return const SizedBox();
 
-                          return CustomPrimaryButton(
-                            title: 'Provide a review',
-                            onHandler: () {
-                              Get.toNamed(
-                                AppRoutes.rateReviewDriver,
-                                arguments: {
-                                  'name': widget.rideStatus?.driver?.name,
-                                  'driverId':
-                                      widget.rideStatus?.driverCar?.driverId,
-                                  'rideId': widget.rideStatus?.ride?.id,
+                          return Column(
+                            children: [
+                              Row(
+                                children: [
+                                  Flexible(
+                                    child: CustomPrimaryButton(
+                                      title: 'Review',
+                                      onHandler: () {
+                                        Get.toNamed(
+                                          AppRoutes.rateReviewDriver,
+                                          arguments: {
+                                            'name': widget.rideStatus?.driver?.name,
+                                            'driverId': widget
+                                                .rideStatus?.driverCar?.driverId,
+                                            'rideId': widget.rideStatus?.ride?.id,
+                                          },
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                  SizedBox(width: 8.w,),
+                                  Flexible(
+                                    child: CustomPrimaryButton(
+                                      title: 'Tips',
+                                      onHandler: () {
+                                        Get.toNamed(
+                                          AppRoutes.rateReviewDriver,
+                                          arguments: {
+                                            'name': widget.rideStatus?.driver?.name,
+                                            'driverId': widget
+                                                .rideStatus?.driverCar?.driverId,
+                                            'rideId': widget.rideStatus?.ride?.id,
+                                          },
+                                        );
+                                      },
+                                    ),
+                                  )
+                                ],
+                              ),
+                              SizedBox(height: 16.h,),
+                              CustomPrimaryButton(
+                                title: 'Provide a review',
+                                onHandler: () {
+                                  Get.toNamed(
+                                    AppRoutes.rateReviewDriver,
+                                    arguments: {
+                                      'name': widget.rideStatus?.driver?.name,
+                                      'driverId': widget
+                                          .rideStatus?.driverCar?.driverId,
+                                      'rideId': widget.rideStatus?.ride?.id,
+                                    },
+                                  );
                                 },
-                              );
-                            },
+                              )
+                            ],
                           );
                         }),
                       ],

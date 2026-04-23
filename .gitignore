@@ -54,3 +54,6 @@ app.*.map.json
 .env.*
 *.env
 /android/app/src/main/AndroidManifest.xml
+env
+android/local.properties.dart
+lib/services/direction_services.dart
