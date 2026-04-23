@@ -54,9 +54,6 @@ class $AssetsIconsGen {
 class $AssetsImagesGen {
   const $AssetsImagesGen();
 
-  /// File path: assets/images/Location.svg
-  String get location => 'assets/images/Location.svg';
-
   /// File path: assets/images/Vector.png
   AssetGenImage get vector => const AssetGenImage('assets/images/Vector.png');
 
@@ -179,6 +176,9 @@ class $AssetsImagesGen {
   /// File path: assets/images/live_area.png
   AssetGenImage get liveArea =>
       const AssetGenImage('assets/images/live_area.png');
+
+  /// File path: assets/images/location.svg
+  String get location => 'assets/images/location.svg';
 
   /// File path: assets/images/location_black_marker.png
   AssetGenImage get locationBlackMarker =>
@@ -356,7 +356,6 @@ class $AssetsImagesGen {
 
   /// List of all assets
   List<dynamic> get values => [
-    location,
     vector,
     activeHistory,
     activeHome,
@@ -392,6 +391,7 @@ class $AssetsImagesGen {
     historyIcon,
     homeIcon,
     liveArea,
+    location,
     locationBlackMarker,
     locationMarker,
     locatioonRedMarker,

@@ -8,13 +8,13 @@ class ApiUrls {
   // static const String serverHealth = "https://api.gogodriver.us/test";
 
   static const String baseUrl =
-      "https://knows-thermal-charm-warned.trycloudflare.com/api/v1";
+      "https://supported-tons-brad-ntsc.trycloudflare.com/api/v1";
   static const String imageBaseUrl =
-      "https://knows-thermal-charm-warned.trycloudflare.com/images/";
+      "https://supported-tons-brad-ntsc.trycloudflare.com/images/";
   static const String socketUrl =
-      "https://knows-thermal-charm-warned.trycloudflare.com";
+      "https://supported-tons-brad-ntsc.trycloudflare.com";
   static const String serverHealth =
-      'https://knows-thermal-charm-warned.trycloudflare.com/test';
+      'https://supported-tons-brad-ntsc.trycloudflare.com/test';
 
   // User Registration Related work
   static const String registration = '/user/register';
@@ -90,4 +90,5 @@ class ApiUrls {
   static const String getActiveRide = '/ride/check-ride-status';
   static String cancelRideByDriver(String rideId) =>
       '/ride/cancel-ride-by-driver?rideId=$rideId';
+  static String completeRideByDriver( String rideId ) => '/ride/complete-ride-by-driver?rideId=$rideId';
 }

@@ -20,7 +20,7 @@ class GoogleSearchLocationController extends GetxController {
   final pickupPlaces = <PlaceSuggestion>[].obs;
   final dropPlaces = <PlaceSuggestion>[].obs;
 
-  // ✅ Explicit visibility flags
+  // Explicit visibility flags
   RxBool showPickupSuggestions = false.obs;
   RxBool showDropSuggestions = false.obs;
 
@@ -61,7 +61,7 @@ class GoogleSearchLocationController extends GetxController {
     _setupListeners();
   }
 
-  // ✅ Named listeners so they can be removed/added
+  // Named listeners so they can be removed/added
   void _pickupListener() {
     final hasText = pickupController.text.isNotEmpty;
     if (showClearPickup.value != hasText) showClearPickup.value = hasText;
@@ -100,7 +100,7 @@ class GoogleSearchLocationController extends GetxController {
   Future<void> _searchPickup(String query) async {
     if (query.isEmpty) {
       pickupPlaces.clear();
-      showPickupSuggestions.value = false; // ✅
+      showPickupSuggestions.value = false;
       isLoadingPickup.value = false;
       return;
     }
@@ -109,7 +109,7 @@ class GoogleSearchLocationController extends GetxController {
     try {
       final results = await PlacesService.getPlaceSuggestions(query);
       pickupPlaces.value = results;
-      showPickupSuggestions.value = results.isNotEmpty; // ✅
+      showPickupSuggestions.value = results.isNotEmpty;
     } finally {
       isLoadingPickup.value = false;
     }
@@ -118,7 +118,7 @@ class GoogleSearchLocationController extends GetxController {
   Future<void> _searchDrop(String query) async {
     if (query.isEmpty) {
       dropPlaces.clear();
-      showDropSuggestions.value = false; // ✅
+      showDropSuggestions.value = false;
       isLoadingDrop.value = false;
       return;
     }
@@ -127,7 +127,7 @@ class GoogleSearchLocationController extends GetxController {
     try {
       final results = await PlacesService.getPlaceSuggestions(query);
       dropPlaces.value = results;
-      showDropSuggestions.value = results.isNotEmpty; // ✅
+      showDropSuggestions.value = results.isNotEmpty;
     } finally {
       isLoadingDrop.value = false;
     }
@@ -137,11 +137,9 @@ class GoogleSearchLocationController extends GetxController {
     _isSelectingPickup = true;
     _pickupTimer?.cancel();
 
-    // ✅ Hide suggestions immediately
     pickupPlaces.clear();
     showPickupSuggestions.value = false;
 
-    // ✅ Remove listener before setting text
     pickupController.removeListener(_pickupListener);
     pickupController.text = place.description;
     pickupController.addListener(_pickupListener);
@@ -157,11 +155,9 @@ class GoogleSearchLocationController extends GetxController {
     _isSelectingDrop = true;
     _dropTimer?.cancel();
 
-    // ✅ Hide suggestions immediately
     dropPlaces.clear();
     showDropSuggestions.value = false;
 
-    // ✅ Remove listener before setting text
     dropController.removeListener(_dropListener);
     dropController.text = place.description;
     dropController.addListener(_dropListener);
@@ -179,7 +175,7 @@ class GoogleSearchLocationController extends GetxController {
     pickupController.addListener(_pickupListener);
     showClearPickup.value = false;
     pickupPlaces.clear();
-    showPickupSuggestions.value = false; // ✅
+    showPickupSuggestions.value = false;
     selectedPickup.value = null;
     _clearFare();
   }
@@ -190,7 +186,7 @@ class GoogleSearchLocationController extends GetxController {
     dropController.addListener(_dropListener);
     showClearDrop.value = false;
     dropPlaces.clear();
-    showDropSuggestions.value = false; // ✅
+    showDropSuggestions.value = false;
     selectedDrop.value = null;
     _clearFare();
   }

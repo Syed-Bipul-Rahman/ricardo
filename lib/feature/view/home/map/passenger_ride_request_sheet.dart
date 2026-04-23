@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:ricardo/feature/view/home/link_export_file.dart';
 import 'package:ricardo/widgets/accepted_ride_button.dart';
 import 'package:ricardo/widgets/glass_background_multiple_children_widget.dart';
@@ -111,7 +110,7 @@ class PassengerRideRequestSheet extends StatelessWidget {
           children: [
             Row(
               children: [
-                SvgPicture.asset('assets/images/direct_right.svg'),
+                SvgPicture.asset(Assets.images.directRight),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Column(
@@ -149,7 +148,7 @@ class PassengerRideRequestSheet extends StatelessWidget {
             ),
             Row(
               children: [
-                SvgPicture.asset('assets/images/location.svg'),
+                SvgPicture.asset(Assets.images.location),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Column(
@@ -200,7 +199,7 @@ class PassengerRideRequestSheet extends StatelessWidget {
 
         // ── Accept Button ───────────────────────
         Obx((){
-          if (mapOPTController.isRideAcceptStatus.value){
+          if (mapOPTController.isRideAcceptStatusLoading.value){
             return Center(
               child: CircularProgressIndicator(
                 color: AppColors.primaryColor,

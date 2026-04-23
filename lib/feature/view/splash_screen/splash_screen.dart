@@ -58,36 +58,37 @@ class _SplashScreenState extends State<SplashScreen>
       final accessToken = await PrefsHelper.getString(AppConstants.bearerToken);
       final fcmToken = await PrefsHelper.getString(AppConstants.bearerToken);
 
-      if( accessToken.isEmpty  || fcmToken.isEmpty ){
+      if (accessToken.isEmpty || fcmToken.isEmpty) {
         await Get.offAll(
-              () => const OnBoardScreen(),
+          () => const OnBoardScreen(),
           transition: Transition.fade,
           duration: _transitionDuration,
           curve: Curves.easeInOut,
         );
       }
-      if( accessToken.isNotEmpty && fcmToken.isNotEmpty ){
+      if (accessToken.isNotEmpty && fcmToken.isNotEmpty) {
         final UserController userController = Get.find<UserController>();
         await userController.fetchUser();
         final UserModel? user = userController.userModel.value;
 
-        if( user == null ){
+        if (user == null) {
           Get.offAllNamed(AppRoutes.signInScreen);
           return;
         }
 
-        if( user.userProfile?.isProfileCompleted == false){
+        if (user.userProfile?.isProfileCompleted == false) {
           Get.offAllNamed(AppRoutes.driverProfileCreateScreen);
           return;
         }
 
-        if( user.userProfile?.role == 'driver' && ( user.driverProfile?.licenseUploaded == false || user.driverProfile?.vehicleDataUploaded == false ) ){
+        if (user.userProfile?.role == 'driver' &&
+            (user.driverProfile?.licenseUploaded == false ||
+                user.driverProfile?.vehicleDataUploaded == false)) {
           Get.offAllNamed(AppRoutes.uploadRequirementScreen);
           return;
         }
         Get.offAllNamed(AppRoutes.customBottomNavBar);
       }
-
     } catch (e) {
       debugPrint('Splash navigation error: $e');
     }
