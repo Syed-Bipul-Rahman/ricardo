@@ -8,11 +8,10 @@ class RateAndReviewController extends GetxController{
   RxDouble driverRating = 0.0.obs;
   
   RxBool isRattingLoading = false.obs;
-  Future<void> rateAndReviewDriverHandler( String rideId, String driverId) async {
-
+  Future<bool> rateAndReviewDriverHandler( String rideId, String driverId) async {
+    RxBool result = false.obs;
     print('====================== $rideId');
     print('====================== $driverId');
-
 
     try{
       isRattingLoading.value = true;
@@ -26,9 +25,9 @@ class RateAndReviewController extends GetxController{
       },
       );
       if( response.statusCode == 200 || response.statusCode == 201 ){
-
+        result.value = true;
       }else{
-
+        result.value = false;
       }
     }catch(e){
       debugPrint(e.toString());
@@ -36,6 +35,7 @@ class RateAndReviewController extends GetxController{
     }finally{
       isRattingLoading.value = false;
     }
+    return result.value;
   }
 
 }

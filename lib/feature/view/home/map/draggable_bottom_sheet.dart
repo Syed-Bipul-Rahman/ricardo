@@ -345,15 +345,16 @@ class _DraggableBottomSheetState extends State<DraggableBottomSheet> {
                                     child: CustomPrimaryButton(
                                       title: 'Tips',
                                       onHandler: () {
-                                        Get.toNamed(
-                                          AppRoutes.rateReviewDriver,
-                                          arguments: {
-                                            'name': widget.rideStatus?.driver?.name,
-                                            'driverId': widget
-                                                .rideStatus?.driverCar?.driverId,
-                                            'rideId': widget.rideStatus?.ride?.id,
-                                          },
-                                        );
+
+                                        // Get.toNamed(
+                                        //   AppRoutes.rateReviewDriver,
+                                        //   arguments: {
+                                        //     'name': widget.rideStatus?.driver?.name,
+                                        //     'driverId': widget
+                                        //         .rideStatus?.driverCar?.driverId,
+                                        //     'rideId': widget.rideStatus?.ride?.id,
+                                        //   },
+                                        // );
                                       },
                                     ),
                                   )
@@ -361,17 +362,22 @@ class _DraggableBottomSheetState extends State<DraggableBottomSheet> {
                               ),
                               SizedBox(height: 16.h,),
                               CustomPrimaryButton(
-                                title: 'Provide a review',
+                                title: 'Back to Home',
                                 onHandler: () {
-                                  Get.toNamed(
-                                    AppRoutes.rateReviewDriver,
-                                    arguments: {
-                                      'name': widget.rideStatus?.driver?.name,
-                                      'driverId': widget
-                                          .rideStatus?.driverCar?.driverId,
-                                      'rideId': widget.rideStatus?.ride?.id,
-                                    },
-                                  );
+
+                                  final cnt = Get.find<CustomBottomNavBarController>();
+                                  cnt.selectedIndex.value = 0;
+
+                                  Get.offAllNamed(AppRoutes.homeScreen);
+                                  // Get.toNamed(
+                                  //   AppRoutes.rateReviewDriver,
+                                  //   arguments: {
+                                  //     'name': widget.rideStatus?.driver?.name,
+                                  //     'driverId': widget
+                                  //         .rideStatus?.driverCar?.driverId,
+                                  //     'rideId': widget.rideStatus?.ride?.id,
+                                  //   },
+                                  // );
                                 },
                               )
                             ],

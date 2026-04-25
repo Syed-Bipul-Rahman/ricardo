@@ -86,53 +86,6 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
   }
 
   // ─────────────────────────────────────────────────────────
-  // SOCKET RECONNECTION
-  // ─────────────────────────────────────────────────────────
-  // Future<void> _setupSocketReconnection() async {
-  //   // ✅ Remove before re-adding to prevent duplicates
-  //   SocketServices.socket?.off('ride-status');
-  //
-  //   SocketServices.socket?.on('ride-status', (data) {
-  //     try {
-  //       Map<String, dynamic> jsonData;
-  //       if (data is List) {
-  //         jsonData = Map<String, dynamic>.from(data[0]);
-  //       } else if (data is String) {
-  //         jsonData = jsonDecode(data);
-  //       } else if (data is Map) {
-  //         jsonData = Map<String, dynamic>.from(data);
-  //       } else {
-  //         return;
-  //       }
-  //
-  //       final RideModel.RideStatusModel rideStatus =
-  //       RideModel.RideStatusModel.fromJson(jsonData);
-  //
-  //       mapOPTController.rideStatusData.value = rideStatus;
-  //       if (rideStatus.acceptRide == true) {
-  //         mapOPTController.isCurrentMarkerShowOrNot.value = true;
-  //       } else if (rideStatus.ongoingRide == true) {
-  //         _loadAcceptedRideRoute();
-  //       } else if (rideStatus.arrivingRide == true) {
-  //         markers.clear();
-  //         _polylines.clear();
-  //       } else if (rideStatus.startRide == true) {
-  //         _pickupToDestinationRoute();
-  //       }
-  //       else if (rideStatus.completeRide == true) {
-  //         SocketServices.socket?.off('ride-status');
-  //       } else if (rideStatus.driverCancel == true ||
-  //           rideStatus.passengerCancel == true) {
-  //         SocketServices.socket?.off('ride-status');
-  //       }
-  //     } catch (e, stackTrace) {
-  //       debugPrint('ride-status ERROR: $e');
-  //       debugPrint('STACK: $stackTrace');
-  //     }
-  //   });
-  // }
-
-  // ─────────────────────────────────────────────────────────
   // CLEAR RIDE STATE (DRY helper)
   // ─────────────────────────────────────────────────────────
   void _clearRideState() {
@@ -1282,8 +1235,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                     rideStatus?.startRide == true ||
                     rideStatus?.arrivingRide == true ||
                     rideStatus?.driverCancel == true ||
-                    rideStatus?.passengerCancel == true ||
-                    rideStatus?.completeRide == true);
+                    rideStatus?.passengerCancel == true);
 
             if (!shouldShow) return const SizedBox.shrink();
 
@@ -1607,8 +1559,8 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                           status?.arrivingRide == true ||
                           status?.driverCancel == true ||
                           status?.passengerCancel == true ||
-                          status?.completeRide == true ||
-                          status?.startRide == true);
+                          status?.startRide == true
+                      );
 
                   if (showActiveRide) {
                     return GlassBackgroundWidget(
@@ -2190,15 +2142,20 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                       ),
                       onPressed: selectedReason == null
                           ? null
-                          : () {
+                          : () async {
                               final rideId = mapOPTController
                                   .rideStatusData.value?.ride?.id;
                               if (rideId == null) {
                                 debugPrint('❌ Ride ID is null');
                                 return;
                               }
-                              mapOPTController
+                             final cnt =  mapOPTController
                                   .cancelRideByDriverHandler(rideId);
+                              if( cnt == true ){
+                                _polylines.clear();
+                                _buildMarkers().clear();
+                                Navigator.pop(context);
+                              }
                             },
                       child: Obx(() {
                         if (mapOPTController.isRideCanceledLoader.value) {
@@ -2214,7 +2171,8 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                           style: TextStyle(
                               color: Colors.white,
                               fontSize: 16,
-                              fontWeight: FontWeight.w600),
+                              fontWeight: FontWeight.w600,
+                          ),
                         );
                       }),
                     ),

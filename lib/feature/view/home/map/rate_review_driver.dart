@@ -168,8 +168,13 @@ class RateReviewDriver extends StatelessWidget {
                 }
                 return CustomPrimaryButton(
                   title: 'Submit Review',
-                  onHandler: () {
-                    controller.rateAndReviewDriverHandler(rideId!, driverId!);
+                  onHandler: () async{
+                    final value = await controller.rateAndReviewDriverHandler(rideId!, driverId!);
+                    if( value == true ){
+                      Get.back();
+                    }else{
+                      Get.snackbar('Error', "Something Went Wrong");
+                    }
                   },
                 );
               },
