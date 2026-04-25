@@ -277,15 +277,17 @@ class MapOPTController extends GetxController {
 
   RxBool isRideCanceledLoader = false.obs;
   final TextEditingController? selectedReason = TextEditingController();
-
-  Future<void> cancelRideByDriverHandler(String rideId) async {
+  RxBool isResult = false.obs;
+  Future<bool> cancelRideByDriverHandler(String rideId) async {
     try {
       isRideCanceledLoader.value = true;
       final response = await ApiClient.postData(
           ApiUrls.cancelRideByDriver(rideId),
           {"cancellationReason": selectedReason?.text});
       if (response.statusCode == 200 || response.statusCode == 201) {
+        isResult.value = true;
       } else {
+        isResult.value = false;
         Get.snackbar('Error', response.body['message']);
       }
     } catch (e) {
@@ -293,6 +295,7 @@ class MapOPTController extends GetxController {
     } finally {
       isRideCanceledLoader.value = false;
     }
+    return isResult.value;
   }
 
   //  Driver Service Function are here
