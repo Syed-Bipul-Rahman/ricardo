@@ -294,9 +294,9 @@ class $AssetsImagesGen {
   String get settingsProfileScreen =>
       'assets/images/settings-profile-screen.svg';
 
-  /// File path: assets/images/splash_background.jpg
+
   AssetGenImage get splashBackground =>
-      const AssetGenImage('assets/images/splash_background.jpg');
+      const AssetGenImage('assets/images/splash_background.png');
 
   /// File path: assets/images/support-car-image.png
   AssetGenImage get supportCarImage =>
