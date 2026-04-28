@@ -88,12 +88,13 @@ class UploadDrivingLicenseScreen extends StatelessWidget {
                 ),
 
                 SizedBox(height: 50.h),
+                _buildSubmitButton(),
+                SizedBox(height: 20.h,)
               ],
             ),
           ),
         ),
       ),
-      bottomNavigationBar: _buildSubmitButton(),
     );
   }
 
@@ -189,18 +190,15 @@ class UploadDrivingLicenseScreen extends StatelessWidget {
   // Build submit button
   Widget _buildSubmitButton() {
     return SafeArea(
-      child: Padding(
-        padding: EdgeInsets.symmetric(vertical: 20.h, horizontal: 24.w),
-        child: Obx(() {
-          final bool isLoading = controller.isUploadDrivingLicenseController.value;
-          final bool isValid = controller.isFormValid.value;
+      child: Obx(() {
+        final bool isLoading = controller.isUploadDrivingLicenseController.value;
+        final bool isValid = controller.isFormValid.value;
 
-          return CustomPrimaryButton(
-            title: isLoading ? 'Uploading...' : 'Submit',
-            onHandler: isValid && !isLoading ? _onSubmit : null,
-          );
-        }),
-      ),
+        return CustomPrimaryButton(
+          title: isLoading ? 'Uploading...' : 'Submit',
+          onHandler: isValid && !isLoading ? _onSubmit : null,
+        );
+      }),
     );
   }
 

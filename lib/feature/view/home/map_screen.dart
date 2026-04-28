@@ -80,7 +80,6 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
           (rideStatus.acceptRide == true ||
               rideStatus.ongoingRide == true ||
               rideStatus.arrivingRide == true)) {
-        // ✅ Called once here only — never inside Obx/build
       }
     }
   }
