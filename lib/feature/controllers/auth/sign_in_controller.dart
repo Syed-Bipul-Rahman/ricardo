@@ -46,7 +46,9 @@ class SignInController extends GetxController {
       final accessToken = response.body['data']['accessToken'];
       final fcmToken = await FirebaseNotificationService.getFCMToken();
       await PrefsHelper.setString(AppConstants.bearerToken, accessToken);
-      await PrefsHelper.setString(AppConstants.fcmToken, fcmToken);
+      if (fcmToken != null) {
+        await PrefsHelper.setString(AppConstants.fcmToken, fcmToken);
+      }
 
       socketConnect();
 

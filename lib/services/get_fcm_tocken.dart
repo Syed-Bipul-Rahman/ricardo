@@ -108,10 +108,11 @@ class FirebaseNotificationService {
   /// **Retrieve FCM Token**
   static Future<String?> getFCMToken() async {
     // Request notification permissions first
-    final settings = await _firebaseMessaging.getNotificationSettings();
+    NotificationSettings settings =
+        await _firebaseMessaging.getNotificationSettings();
 
     if (settings.authorizationStatus == AuthorizationStatus.notDetermined) {
-      await _firebaseMessaging.requestPermission(
+      settings = await _firebaseMessaging.requestPermission(
           alert: true, badge: true, sound: true);
     }
 
