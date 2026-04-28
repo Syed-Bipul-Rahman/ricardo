@@ -56,7 +56,8 @@ class DriverProfileCreateScreen extends GetView<DriverProfileController> {
                       Center(
                         child: Stack(
                           children: [
-                            GetBuilder<DriverProfileController>(builder: (cnt) {
+                            Obx(() {
+                              final cnt = Get.find<DriverProfileController>();
                               return cnt.selectedImage.value != null
                                   ? ClipRRect(
                                 borderRadius: BorderRadius.circular(100),

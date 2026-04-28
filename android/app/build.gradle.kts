@@ -29,13 +29,14 @@ android {
         targetCompatibility = JavaVersion.VERSION_1_8
         isCoreLibraryDesugaringEnabled = true
     }
+    //com.gogodriver.gogodriver
 
     kotlinOptions {
         jvmTarget = "1.8"
     }
 
     defaultConfig {
-        applicationId = "com.example.ricardo"
+        applicationId = "com.gogodriver.gogodriver"
         minSdk = flutter.minSdkVersion
         targetSdk = 34
         versionCode = flutterVersionCode.toInt()

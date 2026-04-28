@@ -23,7 +23,7 @@ class DriverProfileController extends GetxController {
   RxInt wordCount = 0.obs;
   RxString selectedGender = 'Male'.obs;
   Rx<PhoneNumber?> phoneNumber = Rx<PhoneNumber?>(null);
-  Rx<XFile?> selectedImage = Rx<XFile?>(null);
+  final Rx<XFile?> selectedImage = Rx<XFile?>(null);
   RxBool canSubmit = false.obs;
   RxBool isCreateUserProfileStatus = false.obs;
 
