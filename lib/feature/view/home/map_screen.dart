@@ -947,15 +947,17 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                                 height: 60,
                                 width: 60,
                                 errorBuilder: (context, error, stackTrace) =>
-                                    Image.asset('assets/images/driver.png',
+                                    // SvgPicture(Assets.images.driver.toString())
+                                    Image.asset('assets/images/default_image.jpg',
                                         height: 60,
                                         width: 60,
-                                        fit: BoxFit.cover),
+                                        fit: BoxFit.cover,
+                                    ),
                               ),
                             )
                           : CircleAvatar(
                               radius: 30,
-                              child: Image.asset('assets/images/driver.png',
+                              child: Image.asset('assets/images/default_image.jpg',
                                   height: 60, width: 60, fit: BoxFit.cover),
                             ),
                       const SizedBox(width: 12),
@@ -1073,12 +1075,13 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                                 height: 92,
                                 fit: BoxFit.cover,
                                 errorBuilder: (context, error, stackTrace) =>
-                                    Image.asset('assets/images/driver.png',
-                                        width: 92,
-                                        height: 92,
-                                        fit: BoxFit.cover),
+                                    Image.asset('assets/images/default_image.jpg',
+                                      height: 92,
+                                      width: 92,
+                                      fit: BoxFit.cover,
+                                    ),
                               )
-                            : Image.asset('assets/images/driver.png',
+                            : Image.asset('assets/images/default_image.jpg',
                                 width: 92, height: 92, fit: BoxFit.cover),
                       ),
                     ],

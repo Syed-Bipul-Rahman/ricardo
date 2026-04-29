@@ -1,4 +1,5 @@
 import 'package:flutter/cupertino.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:get/get.dart';
 import 'package:ricardo/feature/controllers/custom_bottom_nav_bar_controller.dart';
 import 'package:ricardo/feature/controllers/user_controller.dart';
@@ -9,9 +10,11 @@ import 'package:ricardo/services/api_client.dart';
 import 'package:ricardo/services/api_urls.dart';
 
 class WithdrawRequestController extends GetxController {
+  final controller    = Get.find<RecentHistoryController>();
   RxBool isWithdrawRequestStatus = false.obs;
 
   final TextEditingController amountTEController = TextEditingController();
+  final Rx<String?> selectedButtonText = dotenv.env['WITHDRAW_DAY'].obs;
 
   /// Selected card
   Rx<PaymentCardInfoModel?> selectedCard =
@@ -19,6 +22,7 @@ class WithdrawRequestController extends GetxController {
 
   /// Form validation
   RxBool isFormValid = false.obs;
+  RxBool isFormValidAmount = true.obs;
 
   @override
   void onInit() {
@@ -31,12 +35,16 @@ class WithdrawRequestController extends GetxController {
     _validateForm();
   }
 
+  void selectDay( String dayName ){
+    selectedButtonText.value = dayName;
+  }
+
   void _validateForm() {
     final amountText = amountTEController.text.trim();
     final amount = int.tryParse(amountText) ?? 0;
-
+    isFormValidAmount.value = controller.userWallet > amount;
     isFormValid.value =
-        amount > 0 && selectedCard.value != null;
+        amount > 0 && selectedCard.value != null && isFormValidAmount.value;
   }
 
   Future<void> withdrawRequestHandler() async {
