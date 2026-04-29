@@ -134,7 +134,9 @@ class MapScreenController extends GetxController with WidgetsBindingObserver {
   Future<void> _initSocket() async {
     final accessToken = await PrefsHelper.getString(AppConstants.bearerToken);
     final fcmToken = await FirebaseNotificationService.getFCMToken();
-    await PrefsHelper.setString(AppConstants.fcmToken, fcmToken);
+    if (fcmToken != null) {
+      await PrefsHelper.setString(AppConstants.fcmToken, fcmToken);
+    }
 
     // SocketServices.init() is idempotent – safe to call here.
     // await SocketServices().init();

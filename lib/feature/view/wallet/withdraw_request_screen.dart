@@ -11,6 +11,7 @@ import 'package:ricardo/feature/controllers/custom_bottom_nav_bar_controller.dar
 import 'package:ricardo/feature/controllers/wallet/payment_method_controller.dart';
 import 'package:ricardo/feature/controllers/wallet/withdraw_request_controller.dart';
 import 'package:ricardo/feature/simmer/payment_method_skeleton_list.dart';
+import 'package:ricardo/feature/view/home/search_location_screen.dart';
 import 'package:ricardo/gen/assets.gen.dart';
 import 'package:ricardo/routes/app_routes.dart';
 import 'package:ricardo/widgets/custom_primary_button.dart';
@@ -68,6 +69,37 @@ class _WithdrawRequestScreenState extends State<WithdrawRequestScreen> {
                     FilteringTextInputFormatter.allow(RegExp(r'[0-9]')),
                   ],
                   keyboardType: TextInputType.number,
+                ),
+              ),
+              SizedBox(height: 25.h,),
+              Row(
+                children: [
+                  CustomPrimaryButton(
+                    title: 'Withdraw',
+                    // isDisable: !withdrawController.isFormValid.value,
+                    onHandler: () {},
+                  ),
+                  CustomPrimaryButton(
+                    title: 'Withdraw',
+                    // isDisable: !withdrawController.isFormValid.value,
+                    onHandler: () {},
+                  ),
+                ],
+              ),
+              SizedBox(height: 15.h,),
+              Container(
+                padding: EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                    color: Color(0xff1bb6000d),
+                    borderRadius: BorderRadius.all(Radius.circular(10))),
+                child: Text(
+                  "Our payment cycle runs every Friday, and this option is completely free of charge.If you need your funds earlier, you can choose Emergency Withdrawal. A 10% service fee will be applied for faster processing.",
+                  style: TextStyle(
+                    color: Color(0xff787878),
+                    fontSize: 10,
+                    fontWeight: FontWeight.w400,
+                    fontFamily: FontFamily.poppins,
+                  ),
                 ),
               ),
               SizedBox(height: 18.h),

@@ -45,6 +45,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
   bool _isLoading = true;
   bool _hasLocation = false;
   String _errorMessage = '';
+  LatLng? _currentPosition;
 
   static const LatLng _defaultLocation = LatLng(37.7749, -122.4194);
 
@@ -465,8 +466,8 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
   Set<Marker> _buildMarkers() {
     final Set<Marker> result = {};
 
-    final currentLat = mapOPTController.currentLatitudePosition?.value ?? 0.0;
-    final currentLng = mapOPTController.currentLongitudePosition?.value ?? 0.0;
+    final currentLat = _currentPosition?.latitude ?? 0.0;
+    final currentLng = _currentPosition?.longitude ?? 0.0;
     final rideStatus = mapOPTController.rideStatusData.value;
 
     if (currentLat != 0.0 && currentLng != 0.0) {
@@ -569,25 +570,28 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
       _errorMessage = '';
     });
 
-    bool hasPermission = await _requestLocationPermission();
-    if (!hasPermission) {
+    try {
+      bool hasPermission = await _requestLocationPermission();
+      if (!hasPermission) {
+        if (!mounted) return;
+        setState(() {
+          _errorMessage = 'Location permission is required to use this app';
+        });
+        return;
+      }
+
+      await _getCurrentLocation();
+      await connectSocket();
+      await userController.fetchUser();
+      await _loadAcceptedRideRoute();
+    } catch (e) {
+      debugPrint('_initializeMap error: $e');
+    } finally {
       if (!mounted) return;
       setState(() {
         _isLoading = false;
-        _errorMessage = 'Location permission is required to use this app';
       });
-      return;
     }
-
-    await _getCurrentLocation();
-    await connectSocket();
-    await userController.fetchUser();
-    await _loadAcceptedRideRoute();
-
-    if (!mounted) return;
-    setState(() {
-      _isLoading = false;
-    });
   }
 
   // ─────────────────────────────────────────────────────────
@@ -681,6 +685,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
       if (!mounted) return;
       setState(() {
         _hasLocation = true;
+        _currentPosition = LatLng(position.latitude, position.longitude);
       });
 
       _startLocationTracking();
@@ -701,6 +706,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
       setState(() {
         _errorMessage = 'Could not get your location. Using default location.';
         _hasLocation = true;
+        _currentPosition ??= _defaultLocation;
       });
     }
   }
@@ -709,8 +715,14 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
   // CONNECT SOCKET
   // ─────────────────────────────────────────────────────────
   Future<void> connectSocket() async {
-    String? fcmToken = await FirebaseNotificationService.getFCMToken();
-    await PrefsHelper.setString(AppConstants.fcmToken, fcmToken);
+    try {
+      final String? fcmToken = await FirebaseNotificationService.getFCMToken();
+      if (fcmToken != null) {
+        await PrefsHelper.setString(AppConstants.fcmToken, fcmToken);
+      }
+    } catch (e) {
+      debugPrint('connectSocket FCM token error: $e');
+    }
 
     // New ride request
     SocketServices.socket?.on('new-ride-request', (data) {
@@ -852,6 +864,12 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
 
         mapOPTController.currentLatitudePosition?.value = position.latitude;
         mapOPTController.currentLongitudePosition?.value = position.longitude;
+
+        if (mounted) {
+          setState(() {
+            _currentPosition = newLocation;
+          });
+        }
 
         SocketServices.socket?.emit('update-user-location', {
           "accessToken": token,
@@ -1160,46 +1178,36 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
               ),
             )
           else if (_hasLocation)
-            Obx(
-              () => GoogleMap(
-                mapToolbarEnabled: false,
-                scrollGesturesEnabled: true,
-                rotateGesturesEnabled: true,
-                trafficEnabled: false,
-                zoomGesturesEnabled: true,
-                mapType: MapType.normal,
-                initialCameraPosition: CameraPosition(
-                  target: LatLng(
-                    mapOPTController.currentLatitudePosition?.value ??
-                        _defaultLocation.latitude,
-                    mapOPTController.currentLongitudePosition?.value ??
-                        _defaultLocation.longitude,
-                  ),
-                  zoom: currentZoom,
-                ),
-                markers: _buildMarkers(),
-                polylines: _polylines,
-                onMapCreated: (controller) {
-                  _mapController = controller;
-                },
-                myLocationEnabled: false,
-                myLocationButtonEnabled: false,
-                zoomControlsEnabled: false,
-                compassEnabled: false,
-                circles: {
-                  Circle(
-                    circleId: const CircleId('currentDriver'),
-                    center: LatLng(
-                      mapOPTController.currentLatitudePosition?.value ?? 0.0,
-                      mapOPTController.currentLongitudePosition?.value ?? 0.0,
-                    ),
-                    radius: 30,
-                    strokeColor: Colors.white,
-                    strokeWidth: 2,
-                    fillColor: const Color(0xFF006491).withOpacity(0.2),
-                  ),
-                },
+            GoogleMap(
+              mapToolbarEnabled: false,
+              scrollGesturesEnabled: true,
+              rotateGesturesEnabled: true,
+              trafficEnabled: false,
+              zoomGesturesEnabled: true,
+              mapType: MapType.normal,
+              initialCameraPosition: CameraPosition(
+                target: _currentPosition ?? _defaultLocation,
+                zoom: currentZoom,
               ),
+              markers: _buildMarkers(),
+              polylines: _polylines,
+              onMapCreated: (controller) {
+                _mapController = controller;
+              },
+              myLocationEnabled: false,
+              myLocationButtonEnabled: false,
+              zoomControlsEnabled: false,
+              compassEnabled: false,
+              circles: {
+                Circle(
+                  circleId: const CircleId('currentDriver'),
+                  center: _currentPosition ?? _defaultLocation,
+                  radius: 30,
+                  strokeColor: Colors.white,
+                  strokeWidth: 2,
+                  fillColor: const Color(0xFF006491).withValues(alpha: 0.2),
+                ),
+              },
             )
           else
             Center(
