@@ -202,7 +202,7 @@ class SignUpScreen extends StatelessWidget {
     }
 
     if (!controller.isSelected.value) {
-      showToast('Please accept Terms and Privacy Policy');
+      showToast('Please Terms and Privacy Policy');
       return;
     }
 

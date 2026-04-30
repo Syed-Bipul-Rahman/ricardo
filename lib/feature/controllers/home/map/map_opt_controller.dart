@@ -142,7 +142,7 @@ class MapOPTController extends GetxController {
       Rx<RideStatusModel?>(null); // ride-status socket data
 
   //***************************************************
-// *** Socket Accept Ride Driver Model  Response ****
+// *** Socket  Driver Model  Response ****
 // ***************************************************
   RxBool acceptedRideDriverDataStatus = false.obs;
   Rx<AcceptRideDriverModel?> acceptedRideDriverData =

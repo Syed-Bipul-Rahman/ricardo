@@ -106,18 +106,27 @@ class _WithdrawRequestScreenState extends State<WithdrawRequestScreen> {
                         },
                         style: ElevatedButton.styleFrom(
                           backgroundColor:
-                              withdrawController.selectedButtonText.value ==
-                                      dotenv.env['WITHDRAW_DAY']
-                                  ? Colors.red
-                                  : Colors.grey.shade300,
-                          foregroundColor:  withdrawController.selectedButtonText.value ==
+                          withdrawController.selectedButtonText.value ==
                               dotenv.env['WITHDRAW_DAY']
-                              ? Colors.white
-                              : Colors.black,
+                              ? Colors.grey.shade800
+                              : Colors.grey.shade300,
+                          foregroundColor:
+                          withdrawController.selectedButtonText.value ==
+                              dotenv.env['WITHDRAW_DAY']
+                              ? AppColors.whiteColor
+                              : AppColors.blackColor,
+
                           elevation: 0,
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(30),
+                              borderRadius: BorderRadius.circular(30),
+                              side: BorderSide(
+                                  color: withdrawController.selectedButtonText.value ==
+                                      dotenv.env['WITHDRAW_DAY']
+                                      ? Colors.green.shade300
+                                      : Colors.grey.shade300,
+                                  width: 2
+                              )
                           ),
                         ),
                         child: Text(
@@ -144,7 +153,7 @@ class _WithdrawRequestScreenState extends State<WithdrawRequestScreen> {
                           backgroundColor:
                               withdrawController.selectedButtonText.value !=
                                       dotenv.env['WITHDRAW_DAY']
-                                  ? Colors.red
+                                  ? Colors.grey.shade800
                                   : Colors.grey.shade300,
                           foregroundColor:
                               withdrawController.selectedButtonText.value !=
@@ -155,6 +164,13 @@ class _WithdrawRequestScreenState extends State<WithdrawRequestScreen> {
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(30),
+                            side: BorderSide(
+                              color: withdrawController.selectedButtonText.value !=
+                                  dotenv.env['WITHDRAW_DAY']
+                                  ? Colors.green.shade300
+                                  : Colors.grey.shade300,
+                              width: 2
+                            )
                           ),
                         ),
                         child: Text(
@@ -188,7 +204,7 @@ class _WithdrawRequestScreenState extends State<WithdrawRequestScreen> {
                   "Our payment cycle runs every Friday, and this option is completely free of charge.If you need your funds earlier, you can choose Emergency Withdrawal. A 10% service fee will be applied for faster processing.",
                   style: TextStyle(
                     fontSize: 10.sp,
-                    color: Color(0xff787878),
+                    color: AppColors.errorColor.withOpacity(0.8),
                     fontWeight: FontWeight.w400,
                   ),
                   textAlign: TextAlign.center,

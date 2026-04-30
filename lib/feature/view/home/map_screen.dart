@@ -831,8 +831,8 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
         }
         print('come there==========================');
         // SocketServices.socket?.emit('get-driver-location', {'rideId': rideStatus.ride!.id!});
-        DriverLocationService().stop();
-        DriverLocationService().startEmitting(rideStatus.ride!.id!);
+        // DriverLocationService().stop();
+        // DriverLocationService().startEmitting(rideStatus.ride!.id!);
 
         await mapOPTController.driverServiceFun();
       } catch (e, stackTrace) {
@@ -854,23 +854,28 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
 
     String? token = await PrefsHelper.getString(AppConstants.bearerToken);
 
-    _locationTimer = Timer.periodic(const Duration(seconds: 3), (timer) async {
+    // Use location stream with distance filter instead of timer
+    Geolocator.getPositionStream(
+      locationSettings: const LocationSettings(
+        accuracy: LocationAccuracy.high,
+        distanceFilter: 15, // ✅ 15 meters threshold (instead of 3 seconds)
+      ),
+    ).listen((Position position) async {
       try {
-        Position position = await Geolocator.getCurrentPosition(
-          desiredAccuracy: LocationAccuracy.high,
-        );
-
         LatLng newLocation = LatLng(position.latitude, position.longitude);
 
-        mapOPTController.currentLatitudePosition?.value = position.latitude;
-        mapOPTController.currentLongitudePosition?.value = position.longitude;
-
+        // Update current position
         if (mounted) {
           setState(() {
             _currentPosition = newLocation;
           });
         }
 
+        // Update controller values
+        mapOPTController.currentLatitudePosition?.value = position.latitude;
+        mapOPTController.currentLongitudePosition?.value = position.longitude;
+
+        // Emit socket event
         SocketServices.socket?.emit('update-user-location', {
           "accessToken": token,
           "location": {
@@ -879,14 +884,18 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
           }
         });
 
+        // Check ride status and update polyline
         final rideStatus = mapOPTController.rideStatusData.value;
         if (rideStatus != null &&
             (rideStatus.acceptRide == true ||
                 rideStatus.ongoingRide == true ||
-                rideStatus.arrivingRide == true || rideStatus.startRide == true || rideStatus.completeRide == true ) ) {
+                rideStatus.arrivingRide == true ||
+                rideStatus.startRide == true ||
+                rideStatus.completeRide == true)) {
           _updatePolylineForDriverPosition(newLocation);
         }
 
+        // Animate camera
         if (_mapController != null && mounted) {
           _mapController?.animateCamera(
             CameraUpdate.newCameraPosition(
@@ -897,15 +906,17 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
       } catch (error) {
         debugPrint('Location error: $error');
       }
+    }, onError: (error) {
+      debugPrint('Location stream error: $error');
+      _isTracking = false;
     });
   }
 
+// Don't forget to dispose the subscription
   void _stopLocationTracking() {
-    _locationTimer?.cancel();
+    _locationTimer?.cancel(); // If you still have timer reference
     _isTracking = false;
-    positionStream?.cancel();
   }
-
   // ─────────────────────────────────────────────────────────
   // DRIVER DIALOG
   // ─────────────────────────────────────────────────────────
