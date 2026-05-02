@@ -197,7 +197,7 @@ class PassengerRideRequestSheet extends StatelessWidget {
         )),
         const SizedBox(height: 18),
 
-        // ── Accept Button ───────────────────────
+        // ── Button ───────────────────────
         Obx((){
           if (mapOPTController.isRideAcceptStatusLoading.value){
             return Center(

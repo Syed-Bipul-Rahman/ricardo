@@ -59,7 +59,7 @@ class AcceptRideButton extends StatelessWidget {
                 ),
                 const Center(
                   child: Text(
-                    'Accept Ride',
+                    '',
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 18,

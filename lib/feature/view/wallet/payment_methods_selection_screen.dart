@@ -204,7 +204,8 @@ class _PaymentMethodsSelectionScreenState
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Padding(padding: EdgeInsets.only(top: 32.h)),
-                    SvgPicture.asset(Assets.images.glassmorphismLogo),
+                    // SvgPicture.asset(Assets.images.settingDeleteIcon,width: 300,height: 200,),
+                    Icon(Icons.delete, color: AppColors.errorColor,size: 120,fontWeight: FontWeight.w700,weight: 700,),
                     SizedBox(
                       height: 30.h,
                     ),
@@ -243,7 +244,9 @@ class _PaymentMethodsSelectionScreenState
                           width: 5.w,
                         ),
                         Obx(() {
-                          return Expanded(
+                          return controller.isCardDelete.value ? CircularProgressIndicator(
+                            color: AppColors.errorColor,
+                          ) : Expanded(
                             child: ElevatedButton(
                               onPressed: controller.isCardDelete.value
                                   ? null // Disable button while loading
@@ -264,7 +267,7 @@ class _PaymentMethodsSelectionScreenState
                                   color: AppColors.errorColor,
                                 ),
                               ),
-                              child: Text(controller.isCardDelete.value ? 'Deleting...' : 'Delete')
+                              child: Text('Delete')
                             ),
                           );
                         }),
