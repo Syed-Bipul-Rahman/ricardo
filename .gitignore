@@ -57,3 +57,4 @@ app.*.map.json
 env
 android/local.properties.dart
 lib/services/direction_services.dart
+android/app/google-services.json
