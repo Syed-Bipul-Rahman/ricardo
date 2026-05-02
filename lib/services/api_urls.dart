@@ -91,4 +91,5 @@ class ApiUrls {
   static String cancelRideByDriver(String rideId) =>
       '/ride/cancel-ride-by-driver?rideId=$rideId';
   static String completeRideByDriver( String rideId ) => '/ride/complete-ride-by-driver?rideId=$rideId';
+  static const String reportRideByPassenger = '/report';
 }

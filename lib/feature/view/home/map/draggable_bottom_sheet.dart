@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:ricardo/feature/models/home/ride_status_model.dart';
 import 'package:ricardo/feature/view/home/link_export_file.dart';
+import 'package:ricardo/widgets/widgets.dart';
 
 class DraggableBottomSheet extends StatefulWidget {
   final RideStatusModel? rideStatus;
@@ -190,6 +191,60 @@ class _DraggableBottomSheetState extends State<DraggableBottomSheet> {
                                 ),
                               );
                             }),
+                            Obx(() {
+                              final complete =
+                                  controller.rideStatusData.value?.startRide ==
+                                          true &&
+                                      (controller
+                                                  .getRideDriverLocation
+                                                  .value
+                                                  ?.driverToDestination
+                                                  ?.distance
+                                                  ?.value ??
+                                              double.infinity) <
+                                          150;
+
+                              if (!complete) return const SizedBox();
+
+                              return ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.whiteColor,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadiusGeometry.all(Radius.circular(30.r))
+                                  ),
+                                  padding: EdgeInsets.symmetric(
+                                    vertical: 20.h,
+                                    horizontal: 12.h,
+                                  ),
+                                ),
+                                onPressed: () {
+                                  Get.toNamed(AppRoutes.reportScreen,arguments: {'rideId' :  controller.rideStatusData.value?.ride?.id});
+                                },
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                        child: Icon(
+                                      Icons.add_alert_sharp,
+                                      color: AppColors.errorColor,
+                                      fontWeight: FontWeight.w700,
+                                    )),
+                                    SizedBox(
+                                      width: 10.w,
+                                    ),
+                                    Expanded(
+                                      child: Text(
+                                        'Report',
+                                        style: TextStyle(
+                                            fontSize: 16.sp,
+                                            fontWeight: FontWeight.w600,
+                                            fontFamily: FontFamily.poppins,
+                                            color: AppColors.errorColor),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }),
                           ],
                         ),
                       ],
@@ -256,8 +311,7 @@ class _DraggableBottomSheetState extends State<DraggableBottomSheet> {
                                 child: Container(
                                   decoration: BoxDecoration(
                                     color: AppColors.whiteColor,
-                                    borderRadius:
-                                    BorderRadius.circular(50),
+                                    borderRadius: BorderRadius.circular(50),
                                     border: Border.all(
                                         color: AppColors.greyColor200),
                                   ),
@@ -331,42 +385,39 @@ class _DraggableBottomSheetState extends State<DraggableBottomSheet> {
                                         Get.toNamed(
                                           AppRoutes.rateReviewDriver,
                                           arguments: {
-                                            'name': widget.rideStatus?.driver?.name,
-                                            'driverId': widget
-                                                .rideStatus?.driverCar?.driverId,
-                                            'rideId': widget.rideStatus?.ride?.id,
+                                            'name':
+                                                widget.rideStatus?.driver?.name,
+                                            'driverId': widget.rideStatus
+                                                ?.driverCar?.driverId,
+                                            'rideId':
+                                                widget.rideStatus?.ride?.id,
                                           },
                                         );
                                       },
                                     ),
                                   ),
-                                  SizedBox(width: 8.w,),
+                                  SizedBox(
+                                    width: 8.w,
+                                  ),
                                   Flexible(
                                     child: CustomPrimaryButton(
                                       title: 'Tips',
                                       onHandler: () {
-
-                                        // Get.toNamed(
-                                        //   AppRoutes.rateReviewDriver,
-                                        //   arguments: {
-                                        //     'name': widget.rideStatus?.driver?.name,
-                                        //     'driverId': widget
-                                        //         .rideStatus?.driverCar?.driverId,
-                                        //     'rideId': widget.rideStatus?.ride?.id,
-                                        //   },
-                                        // );
+                                        _buildTipsShowDialog(context);
                                       },
                                     ),
                                   )
                                 ],
                               ),
-                              SizedBox(height: 16.h,),
+                              SizedBox(
+                                height: 16.h,
+                              ),
                               CustomPrimaryButton(
                                 title: 'Back to Home',
                                 onHandler: () {
-
-                                  final cnt = Get.find<CustomBottomNavBarController>();
-                                  cnt.selectedIndex.value = 0;
+                                  final backToHomeController =
+                                      Get.find<CustomBottomNavBarController>();
+                                  backToHomeController.selectedIndex.value = 0;
 
                                   Get.offAllNamed(AppRoutes.homeScreen);
                                   // Get.toNamed(
@@ -393,5 +444,90 @@ class _DraggableBottomSheetState extends State<DraggableBottomSheet> {
         },
       );
     });
+  }
+
+  Future<dynamic> _buildTipsShowDialog(BuildContext context) {
+    return showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12.r),
+          ),
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 20.h),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Close Button
+                Align(
+                  alignment: Alignment.topRight,
+                  child: GestureDetector(
+                    onTap: () => Navigator.of(context).pop(),
+                    child: Icon(
+                      Icons.close,
+                      size: 22.sp,
+                      color: Colors.black,
+                    ),
+                  ),
+                ),
+                SizedBox(height: 8.h),
+                // Title Text
+                CustomText(
+                  text: 'Tips',
+                  fontSize: 16.sp,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black,
+                  maxline: 2,
+                ),
+                SizedBox(height: 12.h),
+                CustomText(
+                  text: 'Enjoyed your ride?',
+                  fontSize: 16.sp,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black,
+                  maxline: 2,
+                ),
+                SizedBox(height: 24.h),
+                // Buttons
+                Column(
+                  children: [
+                    Text('Enter Amount'),
+                    SizedBox(height: 8.h),
+                    CustomTextField(
+                      controller: controller.provideTips,
+                      labelText: 'Enter Amount',
+                      hintText: 'Enter Amount',
+                    ),
+                    SizedBox(height: 26.h),
+                    Center(
+                      child: Text(
+                        'Tips will go completely to driver',
+                        style: TextStyle(
+                          fontSize: 12.sp,
+                          fontWeight: FontWeight.w500,
+                          fontFamily: FontFamily.poppins,
+                          color: AppColors.secondaryTextColor,
+                        ),
+                      ),
+                    ),
+                    CustomButton(
+                      onPressed: () async {
+                        final val = await controller.provideTipsHandler(
+                            controller.rideStatusData.value?.ride?.id ?? '');
+                        if (val == true) {
+                          Navigator.of(context).pop();
+                        }
+                      },
+                      child: Text('Submit'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 }

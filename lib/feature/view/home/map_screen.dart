@@ -1,12 +1,12 @@
 import 'dart:convert';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:ricardo/app/helpers/custom_location_helper.dart';
 import 'package:ricardo/feature/models/home/ride_status_model.dart'
     as RideModel;
 import 'package:ricardo/feature/models/socket/accept_ride_driver_model.dart';
 import 'package:ricardo/feature/models/socket/accept_ride_model.dart';
 import 'package:ricardo/feature/models/socket/get_ride_driver_location.dart';
-import 'package:ricardo/feature/view/home/map/driver_location_service.dart';
 import 'package:ricardo/feature/view/home/map/location_disable_banner_widget.dart';
 import 'package:ricardo/widgets/custom_loader.dart';
 import 'link_export_file.dart';
@@ -61,13 +61,39 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
     // ✅ Everything deferred to post-frame so no layout-during-layout crash
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await _initializeMap();
-      await loadStatus();
+      // await loadStatus();
       // _setupSocketReconnection();
     });
 
     // ever(rideController.isRideAccepted, (bool accepted) {
     //   if (accepted == true) _loadRoute();
     // });
+  }
+
+  Future<void> _startLiveLocation() async {
+    await CustomLocationHelper.getCurrentLocation();
+
+    final token = await PrefsHelper.getString(AppConstants.bearerToken);
+
+    // 1 meter then update location
+    Geolocator.getPositionStream(
+      locationSettings: const LocationSettings(
+        accuracy: LocationAccuracy.high,
+        distanceFilter: 1,
+      ),
+    ).listen((Position position) {
+      final newLocation = LatLng(position.latitude, position.longitude);
+
+      SocketServices.emit('update-user-location', {
+        'accessToken': token,
+        'location': {
+          'type': 'Point',
+          'coordinates': [newLocation.longitude, newLocation.latitude],
+        },
+      });
+    });
+    SocketServices.socket?.on('updated-user-location-data',
+        (data) => debugPrint('📍 update data only $data'));
   }
 
   // ─────────────────────────────────────────────────────────
@@ -80,8 +106,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
       if (rideStatus != null &&
           (rideStatus.acceptRide == true ||
               rideStatus.ongoingRide == true ||
-              rideStatus.arrivingRide == true)) {
-      }
+              rideStatus.arrivingRide == true)) {}
     }
   }
 
@@ -917,6 +942,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
     _locationTimer?.cancel(); // If you still have timer reference
     _isTracking = false;
   }
+
   // ─────────────────────────────────────────────────────────
   // DRIVER DIALOG
   // ─────────────────────────────────────────────────────────
@@ -959,17 +985,21 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                                 width: 60,
                                 errorBuilder: (context, error, stackTrace) =>
                                     // SvgPicture(Assets.images.driver.toString())
-                                    Image.asset('assets/images/default_image.jpg',
-                                        height: 60,
-                                        width: 60,
-                                        fit: BoxFit.cover,
-                                    ),
+                                    Image.asset(
+                                  'assets/images/default_image.jpg',
+                                  height: 60,
+                                  width: 60,
+                                  fit: BoxFit.cover,
+                                ),
                               ),
                             )
                           : CircleAvatar(
                               radius: 30,
-                              child: Image.asset('assets/images/default_image.jpg',
-                                  height: 60, width: 60, fit: BoxFit.cover),
+                              child: Image.asset(
+                                  'assets/images/default_image.jpg',
+                                  height: 60,
+                                  width: 60,
+                                  fit: BoxFit.cover),
                             ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -1086,11 +1116,12 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                                 height: 92,
                                 fit: BoxFit.cover,
                                 errorBuilder: (context, error, stackTrace) =>
-                                    Image.asset('assets/images/default_image.jpg',
-                                      height: 92,
-                                      width: 92,
-                                      fit: BoxFit.cover,
-                                    ),
+                                    Image.asset(
+                                  'assets/images/default_image.jpg',
+                                  height: 92,
+                                  width: 92,
+                                  fit: BoxFit.cover,
+                                ),
                               )
                             : Image.asset('assets/images/default_image.jpg',
                                 width: 92, height: 92, fit: BoxFit.cover),
@@ -1254,9 +1285,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                     rideStatus?.acceptRide == true ||
                     rideStatus?.ongoingRide == true ||
                     rideStatus?.startRide == true ||
-                    rideStatus?.arrivingRide == true ||
-                    rideStatus?.driverCancel == true ||
-                    rideStatus?.passengerCancel == true);
+                    rideStatus?.arrivingRide == true);
 
             if (!shouldShow) return const SizedBox.shrink();
 
@@ -1311,8 +1340,6 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                   rideStatus?.ongoingRide == true ||
                   rideStatus?.startRide == true ||
                   rideStatus?.arrivingRide == true ||
-                  rideStatus?.driverCancel == true ||
-                  rideStatus?.passengerCancel == true ||
                   rideStatus?.completeRide == true) {
                 return CustomHeader(mapOPTController: mapOPTController);
               }
@@ -1351,8 +1378,8 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                       (status?.ongoingRide ?? false) == false &&
                       (status?.startRide ?? false) == false &&
                       (status?.arrivingRide ?? false) == false &&
-                      (status?.driverCancel ?? false) == false &&
-                      (status?.passengerCancel ?? false) == false &&
+                      // (status?.driverCancel ?? false) == false &&
+                      // (status?.passengerCancel ?? false) == false &&
                       (status?.completeRide ?? false) == false) {
                     return AnimatedToggleSwitch();
                   }
@@ -1375,8 +1402,8 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                           status?.acceptRide == true ||
                           status?.ongoingRide == true ||
                           status?.arrivingRide == true ||
-                          status?.driverCancel == true ||
-                          status?.passengerCancel == true ||
+                          // status?.driverCancel == true ||
+                          // status?.passengerCancel == true ||
                           status?.startRide == true ||
                           status?.completeRide == true);
 
@@ -1506,8 +1533,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                       status?.ongoingRide != true &&
                       status?.arrivingRide != true &&
                       status?.startRide != true &&
-                      status?.driverCancel != true &&
-                      status?.passengerCancel != true &&
+                      // status?.driverCancel != true &&
                       status?.completeRide != true;
 
                   if (swippedButton) {
@@ -1541,9 +1567,8 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                       status?.acceptRide != true &&
                       status?.ongoingRide != true &&
                       status?.arrivingRide != true &&
-                      status?.startRide != true &&
-                      status?.driverCancel != true &&
-                      status?.passengerCancel != true &&
+                      // status?.startRide != true &&
+                      // status?.driverCancel != true &&
                       status?.completeRide != true;
 
                   if (showPassengerGif) {
@@ -1564,8 +1589,6 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                       status?.ongoingRide != true &&
                       status?.startRide != true &&
                       status?.arrivingRide != true &&
-                      status?.driverCancel != true &&
-                      status?.passengerCancel != true &&
                       status?.completeRide != true) {
                     return const PassengerRideRequestSheet();
                   }
@@ -1578,10 +1601,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                           status?.acceptRide == true ||
                           status?.ongoingRide == true ||
                           status?.arrivingRide == true ||
-                          status?.driverCancel == true ||
-                          status?.passengerCancel == true ||
-                          status?.startRide == true
-                      );
+                          status?.startRide == true);
 
                   if (showActiveRide) {
                     return GlassBackgroundWidget(
@@ -1679,7 +1699,10 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                                 Visibility(
                                   visible: rideStatus?.acceptRide == true ||
                                       rideStatus?.ongoingRide == true ||
-                                      rideStatus?.arrivingRide == true,
+                                      rideStatus?.arrivingRide == true &&
+                                          (rideStatus?.driverCancel == false ||
+                                              rideStatus?.passengerCancel ==
+                                                  false),
                                   child: GestureDetector(
                                     onTap: () {
                                       mapOPTController
@@ -2170,12 +2193,15 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                                 debugPrint('❌ Ride ID is null');
                                 return;
                               }
-                             final cnt =  mapOPTController
+                              final cnt = mapOPTController
                                   .cancelRideByDriverHandler(rideId);
-                              if( cnt == true ){
-                                _polylines.clear();
-                                _buildMarkers().clear();
-                                Navigator.pop(context);
+                              if (cnt == true) {
+                                setState(() {
+                                  _polylines.clear();
+                                  _buildMarkers().clear();
+                                  // Navigator.pop(context);
+                                });
+                                Navigator.of(context).pop();
                               }
                             },
                       child: Obx(() {
@@ -2190,9 +2216,9 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                         return const Text(
                           'Cancel Ride',
                           style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
                           ),
                         );
                       }),

@@ -48,7 +48,6 @@ class CustomButtonNavBar extends GetView<CustomBottomNavBarController> {
               mapOPTController.rideStatusData.value?.ongoingRide == true ||
               mapOPTController.rideStatusData.value?.arrivingRide == true ||
               mapOPTController.rideStatusData.value?.driverCancel == true ||
-              mapOPTController.rideStatusData.value?.passengerCancel == true ||
               mapOPTController.rideStatusData.value?.startRide == true
           );
 
