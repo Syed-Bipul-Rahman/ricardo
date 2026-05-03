@@ -6,7 +6,6 @@ as RideModel;
 import 'package:ricardo/feature/models/socket/accept_ride_driver_model.dart';
 import 'package:ricardo/feature/models/socket/accept_ride_model.dart';
 import 'package:ricardo/feature/models/socket/get_ride_driver_location.dart';
-import 'package:ricardo/feature/view/home/map/driver_location_service.dart';
 import 'package:ricardo/feature/view/home/map/location_disable_banner_widget.dart';
 import 'package:ricardo/widgets/custom_loader.dart';
 import 'link_export_file.dart';
