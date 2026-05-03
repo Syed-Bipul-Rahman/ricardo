@@ -142,7 +142,7 @@ class MapOPTController extends GetxController {
       Rx<RideStatusModel?>(null); // ride-status socket data
 
   //***************************************************
-// *** Socket Accept Ride Driver Model  Response ****
+// *** Socket  Driver Model  Response ****
 // ***************************************************
   RxBool acceptedRideDriverDataStatus = false.obs;
   Rx<AcceptRideDriverModel?> acceptedRideDriverData =
@@ -177,6 +177,8 @@ class MapOPTController extends GetxController {
   RxBool isTipsSuccess = false.obs;
 
   Future<bool> provideTipsHandler(String rideId) async {
+    if( rideId.isEmpty ) return false;
+
     if (provideTips.text.trim().isEmpty) {
       isTipsSuccess.value = false;
       return false;
@@ -198,6 +200,7 @@ class MapOPTController extends GetxController {
         provideTips.clear();
         return true;
       } else {
+        Get.snackbar('Error', response.body['message'],snackPosition: SnackPosition.BOTTOM);
         provideTips.clear();
         isTipsSuccess.value = false;
         return false;
@@ -368,8 +371,7 @@ class MapOPTController extends GetxController {
   void dispose() {
     provideTips.dispose();
     selectedReason?.dispose();
-    _rideRequestTimer?.cancel(); // ✅ add this
-    DriverLocationService().stop();
+    _rideRequestTimer?.cancel();
     super.dispose();
   }
 }

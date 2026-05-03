@@ -79,6 +79,7 @@ class SearchLocationScreen extends StatelessWidget {
 
   Widget _buildPickupField() {
     return Obx(() => CustomTextField(
+      borderColor: Colors.transparent,
       focusNode: pickupFocus,
       controller: controller.pickupController,
       labelText: 'Pick-up Location',
@@ -111,6 +112,7 @@ class SearchLocationScreen extends StatelessWidget {
 
   Widget _buildDropField() {
     return Obx(() => CustomTextField(
+      borderColor: Colors.transparent,
       focusNode: dropFocus,
       controller: controller.dropController,
       labelText: 'Drop-off Location',
@@ -143,6 +145,7 @@ class SearchLocationScreen extends StatelessWidget {
 
   Widget _buildNoteField() {
     return CustomTextField(
+      borderColor: Colors.transparent,
       controller: controller.noteController,
       labelText: 'Note for Driver (Optional)',
       hintText: 'Any special instructions for driver?',

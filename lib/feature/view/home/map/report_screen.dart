@@ -17,7 +17,9 @@ class ReportScreen extends StatefulWidget {
 }
 
 class _ReportScreenState extends State<ReportScreen> {
-  final TextEditingController txController = TextEditingController();
+  // final TextEditingController txController = TextEditingController();
+  final rideId = Get.arguments['rideId'];
+
   final controller = Get.put(ReportController());
 
   @override
@@ -69,11 +71,10 @@ class _ReportScreenState extends State<ReportScreen> {
             _buildRadioOption(3, 'Trip Issues'),
             _buildRadioOption(4, 'Vehicle Issues'),
             _buildRadioOption(5, 'Other'),
-
             Obx(() {
               if (controller.radioBtnValue.value == 5) {
                 return CustomTextField(
-                  controller: txController,
+                  controller: controller.txController,
                   labelText: 'Write Your Issue',
                   hintText: 'Add Note',
                   minLines: 5,
@@ -81,11 +82,13 @@ class _ReportScreenState extends State<ReportScreen> {
               }
               return const SizedBox.shrink();
             }),
-
             SizedBox(
               height: 110.h,
             ),
-            CustomPrimaryButton(title: 'Submit Report', onHandler: () {}),
+            CustomPrimaryButton(
+              title: 'Submit Report',
+              onHandler: () => _reportButtonHandler(rideId),
+            ),
           ],
         ),
       ),
@@ -100,16 +103,25 @@ class _ReportScreenState extends State<ReportScreen> {
       child: Row(
         children: [
           Obx(() => Radio(
-            value: value,
-            groupValue: controller.radioBtnValue.value,
-            onChanged: (value) {
-              controller.radioBtnValue.value = value!;
-            },
-          )),
+                value: value,
+                groupValue: controller.radioBtnValue.value,
+                onChanged: (value) {
+                  controller.radioBtnValue.value = value!;
+                },
+              )),
           SizedBox(width: 10.0),
           Text(label)
         ],
       ),
     );
+  }
+
+  void _reportButtonHandler(String rideId) async {
+    final value = await controller.reportButtonHandler(rideId);
+    if (value == true) {
+      Get.back();
+    } else {
+      Get.snackbar('Error', 'Something Went Wrong');
+    }
   }
 }
