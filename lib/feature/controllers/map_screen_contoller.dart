@@ -1,3 +1,4 @@
+/*
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -429,4 +430,4 @@ class MapScreenController extends GetxController with WidgetsBindingObserver {
     mapController = controller;
     loadRoute();
   }
-}
+}*/
