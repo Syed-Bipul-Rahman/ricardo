@@ -819,8 +819,8 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
         }
         print('come there==========================');
         // SocketServices.socket?.emit('get-driver-location', {'rideId': rideStatus.ride!.id!});
-        DriverLocationService().stop();
-        DriverLocationService().startEmitting(rideStatus.ride!.id!);
+        // DriverLocationService().stop();
+        // DriverLocationService().startEmitting(rideStatus.ride!.id!);
 
         await mapOPTController.driverServiceFun();
       } catch (e, stackTrace) {
@@ -833,7 +833,9 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
   // ─────────────────────────────────────────────────────────
   // LOCATION TRACKING (every 3 seconds)
   // ─────────────────────────────────────────────────────────
-  Timer? _locationTimer;
+  // Timer? _locationTimer;
+  StreamSubscription<Position>? _positionStream;
+  Position? _lastSentPosition;
   bool _isTracking = false;
 
   void _startLocationTracking() async {
@@ -842,50 +844,71 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
 
     String? token = await PrefsHelper.getString(AppConstants.bearerToken);
 
-    _locationTimer = Timer.periodic(const Duration(seconds: 3), (timer) async {
-      try {
-        Position position = await Geolocator.getCurrentPosition(
-          desiredAccuracy: LocationAccuracy.high,
-        );
+    _positionStream = Geolocator.getPositionStream(
+      locationSettings: const LocationSettings(
+        accuracy: LocationAccuracy.high,
+        distanceFilter: 5, // smooth updates
+      ),
+    ).listen((Position position) async {
+      // First time send immediately
+      if (_lastSentPosition == null) {
+        _lastSentPosition = position;
+        _sendLocation(position, token);
+        return;
+      }
 
-        LatLng newLocation = LatLng(position.latitude, position.longitude);
+      double distance = Geolocator.distanceBetween(
+        _lastSentPosition!.latitude,
+        _lastSentPosition!.longitude,
+        position.latitude,
+        position.longitude,
+      );
 
-        mapOPTController.currentLatitudePosition?.value = position.latitude;
-        mapOPTController.currentLongitudePosition?.value = position.longitude;
-
-        SocketServices.socket?.emit('update-user-location', {
-          "accessToken": token,
-          "location": {
-            "type": "Point",
-            "coordinates": [newLocation.longitude, newLocation.latitude]
-          }
-        });
-
-        final rideStatus = mapOPTController.rideStatusData.value;
-        if (rideStatus != null &&
-            (rideStatus.acceptRide == true ||
-                rideStatus.ongoingRide == true ||
-                rideStatus.arrivingRide == true || rideStatus.startRide == true || rideStatus.completeRide == true ) ) {
-          _updatePolylineForDriverPosition(newLocation);
-        }
-
-        if (_mapController != null && mounted) {
-          _mapController?.animateCamera(
-            CameraUpdate.newCameraPosition(
-              CameraPosition(target: newLocation, zoom: currentZoom),
-            ),
-          );
-        }
-      } catch (error) {
-        debugPrint('Location error: $error');
+      if (distance >= 20) {
+        _lastSentPosition = position;
+        _sendLocation(position, token);
       }
     });
   }
 
+  void _sendLocation(Position position, String? token) {
+    LatLng newLocation = LatLng(position.latitude, position.longitude);
+
+    mapOPTController.currentLatitudePosition?.value = position.latitude;
+    mapOPTController.currentLongitudePosition?.value = position.longitude;
+
+    SocketServices.socket?.emit('update-user-location', {
+      "accessToken": token,
+      "location": {
+        "type": "Point",
+        "coordinates": [newLocation.longitude, newLocation.latitude]
+      }
+    });
+
+    final rideStatus = mapOPTController.rideStatusData.value;
+
+    if (rideStatus != null &&
+        (rideStatus.acceptRide == true ||
+            rideStatus.ongoingRide == true ||
+            rideStatus.arrivingRide == true ||
+            rideStatus.startRide == true ||
+            rideStatus.completeRide == true)) {
+      _updatePolylineForDriverPosition(newLocation);
+    }
+
+    if (_mapController != null && mounted) {
+      _mapController?.animateCamera(
+        CameraUpdate.newCameraPosition(
+          CameraPosition(target: newLocation, zoom: currentZoom),
+        ),
+      );
+    }
+  }
+
   void _stopLocationTracking() {
-    _locationTimer?.cancel();
+    _positionStream?.cancel();
+    _positionStream = null;
     _isTracking = false;
-    positionStream?.cancel();
   }
 
   // ─────────────────────────────────────────────────────────
