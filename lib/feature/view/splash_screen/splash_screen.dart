@@ -68,10 +68,20 @@ class _SplashScreenState extends State<SplashScreen>
       }
       if (accessToken.isNotEmpty && fcmToken.isNotEmpty) {
         final UserController userController = Get.find<UserController>();
-        await userController.fetchUser();
+        // Hydrate from cache first so we have something to route on even if
+        // the network call below fails (offline launch).
+        await userController.loadCachedUser();
+        final int? statusCode = await userController.fetchUser();
         final UserModel? user = userController.userModel.value;
 
         if (user == null) {
+          // No live data and no cached profile.
+          // 1 = network failure marker from ApiClient — never bounce a
+          // logged-in user to the sign-in screen just because they're offline.
+          if (statusCode == 1) {
+            Get.offAllNamed(AppRoutes.customBottomNavBar);
+            return;
+          }
           Get.offAllNamed(AppRoutes.signInScreen);
           return;
         }

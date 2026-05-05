@@ -9,6 +9,7 @@ import 'package:ricardo/feature/controllers/user_controller.dart';
 import 'package:ricardo/routes/app_routes.dart';
 import 'package:ricardo/services/api_client.dart';
 import 'package:ricardo/services/api_urls.dart';
+import 'package:ricardo/app/helpers/snackbar_helper.dart';
 
 class DriverProfileController extends GetxController {
   // Form key for validation
@@ -130,7 +131,7 @@ class DriverProfileController extends GetxController {
     try {
       // Final validation check
       if (!canSubmit.value || !formKey.currentState!.validate()) {
-        Get.snackbar('Error', 'Please fill all required fields correctly');
+        showSnackbar('Error', 'Please fill all required fields correctly');
         return;
       }
 
@@ -144,7 +145,7 @@ class DriverProfileController extends GetxController {
             .parse(textController.text.trim());
         backendDob = DateFormat('yyyy-MM-dd').format(parsedDate);
       } catch (e) {
-        Get.snackbar('Error', 'Invalid date format');
+        showSnackbar('Error', 'Invalid date format');
         isCreateUserProfileStatus.value = false;
         return;
       }
@@ -187,7 +188,7 @@ class DriverProfileController extends GetxController {
   }
 
   void _handleSuccessResponse() async {
-    Get.snackbar('Success', 'Profile created successfully',
+    showSnackbar('Success', 'Profile created successfully',
         snackPosition: SnackPosition.BOTTOM,
         backgroundColor: Colors.green,
         colorText: Colors.white);
@@ -212,7 +213,7 @@ class DriverProfileController extends GetxController {
       errorMessage = response.body['error'];
     }
 
-    Get.snackbar('Error', errorMessage,
+    showSnackbar('Error', errorMessage,
         snackPosition: SnackPosition.BOTTOM,
         backgroundColor: Colors.red,
         colorText: Colors.white);
@@ -220,7 +221,7 @@ class DriverProfileController extends GetxController {
 
   void _handleException(dynamic e) {
     debugPrint('Create Profile Exception: $e');
-    Get.snackbar('Error', 'An unexpected error occurred',
+    showSnackbar('Error', 'An unexpected error occurred',
         snackPosition: SnackPosition.BOTTOM,
         backgroundColor: Colors.red,
         colorText: Colors.white);

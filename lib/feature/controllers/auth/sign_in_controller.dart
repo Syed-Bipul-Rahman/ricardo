@@ -11,6 +11,7 @@ import 'package:ricardo/routes/app_routes.dart';
 import 'package:ricardo/services/api_client.dart';
 import 'package:ricardo/services/api_urls.dart';
 import 'package:ricardo/services/socket_services.dart';
+import 'package:ricardo/app/helpers/snackbar_helper.dart';
 
 class SignInController extends GetxController {
   final TextEditingController emailTextEditingController =
@@ -58,7 +59,7 @@ class SignInController extends GetxController {
         final user = userController.userModel.value;
 
         if (response.body['data']!['user']['role'].toString() == 'super_admin') {
-          Get.snackbar('Error', 'You are not Eligible for login!');
+          showSnackbar('Error', 'You are not Eligible for login!');
           passwordTextEditingController.clear();
           emailTextEditingController.clear();
           PrefsHelper.remove('accessToken');
@@ -110,7 +111,7 @@ class SignInController extends GetxController {
       final message = response.body is Map
           ? (response.body['message'] ?? response.statusText ?? 'An error occurred')
           : (response.statusText ?? 'An error occurred');
-      Get.snackbar('Error', message);
+      showSnackbar('Error', message);
     }
 
     isLoginStatus.value = false;
@@ -125,6 +126,10 @@ class SignInController extends GetxController {
       PrefsHelper.remove(AppConstants.bearerToken);
       PrefsHelper.remove(AppConstants.fcmToken);
 
+      // Wipe the cached user so a different account can't inherit the previous
+      // session's profile on next launch.
+      await Get.find<UserController>().clearCachedUser();
+
       final recentCnt = Get.find<RecentHistoryController>();
       recentCnt.recentHistoryList.value = [];
 
@@ -133,7 +138,7 @@ class SignInController extends GetxController {
 
       Get.offAllNamed(AppRoutes.signInScreen);
     } else {
-      Get.snackbar('Error', response.body['data']['message']);
+      showSnackbar('Error', response.body['data']['message']);
     }
   }
 

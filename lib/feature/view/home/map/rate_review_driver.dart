@@ -9,6 +9,7 @@ import 'package:ricardo/widgets/custom_primary_button.dart';
 import 'package:ricardo/widgets/custom_scaffold.dart';
 import 'package:ricardo/widgets/custom_text_field.dart';
 import 'package:ricardo/widgets/glass_background_widget.dart';
+import 'package:ricardo/app/helpers/snackbar_helper.dart';
 
 class RateReviewDriver extends StatelessWidget {
   RateReviewDriver({super.key});
@@ -73,7 +74,7 @@ class RateReviewDriver extends StatelessWidget {
                     ? null
                     : () async {
                         if (driverId == null) {
-                          Get.snackbar("Error", "Driver ID not found");
+                          showSnackbar("Error", "Driver ID not found");
                           return;
                         }
 
@@ -173,7 +174,7 @@ class RateReviewDriver extends StatelessWidget {
                     if( value == true ){
                       Get.back();
                     }else{
-                      Get.snackbar('Error', "Something Went Wrong");
+                      showSnackbar('Error', "Something Went Wrong");
                     }
                   },
                 );

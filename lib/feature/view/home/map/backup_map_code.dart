@@ -326,7 +326,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
 
       final points = await DirectionsService.getPolyline(origin, dest);
       if (points.isEmpty) {
-        Get.snackbar('Error', 'Could not load route. Check your API key.');
+        showSnackbar('Error', 'Could not load route. Check your API key.');
         return;
       }
 
@@ -1160,6 +1160,7 @@ import 'package:ricardo/widgets/no_internet_message_map.dart';
 import 'package:ricardo/widgets/request_ride_handler.dart';
 import '../../models/socket/ride_details_socket_model.dart';
 import 'link_export_file.dart';
+import 'package:ricardo/app/helpers/snackbar_helper.dart';
 
 // ╔══════════════════════════════════════════════╗
 // ║           MARKER STATE ENUM                  ║

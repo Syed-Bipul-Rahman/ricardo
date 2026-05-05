@@ -9,6 +9,7 @@ import 'package:ricardo/routes/app_routes.dart';
 import 'package:ricardo/services/api_client.dart';
 import 'package:ricardo/services/api_urls.dart';
 import 'package:ricardo/services/map_service.dart';
+import 'package:ricardo/app/helpers/snackbar_helper.dart';
 
 class GoogleSearchLocationController extends GetxController {
   // Text controllers
@@ -211,7 +212,7 @@ class GoogleSearchLocationController extends GetxController {
 
   Future<void> calculateFare() async {
     if (!canCalculateFare) {
-      Get.snackbar('Error', 'Please select both locations');
+      showSnackbar('Error', 'Please select both locations');
       return;
     }
 
@@ -335,7 +336,7 @@ class GoogleSearchLocationController extends GetxController {
         cntTwo.rideId.value = id;
         cntTwo.fetchRiderData(id);
       } else {
-        Get.snackbar('Error', response.body['message']);
+        showSnackbar('Error', response.body['message']);
       }
     } catch (e) {
       debugPrint(e.toString());

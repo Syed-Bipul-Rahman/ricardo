@@ -15,6 +15,7 @@ import 'package:ricardo/widgets/custom_primary_button.dart';
 import 'package:ricardo/widgets/custom_scaffold.dart';
 import 'package:ricardo/widgets/custom_secondary_text.dart';
 import 'package:ricardo/widgets/image_handler.dart';
+import 'package:ricardo/app/helpers/snackbar_helper.dart';
 
 class DriverProfileCreateScreen extends GetView<DriverProfileController> {
   const DriverProfileCreateScreen({super.key});
@@ -559,7 +560,7 @@ class DriverProfileCreateScreen extends GetView<DriverProfileController> {
         controller.canSubmit.value) {
       controller.createUserProfile();
     } else {
-      Get.snackbar('Error', 'Please fill all fields correctly');
+      showSnackbar('Error', 'Please fill all fields correctly');
     }
   }
 }

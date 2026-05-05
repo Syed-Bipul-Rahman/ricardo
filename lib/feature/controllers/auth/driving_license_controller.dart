@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:ricardo/feature/controllers/user_controller.dart';
 import 'package:ricardo/services/api_client.dart';
 import 'package:ricardo/services/api_urls.dart';
+import 'package:ricardo/app/helpers/snackbar_helper.dart';
 
 class DrivingLicenseController extends GetxController {
   GlobalKey<FormState> formKey = GlobalKey<FormState>();
@@ -21,7 +22,7 @@ class DrivingLicenseController extends GetxController {
     final sizeMB = (await file.length()) / 1048576;
 
     if (sizeMB > maxFileSizeMB) {
-      Get.snackbar('Error', 'File too large! Max $maxFileSizeMB MB',
+      showSnackbar('Error', 'File too large! Max $maxFileSizeMB MB',
           backgroundColor: Colors.red, colorText: Colors.white);
       return;
     }
@@ -31,7 +32,7 @@ class DrivingLicenseController extends GetxController {
     final allowedExtensions = ['jpg', 'jpeg', 'png', 'webp'];
 
     if (!allowedExtensions.contains(extension)) {
-      Get.snackbar(
+      showSnackbar(
         'Invalid Format',
         'Only JPG, PNG, and WEBP images are allowed',
         backgroundColor: Colors.red,
@@ -83,7 +84,7 @@ class DrivingLicenseController extends GetxController {
         await UserController().fetchUser();
         Get.back();
       } else {
-        Get.snackbar('Error', response.body['data']['message']);
+        showSnackbar('Error', response.body['data']['message']);
       }
     } catch (e) {
       debugPrint(e.toString());

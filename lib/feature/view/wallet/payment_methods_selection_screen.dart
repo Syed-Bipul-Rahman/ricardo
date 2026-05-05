@@ -11,6 +11,7 @@ import 'package:ricardo/feature/simmer/payment_method_skeleton_list.dart';
 import 'package:ricardo/gen/assets.gen.dart';
 import 'package:ricardo/routes/app_routes.dart';
 import 'package:ricardo/widgets/custom_scaffold.dart';
+import 'package:ricardo/app/helpers/snackbar_helper.dart';
 
 class PaymentMethodsSelectionScreen extends StatefulWidget {
   const PaymentMethodsSelectionScreen({super.key});
@@ -51,7 +52,7 @@ class _PaymentMethodsSelectionScreenState
                 if (controller.paymentCardInfo.length < 3) {
                   Get.toNamed(AppRoutes.addCardScreen);
                 } else {
-                  Get.snackbar(
+                  showSnackbar(
                     'Limit Reached',
                     'You can only add up to 3 cards',
                     snackPosition: SnackPosition.BOTTOM,

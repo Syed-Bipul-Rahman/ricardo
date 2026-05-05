@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:ricardo/feature/models/wallet/wallet_history_model.dart';
 import 'package:ricardo/services/api_client.dart';
 import 'package:ricardo/services/api_urls.dart';
+import 'package:ricardo/app/helpers/snackbar_helper.dart';
 
 class RecentHistoryController extends GetxController {
   RxBool isWalletLoadingStatus = false.obs;  // first load
@@ -82,7 +83,7 @@ class RecentHistoryController extends GetxController {
         _hasFetchedOnce    = true;
 
       } else {
-        Get.snackbar('Error', response.body['data']['message']);
+        showSnackbar('Error', response.body['data']['message']);
       }
     } catch (e) {
       debugPrint(e.toString());

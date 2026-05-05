@@ -19,6 +19,7 @@ import 'package:ricardo/routes/app_routes.dart';
 import 'package:ricardo/widgets/custom_primary_button.dart';
 import 'package:ricardo/widgets/custom_scaffold.dart';
 import 'package:ricardo/widgets/custom_text_field.dart';
+import 'package:ricardo/app/helpers/snackbar_helper.dart';
 
 class WithdrawRequestScreen extends StatefulWidget {
   const WithdrawRequestScreen({super.key});
@@ -316,7 +317,7 @@ class _WithdrawRequestScreenState extends State<WithdrawRequestScreen> {
                     if (paymentController.paymentCardInfo.length < 3) {
                       Get.toNamed(AppRoutes.addCardScreen);
                     } else {
-                      Get.snackbar(
+                      showSnackbar(
                         'Limit Reached',
                         'You can only add up to 3 cards',
                         snackPosition: SnackPosition.BOTTOM,

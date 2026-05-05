@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:ricardo/feature/controllers/user_controller.dart';
 import 'package:ricardo/services/api_client.dart';
 import 'package:ricardo/services/api_urls.dart';
+import 'package:ricardo/app/helpers/snackbar_helper.dart';
 
 class CarRegistrationController extends GetxController {
   // Form key for validation
@@ -243,7 +244,7 @@ class CarRegistrationController extends GetxController {
 
   // =================== Helper Methods ===================
   void _showErrorSnackbar(String message) {
-    Get.snackbar(
+    showSnackbar(
       'Error',
       message,
       backgroundColor: Colors.red,

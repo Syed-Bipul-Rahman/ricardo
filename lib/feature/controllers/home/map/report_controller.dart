@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:get/get.dart';
 import 'package:ricardo/feature/view/home/link_export_file.dart';
 import 'package:ricardo/services/api_client.dart';
+import 'package:ricardo/app/helpers/snackbar_helper.dart';
 
 class ReportController extends GetxController{
   final TextEditingController txController = TextEditingController();
@@ -23,7 +24,7 @@ class ReportController extends GetxController{
       if( response.statusCode == 200 || response.statusCode == 201 ){
         result.value = true;
       }else{
-        Get.snackbar('Error', response.body['message']);
+        showSnackbar('Error', response.body['message']);
         result.value = false;
       }
     }catch(e){

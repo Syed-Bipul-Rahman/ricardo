@@ -7,6 +7,7 @@ import 'package:ricardo/feature/view/wallet/wallet_screen.dart';
 import 'package:ricardo/routes/app_routes.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:ricardo/app/utils/app_colors.dart';
+import 'package:ricardo/app/helpers/snackbar_helper.dart';
 
 class PaymentWebViewScreen extends StatefulWidget {
   final String paymentUrl;
@@ -57,7 +58,7 @@ class _PaymentWebViewScreenState extends State<PaymentWebViewScreen> {
           },
           onWebResourceError: (WebResourceError error) {
             print('Web resource error: ${error.description}');
-            Get.snackbar(
+            showSnackbar(
               'Error',
               'Failed to load payment page',
               backgroundColor: Colors.red,
@@ -107,7 +108,7 @@ class _PaymentWebViewScreenState extends State<PaymentWebViewScreen> {
 
   void _handlePaymentCancel() {
     Get.back(result: {'success': false});
-    Get.snackbar(
+    showSnackbar(
       'Cancelled',
       'Payment was cancelled',
       backgroundColor: Colors.orange,

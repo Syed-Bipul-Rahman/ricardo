@@ -20,6 +20,7 @@ import '../../services/location_permission_service.dart';
 import 'home/google_search_location_controller.dart';
 import 'home/map/map_opt_controller.dart';
 import 'home/map/ride_controller.dart';
+import 'package:ricardo/app/helpers/snackbar_helper.dart';
 
 /// Drop-in GetX controller for [MapScreen].
 ///
@@ -278,7 +279,7 @@ class MapScreenController extends GetxController with WidgetsBindingObserver {
       final points = await DirectionsService.getPolyline(origin, dest);
 
       if (points.isEmpty) {
-        Get.snackbar('Error', 'Could not load route. Please check your API key.');
+        showSnackbar('Error', 'Could not load route. Please check your API key.');
         return;
       }
 

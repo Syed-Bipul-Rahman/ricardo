@@ -16,6 +16,7 @@ class AppConstants{
   static const String fcmToken = "fcmToken";
   static const String driver = "driver";
   static const String passenger = "passenger";
+  static const String userModelCache = "userModelCache";
 
 
   static RegExp emailValidate = RegExp(

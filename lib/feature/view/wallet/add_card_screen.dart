@@ -8,6 +8,7 @@ import 'package:ricardo/gen/assets.gen.dart';
 import 'package:ricardo/widgets/custom_primary_button.dart';
 import 'package:ricardo/widgets/custom_scaffold.dart';
 import 'package:ricardo/widgets/custom_text_field.dart';
+import 'package:ricardo/app/helpers/snackbar_helper.dart';
 
 class AddCardScreen extends StatefulWidget {
   const AddCardScreen({super.key});
@@ -124,7 +125,7 @@ class _AddCardScreenState extends State<AddCardScreen> {
     if (controller.formKey.currentState!.validate()) {
       controller.addCardHandler();
     } else {
-      Get.snackbar(
+      showSnackbar(
         'Validation Error',
         'Please fill all required fields correctly',
         backgroundColor: Colors.red,

@@ -10,6 +10,7 @@ import 'package:ricardo/feature/models/socket/get_ride_driver_location.dart';
 import 'package:ricardo/feature/view/home/link_export_file.dart';
 import 'package:ricardo/feature/view/home/map/driver_location_service.dart';
 import 'package:ricardo/services/api_client.dart';
+import 'package:ricardo/app/helpers/snackbar_helper.dart';
 
 class MapOPTController extends GetxController {
   // Controller are here
@@ -134,7 +135,7 @@ class MapOPTController extends GetxController {
       // Revert on failure.
       user?.driverProfile?.isOnline = previousIsOnline;
       userController.userModel.refresh();
-      Get.snackbar('Error', response.body?['message'] ?? 'Failed to update status');
+      showSnackbar('Error', response.body?['message'] ?? 'Failed to update status');
     }
   }
 
@@ -175,7 +176,7 @@ class MapOPTController extends GetxController {
       isRideAcceptStatusLoading.value = false;
     } else {
       isRideAcceptStatusLoading.value = false;
-      Get.snackbar('Error', response.body['message']);
+      showSnackbar('Error', response.body['message']);
     }
   }
 
@@ -209,7 +210,7 @@ class MapOPTController extends GetxController {
         provideTips.clear();
         return true;
       } else {
-        Get.snackbar('Error', response.body['message'],snackPosition: SnackPosition.BOTTOM);
+        showSnackbar('Error', response.body['message'],snackPosition: SnackPosition.BOTTOM);
         provideTips.clear();
         isTipsSuccess.value = false;
         return false;
@@ -243,7 +244,7 @@ class MapOPTController extends GetxController {
         return true;
       } else if (response.statusCode == 400 &&
           response.body['message'] == 'Driver already added to favorites') {
-        Get.snackbar("Info", "Already added to favorites");
+        showSnackbar("Info", "Already added to favorites");
         addedFavourite.value = false;
         return true;
       } else {
@@ -252,12 +253,12 @@ class MapOPTController extends GetxController {
             ? response.body['message'] ?? 'Something went wrong'
             : 'Something went wrong';
 
-        Get.snackbar('Error', message);
+        showSnackbar('Error', message);
         return false;
       }
     } catch (e) {
       addedFavourite.value = false;
-      Get.snackbar('Error', e.toString());
+      showSnackbar('Error', e.toString());
       debugPrint(e.toString());
       return false; // ✅ FIXED
     } finally {
@@ -278,7 +279,7 @@ class MapOPTController extends GetxController {
         print('===================>>>>>>>>>>>>>> Maruf ${response.body}');
         print('asdjfklajsdflkjasdl');
       } else {
-        Get.snackbar('error', response.body['message']);
+        showSnackbar('error', response.body['message']);
       }
     } catch (e) {
       debugPrint(e.toString());
@@ -300,7 +301,7 @@ class MapOPTController extends GetxController {
         isResult.value = true;
       } else {
         isResult.value = false;
-        Get.snackbar('Error', response.body['message']);
+        showSnackbar('Error', response.body['message']);
       }
     } catch (e) {
       debugPrint(e.toString());
@@ -367,7 +368,7 @@ class MapOPTController extends GetxController {
       if (response.statusCode == 200 || response.statusCode == 201) {
 
       } else {
-        Get.snackbar('Error', response.body['message']);
+        showSnackbar('Error', response.body['message']);
       }
     } catch (e) {
       isCompleteRideLoading.value = false;

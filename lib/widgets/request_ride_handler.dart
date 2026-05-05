@@ -12,6 +12,7 @@ import 'package:ricardo/gen/assets.gen.dart';
 import 'package:ricardo/gen/fonts.gen.dart';
 import 'package:ricardo/routes/app_routes.dart';
 import 'package:ricardo/widgets/glass_background_multiple_children_widget.dart';
+import 'package:ricardo/app/helpers/snackbar_helper.dart';
 
 class RequestRideHandler extends StatefulWidget {
   const RequestRideHandler({
@@ -75,7 +76,7 @@ class _RequestRideHandlerState extends State<RequestRideHandler> {
         if (Navigator.of(context, rootNavigator: true).canPop()) {
           Navigator.of(context, rootNavigator: true).pop();
         }
-        Get.snackbar(
+        showSnackbar(
           'Request Expired',
           'No driver accepted your request. Please try again.',
           backgroundColor: Colors.redAccent,
@@ -89,7 +90,7 @@ class _RequestRideHandlerState extends State<RequestRideHandler> {
   void _showWaitingDialog(String rideId, String driverId, RideController cnt) {
     // Guard against null driverId (should never happen, but safety first)
     if (driverId.isEmpty) {
-      Get.snackbar('Error', 'Driver information missing. Cannot request ride.');
+      showSnackbar('Error', 'Driver information missing. Cannot request ride.');
       return;
     }
 
@@ -275,7 +276,7 @@ class _RequestRideHandlerState extends State<RequestRideHandler> {
           // Ensure rideId is not empty
           final rideId = widget.cnt.rideId.value;
           if (rideId.isEmpty) {
-            Get.snackbar('Error', 'Ride ID missing. Please try again.');
+            showSnackbar('Error', 'Ride ID missing. Please try again.');
             return;
           }
 

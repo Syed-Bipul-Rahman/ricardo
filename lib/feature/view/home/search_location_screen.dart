@@ -15,6 +15,7 @@ import 'package:ricardo/widgets/custom_loader.dart';
 import 'package:ricardo/widgets/custom_primary_button.dart';
 import 'package:ricardo/widgets/custom_scaffold.dart';
 import 'package:ricardo/widgets/custom_text_field.dart';
+import 'package:ricardo/app/helpers/snackbar_helper.dart';
 
 // ✅ Define FontFamily class (or replace with string literal 'Poppins')
 class FontFamily {
@@ -745,7 +746,7 @@ class SearchLocationScreen extends StatelessWidget {
             }
 
             if (!controller.canCalculateFare) {
-              Get.snackbar(
+              showSnackbar(
                 'Missing Information',
                 'Please select both pick-up and drop-off locations',
                 backgroundColor: Colors.orange,

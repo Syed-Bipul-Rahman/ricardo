@@ -8,6 +8,7 @@ import 'package:ricardo/feature/models/wallet/payment_card_info.dart';
 import 'package:ricardo/routes/app_routes.dart';
 import 'package:ricardo/services/api_client.dart';
 import 'package:ricardo/services/api_urls.dart';
+import 'package:ricardo/app/helpers/snackbar_helper.dart';
 
 class WithdrawRequestController extends GetxController {
   final controller    = Get.find<RecentHistoryController>();
@@ -83,7 +84,7 @@ class WithdrawRequestController extends GetxController {
         Get.offAllNamed(AppRoutes.customBottomNavBar);
 
       }else{
-        Get.snackbar('Error', response.body['data']['message'],snackPosition: SnackPosition.BOTTOM);
+        showSnackbar('Error', response.body['data']['message'],snackPosition: SnackPosition.BOTTOM);
       }
     } catch (e) {
       debugPrint(e.toString());
