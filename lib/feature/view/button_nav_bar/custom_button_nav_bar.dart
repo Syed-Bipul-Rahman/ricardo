@@ -83,7 +83,10 @@ class CustomButtonNavBar extends GetView<CustomBottomNavBarController> {
         extendBodyBehindAppBar: true,
         extendBody: true,
         backgroundColor: Colors.transparent,
-        body: _screenList[controller.selectedIndex.value],
+        body: IndexedStack(
+          index: controller.selectedIndex.value,
+          children: _screenList,
+        ),
         floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
         floatingActionButtonAnimator: FloatingActionButtonAnimator.noAnimation,
         floatingActionButton: Visibility(
