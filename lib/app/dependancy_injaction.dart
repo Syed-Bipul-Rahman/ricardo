@@ -29,10 +29,12 @@ import 'package:ricardo/feature/controllers/wallet/payment_method_controller.dar
 import 'package:ricardo/feature/controllers/wallet/recent_history.dart';
 import 'package:ricardo/feature/controllers/wallet/withdraw_request_controller.dart';
 import 'package:ricardo/feature/view/home/link_export_file.dart';
+import 'package:ricardo/services/connectivity_service.dart';
 
 class DependencyInjection implements Bindings {
   @override
   void dependencies() {
+    Get.put(ConnectivityService(), permanent: true);
     Get.put(SocketServices());
     Get.put(LegalController());
     Get.put(CustomBottomNavBarController());

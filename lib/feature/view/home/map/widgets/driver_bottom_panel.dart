@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:ricardo/feature/view/home/link_export_file.dart';
 import 'package:ricardo/feature/view/home/map/widgets/driver_active_ride_panel.dart';
 import 'package:ricardo/feature/view/home/map/widgets/glass_design.dart';
+import 'package:ricardo/services/connectivity_service.dart';
 
 class DriverBottomPanel extends StatelessWidget {
   const DriverBottomPanel({
@@ -19,15 +20,20 @@ class DriverBottomPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final connectivity = Get.find<ConnectivityService>();
     return Obx(() {
       final role = userController.userModel.value?.userProfile?.role;
       final status = mapOPTController.rideStatusData.value;
       final isAcceptedDriver = mapOPTController
               .acceptedRideDriverData.value?.isRideAcceptedDriver ??
           false;
+      final bool isOnline = connectivity.isConnected.value;
 
       // ── Waiting GIF ───────────────────────────────
-      final showPassengerGif = role == AppConstants.driver &&
+      // Only when the device actually has internet — sockets can't deliver
+      // ride requests offline, so showing "Looking for rides..." is misleading.
+      final showPassengerGif = isOnline &&
+          role == AppConstants.driver &&
           mapOPTController.isPassengerRequest.value == false &&
           userController.userModel.value?.driverProfile?.isOnline == true &&
           mapOPTController.acceptedRideDriverDataStatus.value == false &&

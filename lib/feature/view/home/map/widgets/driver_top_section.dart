@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:ricardo/feature/view/home/link_export_file.dart';
+import 'package:ricardo/services/connectivity_service.dart';
 
 class DriverTopSection extends StatelessWidget {
   const DriverTopSection({
@@ -15,6 +16,7 @@ class DriverTopSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final connectivity = Get.find<ConnectivityService>();
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -28,6 +30,10 @@ class DriverTopSection extends StatelessWidget {
         }),
         const SizedBox(height: 20),
         Obx(() {
+          // Hide the online/offline toggle entirely when the device has no
+          // internet — tapping it would just fail.
+          if (!connectivity.isConnected.value) return const SizedBox.shrink();
+
           final role = userController.userModel.value?.userProfile?.role;
           final isDriver = role == AppConstants.driver;
           final isAcceptedDriver = mapOPTController
