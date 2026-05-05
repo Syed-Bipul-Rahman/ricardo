@@ -108,6 +108,13 @@ class MapOPTController extends GetxController {
   RxBool isDriverSwitchAvailabilityStatus = false.obs;
 
   Future<void> driverSwitchAvailabilityStatus() async {
+    final user = userController.userModel.value;
+    final bool previousIsOnline = user?.driverProfile?.isOnline ?? false;
+
+    // Optimistic flip — UI updates instantly, no waiting for the round trip.
+    user?.driverProfile?.isOnline = !previousIsOnline;
+    userController.userModel.refresh();
+
     isDriverSwitchAvailabilityStatus.value = true;
     final response = await ApiClient.patch(
       ApiUrls.driverSwitchAvailabilityStatus,
@@ -121,12 +128,14 @@ class MapOPTController extends GetxController {
         }
       },
     );
-    if (response.statusCode == 200 || response.statusCode == 201) {
-      userController.fetchUser();
-    } else {
-      Get.snackbar('Error', response.body['message']);
-    }
     isDriverSwitchAvailabilityStatus.value = false;
+
+    if (response.statusCode != 200 && response.statusCode != 201) {
+      // Revert on failure.
+      user?.driverProfile?.isOnline = previousIsOnline;
+      userController.userModel.refresh();
+      Get.snackbar('Error', response.body?['message'] ?? 'Failed to update status');
+    }
   }
 
   //***************************************************
