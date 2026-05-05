@@ -38,6 +38,8 @@ extension _Tracking on _MapScreenState {
 
     mapOPTController.currentLatitudePosition?.value = position.latitude;
     mapOPTController.currentLongitudePosition?.value = position.longitude;
+    PrefsHelper.setString('last_lat', position.latitude);
+    PrefsHelper.setString('last_lng', position.longitude);
 
     SocketServices.socket?.emit('update-user-location', {
       "accessToken": token,

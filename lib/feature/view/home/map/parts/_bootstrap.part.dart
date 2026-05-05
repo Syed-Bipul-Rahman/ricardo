@@ -29,8 +29,16 @@ extension _Bootstrap on _MapScreenState {
 
   Future<void> initializeMap() async {
     if (!mounted) return;
+
+    // Seed from last cached lat/lng so the map renders immediately on relaunch
+    // (Google Maps SDK uses its on-disk tile cache for that area). Bootstrap
+    // continues in the background; the camera animates to the fresh fix once
+    // it arrives.
+    final bool hasCached = await _seedFromCachedLocation();
+
+    if (!mounted) return;
     setState(() {
-      _isLoading = true;
+      _isLoading = !hasCached;
       _errorMessage = '';
     });
 
@@ -39,7 +47,9 @@ extension _Bootstrap on _MapScreenState {
       if (!mounted) return;
       setState(() {
         _isLoading = false;
-        _errorMessage = 'Location permission is required to use this app';
+        if (!hasCached) {
+          _errorMessage = 'Location permission is required to use this app';
+        }
       });
       return;
     }
@@ -53,6 +63,23 @@ extension _Bootstrap on _MapScreenState {
     setState(() {
       _isLoading = false;
     });
+  }
+
+  Future<bool> _seedFromCachedLocation() async {
+    final cachedLat =
+        double.tryParse(await PrefsHelper.getString('last_lat'));
+    final cachedLng =
+        double.tryParse(await PrefsHelper.getString('last_lng'));
+    if (cachedLat == null || cachedLng == null) return false;
+
+    mapOPTController.currentLatitudePosition?.value = cachedLat;
+    mapOPTController.currentLongitudePosition?.value = cachedLng;
+    if (mounted) {
+      setState(() {
+        _hasLocation = true;
+      });
+    }
+    return true;
   }
 
   Future<bool> requestLocationPermission() async {
@@ -83,6 +110,8 @@ extension _Bootstrap on _MapScreenState {
     if (!mounted) return;
 
     if (position == null) {
+      // If we already showed the cached map, don't bounce back to error UI.
+      if (_hasLocation) return;
       setState(() {
         _errorMessage = 'Could not get your location. Tap retry.';
         _hasLocation = false;
@@ -92,6 +121,8 @@ extension _Bootstrap on _MapScreenState {
 
     mapOPTController.currentLatitudePosition?.value = position.latitude;
     mapOPTController.currentLongitudePosition?.value = position.longitude;
+    PrefsHelper.setString('last_lat', position.latitude);
+    PrefsHelper.setString('last_lng', position.longitude);
 
     // Resolve human-readable address, but don't gate the map on it.
     unawaited(mapOPTController.getLocation());
