@@ -24,6 +24,8 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
   DeviceUtils.lockDevicePortrait();
+  DeviceUtils.statusBarColor();
+  DeviceUtils.systemNavigationBarColor();
   try {
     await FirebaseNotificationService.printFCMToken();
     await FirebaseNotificationService.initialize();
