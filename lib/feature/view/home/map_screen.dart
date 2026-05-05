@@ -80,28 +80,33 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Scaffold(body: MapLoadingView());
+    }
+
+    if (!_hasLocation) {
+      return Scaffold(
+        body: MapErrorView(
+          errorMessage: _errorMessage,
+          onRetry: initializeMap,
+        ),
+      );
+    }
+
     return Scaffold(
       body: Stack(
         fit: StackFit.expand,
         children: [
-          if (_isLoading)
-            const MapLoadingView()
-          else if (_hasLocation)
-            MapView(
-              mapOPTController: mapOPTController,
-              currentZoom: currentZoom,
-              defaultLocation: _defaultLocation,
-              markersBuilder: buildMarkers,
-              polylines: _polylines,
-              onMapCreated: (controller) {
-                _mapController = controller;
-              },
-            )
-          else
-            MapErrorView(
-              errorMessage: _errorMessage,
-              onRetry: initializeMap,
-            ),
+          MapView(
+            mapOPTController: mapOPTController,
+            currentZoom: currentZoom,
+            defaultLocation: _defaultLocation,
+            markersBuilder: buildMarkers,
+            polylines: _polylines,
+            onMapCreated: (controller) {
+              _mapController = controller;
+            },
+          ),
           ...buildPassengerOverlays(
             userController: userController,
             googleSearchLocationController: googleSearchLocationController,
