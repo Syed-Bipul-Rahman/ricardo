@@ -30,30 +30,40 @@ extension _Markers on _MapScreenState {
     final rideStatus = mapOPTController.rideStatusData.value;
 
     if (currentLat != 0.0 && currentLng != 0.0) {
-      if (rideStatus?.acceptRide == true ||
+      // Rotate the car marker to match GPS heading. Anchor at center + flat
+      // mode so it rotates around its middle and stays aligned with the road
+      // (instead of standing up like a pin) — passenger pin stays unrotated.
+      final double heading = mapOPTController.headingDegrees.value;
+      final bool isPassenger =
+          userController.userModel.value?.userProfile?.role ==
+              AppConstants.passenger;
+      final BitmapDescriptor selfIcon = isPassenger
+          ? (customMarker ?? BitmapDescriptor.defaultMarker)
+          : (customCarMarker ?? BitmapDescriptor.defaultMarker);
+      final bool inActiveRide = rideStatus?.acceptRide == true ||
           rideStatus?.ongoingRide == true ||
           rideStatus?.arrivingRide == true ||
           rideStatus?.startRide == true ||
-          rideStatus?.completeRide == true) {
-        result.add(
-          Marker(
-            markerId: const MarkerId('currentPassenger'),
-            position: LatLng(currentLat, currentLng),
-            icon: customCarMarker ?? BitmapDescriptor.defaultMarker,
-          ),
-        );
-      } else {
-        result.add(
-          Marker(
-            markerId: const MarkerId('currentPassenger'),
-            position: LatLng(currentLat, currentLng),
-            icon: userController.userModel.value?.userProfile?.role ==
-                    AppConstants.passenger
-                ? customMarker ?? BitmapDescriptor.defaultMarker
-                : customCarMarker ?? BitmapDescriptor.defaultMarker,
-          ),
-        );
-      }
+          rideStatus?.completeRide == true;
+      // During an active ride, both roles see the car icon at the driver's
+      // position (preserves prior behavior).
+      final BitmapDescriptor activeIcon =
+          customCarMarker ?? BitmapDescriptor.defaultMarker;
+
+      result.add(
+        Marker(
+          markerId: const MarkerId('currentPassenger'),
+          position: LatLng(currentLat, currentLng),
+          icon: inActiveRide ? activeIcon : selfIcon,
+          // Only rotate the car icon — a passenger pin pointing sideways
+          // would look wrong.
+          rotation: (inActiveRide || !isPassenger) ? heading : 0,
+          anchor: (inActiveRide || !isPassenger)
+              ? const Offset(0.5, 0.5)
+              : const Offset(0.5, 1.0),
+          flat: inActiveRide || !isPassenger,
+        ),
+      );
     }
 
     for (final m in markers) {

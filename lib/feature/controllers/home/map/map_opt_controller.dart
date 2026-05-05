@@ -75,6 +75,10 @@ class MapOPTController extends GetxController {
   RxString currentLocation = 'Fetching location...'.obs;
   RxDouble? currentLatitudePosition = 0.0.obs;
   RxDouble? currentLongitudePosition = 0.0.obs;
+  // Heading in degrees clockwise from North. Used to rotate the car marker so
+  // it points the way the driver is moving. Stays at the last valid value when
+  // the device is stationary (otherwise the icon spins from GPS jitter).
+  RxDouble headingDegrees = 0.0.obs;
 
   Future<void> getLocation() async {
     try {

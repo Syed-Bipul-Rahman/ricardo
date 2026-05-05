@@ -2,6 +2,7 @@ library map_screen;
 
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter_compass/flutter_compass.dart';
 import 'package:ricardo/feature/models/home/ride_status_model.dart'
     as RideModel;
 import 'package:ricardo/feature/models/socket/accept_ride_driver_model.dart';
@@ -63,6 +64,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
   static const LatLng _defaultLocation = LatLng(37.7749, -122.4194);
 
   StreamSubscription<Position>? _positionStream;
+  StreamSubscription<CompassEvent>? _compassStream;
   Position? _lastSentPosition;
   bool _isTracking = false;
 
