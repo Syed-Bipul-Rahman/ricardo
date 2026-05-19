@@ -121,7 +121,11 @@ extension _Sockets on _MapScreenState {
         } else if (rideStatus.arrivingRide == true) {
           markers.clear();
           _polylines.clear();
+          _fullRoutePoints = [];
+          _routeTarget = null;
         } else if (rideStatus.startRide == true) {
+          _fullRoutePoints = [];
+          _routeTarget = null;
           pickupToDestinationRoute();
         } else if (rideStatus.driverCancel == true ||
             rideStatus.passengerCancel == true) {
