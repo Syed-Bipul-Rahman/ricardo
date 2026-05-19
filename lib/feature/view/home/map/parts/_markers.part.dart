@@ -29,14 +29,12 @@ extension _Markers on _MapScreenState {
     final currentLng = mapOPTController.currentLongitudePosition?.value ?? 0.0;
     final rideStatus = mapOPTController.rideStatusData.value;
 
+    final bool isPassenger =
+        userController.userModel.value?.userProfile?.role ==
+            AppConstants.passenger;
+
     if (currentLat != 0.0 && currentLng != 0.0) {
-      // Rotate the car marker to match GPS heading. Anchor at center + flat
-      // mode so it rotates around its middle and stays aligned with the road
-      // (instead of standing up like a pin) — passenger pin stays unrotated.
       final double heading = mapOPTController.headingDegrees.value;
-      final bool isPassenger =
-          userController.userModel.value?.userProfile?.role ==
-              AppConstants.passenger;
       final BitmapDescriptor selfIcon = isPassenger
           ? (customMarker ?? BitmapDescriptor.defaultMarker)
           : (customCarMarker ?? BitmapDescriptor.defaultMarker);
@@ -45,8 +43,6 @@ extension _Markers on _MapScreenState {
           rideStatus?.arrivingRide == true ||
           rideStatus?.startRide == true ||
           rideStatus?.completeRide == true;
-      // During an active ride, both roles see the car icon at the driver's
-      // position (preserves prior behavior).
       final BitmapDescriptor activeIcon =
           customCarMarker ?? BitmapDescriptor.defaultMarker;
 
@@ -54,16 +50,31 @@ extension _Markers on _MapScreenState {
         Marker(
           markerId: const MarkerId('currentPassenger'),
           position: LatLng(currentLat, currentLng),
-          icon: inActiveRide ? activeIcon : selfIcon,
-          // Only rotate the car icon — a passenger pin pointing sideways
-          // would look wrong.
-          rotation: (inActiveRide || !isPassenger) ? heading : 0,
-          anchor: (inActiveRide || !isPassenger)
+          // Passenger always shows their own pin at their position.
+          // Driver shows the car icon (rotated to heading).
+          icon: isPassenger ? selfIcon : (inActiveRide ? activeIcon : selfIcon),
+          rotation: !isPassenger ? heading : 0,
+          anchor: !isPassenger
               ? const Offset(0.5, 0.5)
               : const Offset(0.5, 1.0),
-          flat: inActiveRide || !isPassenger,
+          flat: !isPassenger,
         ),
       );
+    }
+
+    // For passengers: show driver's real-time position from socket data.
+    if (isPassenger) {
+      final driverCoords = mapOPTController
+          .getRideDriverLocation.value?.driverLocation?.coordinates;
+      if (driverCoords != null && driverCoords.length >= 2) {
+        result.add(Marker(
+          markerId: const MarkerId('live_driver'),
+          position: LatLng(driverCoords[1], driverCoords[0]),
+          icon: customCarMarker ?? BitmapDescriptor.defaultMarker,
+          anchor: const Offset(0.5, 0.5),
+          flat: true,
+        ));
+      }
     }
 
     for (final m in markers) {

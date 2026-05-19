@@ -70,8 +70,13 @@ extension _Tracking on _MapScreenState {
     });
 
     final rideStatus = mapOPTController.rideStatusData.value;
+    final bool isDriver = userController.userModel.value?.userProfile?.role ==
+        AppConstants.driver;
 
-    if (rideStatus != null &&
+    // Only the driver updates the polyline from their own GPS position.
+    // The passenger's polyline is updated via the get-ride-driver-location socket.
+    if (isDriver &&
+        rideStatus != null &&
         (rideStatus.acceptRide == true ||
             rideStatus.ongoingRide == true ||
             rideStatus.arrivingRide == true ||

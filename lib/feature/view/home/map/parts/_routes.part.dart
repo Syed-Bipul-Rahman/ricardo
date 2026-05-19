@@ -7,13 +7,25 @@ extension _Routes on _MapScreenState {
       final acceptedRide = mapOPTController.rideStatusData.value;
       if (acceptedRide == null) return;
 
-      final Position currentPosition = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-      );
-      final LatLng driverLocation = LatLng(
-        currentPosition.latitude,
-        currentPosition.longitude,
-      );
+      final bool isPassenger =
+          userController.userModel.value?.userProfile?.role ==
+              AppConstants.passenger;
+
+      LatLng driverLocation;
+      if (isPassenger) {
+        final coords = mapOPTController
+            .getRideDriverLocation.value?.driverLocation?.coordinates;
+        if (coords == null || coords.length < 2) return;
+        driverLocation = LatLng(coords[1], coords[0]);
+      } else {
+        final Position currentPosition = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high,
+        );
+        driverLocation = LatLng(
+          currentPosition.latitude,
+          currentPosition.longitude,
+        );
+      }
 
       final pickupCoords = acceptedRide.ride?.pickupLocation?.coordinates;
       if (pickupCoords == null || pickupCoords.length < 2) return;
@@ -89,13 +101,25 @@ extension _Routes on _MapScreenState {
       final acceptedRide = mapOPTController.rideStatusData.value;
       if (acceptedRide == null) return;
 
-      final Position currentPosition = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-      );
-      final LatLng driverLocation = LatLng(
-        currentPosition.latitude,
-        currentPosition.longitude,
-      );
+      final bool isPassenger =
+          userController.userModel.value?.userProfile?.role ==
+              AppConstants.passenger;
+
+      LatLng driverLocation;
+      if (isPassenger) {
+        final coords = mapOPTController
+            .getRideDriverLocation.value?.driverLocation?.coordinates;
+        if (coords == null || coords.length < 2) return;
+        driverLocation = LatLng(coords[1], coords[0]);
+      } else {
+        final Position currentPosition = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high,
+        );
+        driverLocation = LatLng(
+          currentPosition.latitude,
+          currentPosition.longitude,
+        );
+      }
 
       final destinationCoords =
           acceptedRide.ride?.destinationLocation?.coordinates;
