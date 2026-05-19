@@ -4,9 +4,10 @@ import 'package:http/http.dart' as http;
 import 'package:ricardo/feature/models/home/place_suggestion.dart';
 
 class PlacesService {
-  static final String apiKey = dotenv.env['MAP_API_KEY'] ?? 'AIzaSyAX3YRL9gQ9gCkV5CsTDqUXaWTf6BVFfyA';
+  static final String apiKey = 'AIzaSyAX3YRL9gQ9gCkV5CsTDqUXaWTf6BVFfyA';
 
-  static Future<List<PlaceSuggestion>> getPlaceSuggestions(String input, {
+  static Future<List<PlaceSuggestion>> getPlaceSuggestions(
+    String input, {
     String countryCode = 'us',
   }) async {
     if (input.isEmpty) return [];
@@ -28,21 +29,19 @@ class PlacesService {
     return [];
   }
 
-  static Future<PlaceDetails?> getPlaceDetails(String placeId) async{
+  static Future<PlaceDetails?> getPlaceDetails(String placeId) async {
     final url = Uri.parse(
-        'https://maps.googleapis.com/maps/api/place/details/json?place_id=$placeId&key=$apiKey'
-    );
+        'https://maps.googleapis.com/maps/api/place/details/json?place_id=$placeId&key=$apiKey');
 
-    try{
+    try {
       final response = await http.get(url);
-      if( response.statusCode == 200 || response.statusCode == 201 ){
+      if (response.statusCode == 200 || response.statusCode == 201) {
         final json = jsonDecode(response.body);
         return PlaceDetails.fromJson(json['result']);
       }
-    }catch(e){
+    } catch (e) {
       print(e.toString());
     }
     return null;
   }
-
 }

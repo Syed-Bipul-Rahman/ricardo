@@ -249,13 +249,13 @@ class DriverActiveRidePanel extends StatelessWidget {
               final bool enableArriveInPlace =
                   (rideStatus?.ongoingRide == true) &&
                       (locationData?.driverToPickup?.distance?.value ??
-                              200) <
-                          150;
+                              double.maxFinite.toInt()) <=
+                          200;
 
               final bool enableComplete = (rideStatus?.startRide == true) &&
                   (locationData?.driverToDestination?.distance?.value ??
-                          200) <
-                      150;
+                          double.maxFinite.toInt()) <=
+                      200;
 
               debugPrint(
                   '================>>>>>>>>>>> Location Data ${locationData?.driverToDestination?.distance} ${locationData?.driverToPickup?.distance} ');

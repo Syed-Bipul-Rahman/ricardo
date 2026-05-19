@@ -14,6 +14,7 @@ extension _Bootstrap on _MapScreenState {
   }
 
   void clearRideState() {
+    DriverLocationService().stop();
     rideController.isRideAccepted.value = false;
     rideController.acceptRideModel.value = null;
     mapOPTController.acceptedRideDriverDataStatus.value = false;

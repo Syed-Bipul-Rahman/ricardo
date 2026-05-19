@@ -7,7 +7,7 @@ class ApiUrls {
   // static const String socketUrl = "https://api.gogodriver.us";
   // static const String serverHealth = "https://api.gogodriver.us/test";
 
-  static const String baseUrl =
+  /*static const String baseUrl =
       "https://api.gogodriver.us/api/v1";
   static const String imageBaseUrl =
       "https://api.gogodriver.us/images/";
@@ -15,6 +15,15 @@ class ApiUrls {
       "https://api.gogodriver.us";
   static const String serverHealth =
       'https://api.gogodriver.us/test';
+  */
+  static const String baseUrl =
+      "https://pix-begin-helen-gba.trycloudflare.com/api/v1";
+  static const String imageBaseUrl =
+      "https://pix-begin-helen-gba.trycloudflare.com/images/";
+  static const String socketUrl =
+      "https://pix-begin-helen-gba.trycloudflare.com";
+  static const String serverHealth =
+      'https://pix-begin-helen-gba.trycloudflare.com/test';
 
   // User Registration Related work
   static const String registration = '/user/register';
@@ -90,6 +99,7 @@ class ApiUrls {
   static const String getActiveRide = '/ride/check-ride-status';
   static String cancelRideByDriver(String rideId) =>
       '/ride/cancel-ride-by-driver?rideId=$rideId';
-  static String completeRideByDriver( String rideId ) => '/ride/complete-ride-by-driver?rideId=$rideId';
+  static String completeRideByDriver(String rideId) =>
+      '/ride/complete-ride-by-driver?rideId=$rideId';
   static const String reportRideByPassenger = '/report';
 }

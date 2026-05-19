@@ -43,7 +43,6 @@ class DriverLocationService with WidgetsBindingObserver {
   void stop() {
     _timer?.cancel();
     _timer = null;
-    SocketServices.socket?.off('get-ride-driver-location');
     debugPrint('🛑 Stopped for rideId: $_rideId');
     _rideId = null;
   }

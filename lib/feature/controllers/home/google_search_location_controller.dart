@@ -229,9 +229,8 @@ class GoogleSearchLocationController extends GetxController {
         dropLng: drop.lng,
       );
 
-      if (apiResponse != null) {
+      if (apiResponse != null && _updateFareFromResponse(apiResponse)) {
         showPopUpStatus.value = true;
-        _updateFareFromResponse(apiResponse);
       }
     } finally {
       isLoadingFare.value = false;
@@ -266,13 +265,43 @@ class GoogleSearchLocationController extends GetxController {
     return null;
   }
 
-  void _updateFareFromResponse(Map<String, dynamic> response) {
+  bool _updateFareFromResponse(Map<String, dynamic> response) {
     try {
-      final data = response['rows']?[0]?['elements']?[0];
+      final apiStatus = response['status'];
+      if (apiStatus != 'OK') {
+        final errorMsg = response['error_message'] ?? 'no error_message field';
+        debugPrint('Distance Matrix API error: status=$apiStatus, message=$errorMsg');
+        _clearFare();
+        return false;
+      }
 
-      if (data == null || data['status'] != 'OK') {
+      final rows = response['rows'];
+      if (rows is! List || rows.isEmpty) {
+        debugPrint('No distance matrix rows');
+        _clearFare();
+        return false;
+      }
+
+      final firstRow = rows.first;
+      if (firstRow is! Map<String, dynamic>) {
+        debugPrint('Invalid distance matrix row');
+        _clearFare();
+        return false;
+      }
+
+      final elements = firstRow['elements'];
+      if (elements is! List || elements.isEmpty) {
+        debugPrint('No distance matrix elements');
+        _clearFare();
+        return false;
+      }
+
+      final data = elements.first;
+
+      if (data is! Map<String, dynamic> || data['status'] != 'OK') {
         debugPrint('No valid distance data');
-        return;
+        _clearFare();
+        return false;
       }
 
       distance.value = data['distance']?['text'] ?? '';
@@ -293,9 +322,11 @@ class GoogleSearchLocationController extends GetxController {
       debugPrint('Distance: ${distance.value}');
       debugPrint('Duration: ${duration.value}');
       debugPrint('Fare: \$${fare.value}');
+      return true;
     } catch (e) {
       debugPrint('Error updating fare: $e');
-      fare.value = 0.0;
+      _clearFare();
+      return false;
     }
   }
 

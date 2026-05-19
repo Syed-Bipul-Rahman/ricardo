@@ -325,6 +325,7 @@ class MapOPTController extends GetxController {
 
     if (rideId == null || rideId.isEmpty) {
       debugPrint('❌ rideId is null or empty, skipping socket setup');
+      DriverLocationService().stop();
       return; // ✅ Early return is cleaner than a big if/else
     }
 
@@ -334,6 +335,10 @@ class MapOPTController extends GetxController {
       debugPrint('❌ Socket not connected, skipping listener setup');
       return;
     }
+
+    // Start emitting driver location to backend so it can calculate
+    // driverToPickup / driverToDestination distances and emit them back.
+    DriverLocationService().startEmitting(rideId);
 
     SocketServices.socket?.on('get-ride-driver-location', (data) {
       try {

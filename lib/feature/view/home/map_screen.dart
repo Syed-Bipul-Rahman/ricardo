@@ -10,6 +10,7 @@ import 'package:ricardo/feature/models/socket/accept_ride_model.dart';
 import 'package:ricardo/feature/models/socket/get_ride_driver_location.dart';
 import 'package:ricardo/feature/view/home/map/dialogs/driver_info_dialog.dart';
 import 'package:ricardo/feature/view/home/map/dialogs/permission_dialogs.dart';
+import 'package:ricardo/feature/view/home/map/driver_location_service.dart';
 import 'package:ricardo/feature/view/home/map/helpers/location_bootstrap_helper.dart';
 import 'package:ricardo/feature/view/home/map/widgets/driver_bottom_panel.dart';
 import 'package:ricardo/feature/view/home/map/widgets/driver_top_section.dart';
