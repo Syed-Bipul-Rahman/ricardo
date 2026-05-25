@@ -41,8 +41,8 @@ class MapView extends StatelessWidget {
         markers: markersBuilder(),
         polylines: polylines,
         onMapCreated: onMapCreated,
-        myLocationEnabled: false,
-        myLocationButtonEnabled: false,
+        // myLocationEnabled: true,
+        myLocationButtonEnabled: true,
         zoomControlsEnabled: false,
         compassEnabled: false,
         circles: {

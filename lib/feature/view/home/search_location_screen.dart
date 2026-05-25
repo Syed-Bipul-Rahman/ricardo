@@ -692,6 +692,8 @@ class SearchLocationScreen extends StatelessWidget {
 
   Widget _buildActionButton() {
     return Obx(() {
+      final cnt = Get.find<UserController>();
+
       if (controller.hasFare) {
         return Column(
           children: [
@@ -722,7 +724,9 @@ class SearchLocationScreen extends StatelessWidget {
           ],
         );
       } else {
-        return CustomPrimaryButton(
+
+        if ((cnt.userModel.value?.userProfile?.wallet ?? 0) > 0) {
+          return CustomPrimaryButton(
           onHandler: () async {
             final status =
             await LocationPermissionService.checkAndRequestLocation();
@@ -764,6 +768,9 @@ class SearchLocationScreen extends StatelessWidget {
           },
           title: controller.isLoadingFare.value ? 'Calculating...' : 'Find Ride',
         );
+        }else{
+          return Text('First Added amount in you wallet');
+        }
       }
     });
   }
