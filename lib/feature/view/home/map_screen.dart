@@ -3,24 +3,8 @@ library map_screen;
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_compass/flutter_compass.dart';
-import 'package:ricardo/feature/models/home/ride_status_model.dart'
-    as RideModel;
-import 'package:ricardo/feature/models/socket/accept_ride_driver_model.dart';
+import 'package:ricardo/feature/models/home/ride_status_model.dart' as RideModel;
 import 'package:ricardo/feature/models/socket/accept_ride_model.dart';
-import 'package:ricardo/feature/models/socket/get_ride_driver_location.dart';
-import 'package:ricardo/feature/view/home/map/dialogs/driver_info_dialog.dart';
-import 'package:ricardo/feature/view/home/map/dialogs/permission_dialogs.dart';
-import 'package:ricardo/feature/view/home/map/draggable_location_button.dart';
-import 'package:ricardo/feature/view/home/map/driver_location_service.dart';
-import 'package:ricardo/feature/view/home/map/helpers/location_bootstrap_helper.dart';
-import 'package:ricardo/feature/view/home/map/widgets/driver_bottom_panel.dart';
-import 'package:ricardo/feature/view/home/map/widgets/driver_top_section.dart';
-import 'package:ricardo/feature/view/home/map/widgets/location_status_banner.dart';
-import 'package:ricardo/feature/view/home/map/widgets/map_error_view.dart';
-import 'package:ricardo/feature/view/home/map/widgets/map_loading_view.dart';
-import 'package:ricardo/feature/view/home/map/widgets/map_view.dart';
-import 'package:ricardo/feature/view/home/map/widgets/passenger_overlays.dart';
-import 'package:ricardo/feature/view/home/map/widgets/swipe_to_search_button.dart';
 import 'link_export_file.dart';
 
 part 'map/parts/_bootstrap.part.dart';
