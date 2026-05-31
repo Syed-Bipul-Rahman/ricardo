@@ -282,8 +282,7 @@ class MapOPTController extends GetxController {
       final response = await ApiClient.postData(
           ApiUrls.rideChangeRideStatus(rideId), {"status": status});
       if (response.statusCode == 200 || response.statusCode == 201) {
-        print('===================>>>>>>>>>>>>>> Maruf ${response.body}');
-        print('asdjfklajsdflkjasdl');
+        debugPrint('===================>>>>>>>>>>>>>> Maruf ${response.body}');
       } else {
         showSnackbar('error', response.body['message']);
       }

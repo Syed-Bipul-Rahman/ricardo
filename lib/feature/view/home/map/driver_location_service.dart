@@ -1,88 +1,96 @@
 import 'dart:async';
-import 'dart:convert';
+
 import 'package:flutter/widgets.dart';
-import 'package:get/get.dart';
-import 'package:ricardo/feature/controllers/home/map/map_opt_controller.dart';
-import 'package:ricardo/feature/models/socket/get_ride_driver_location.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:ricardo/services/socket_services.dart';
 
 class DriverLocationService with WidgetsBindingObserver {
-  // ─────────────────────────────────────────────
   // Singleton
-  // ─────────────────────────────────────────────
   static final DriverLocationService _instance =
   DriverLocationService._internal();
+
   factory DriverLocationService() => _instance;
+
   DriverLocationService._internal() {
     WidgetsBinding.instance.addObserver(this);
   }
 
-  Timer? _timer;
+  StreamSubscription<Position>? _positionSubscription;
+
   String? _rideId;
 
-  // ─────────────────────────────────────────────
-  // Start emitting every 3 seconds
-  // ─────────────────────────────────────────────
+  bool get isRunning => _positionSubscription != null;
+
+  /// Start listening location changes
   void startEmitting(String rideId) {
     stop();
 
     _rideId = rideId;
 
-    _emit(rideId);
+    _positionSubscription = Geolocator.getPositionStream(
+      locationSettings: const LocationSettings(
+        accuracy: LocationAccuracy.high,
 
-    _timer = Timer.periodic(const Duration(seconds: 3), (_) {
-      _emit(rideId);
-    });
+        // Emit only when driver moves 20 meters
+        distanceFilter: 20,
+      ),
+    ).listen(
+          (Position position) {
+        if (SocketServices.socket?.connected != true) {
+          debugPrint('❌ Socket disconnected');
+          return;
+        }
 
-    debugPrint('✅ Started emitting for rideId: $rideId');
+        SocketServices.socket?.emit(
+          'get-driver-location',
+          {
+            'rideId': rideId,
+          },
+        );
+
+        debugPrint(
+          '📡 Driver moved → emitted location '
+              '(${position.latitude}, ${position.longitude})',
+        );
+      },
+      onError: (e) {
+        debugPrint('❌ Location stream error: $e');
+      },
+    );
+
+    debugPrint('✅ Started location stream for rideId: $rideId');
   }
 
-  // ─────────────────────────────────────────────
-  // Stop manually anytime
-  // ─────────────────────────────────────────────
+  /// Stop service
   void stop() {
-    _timer?.cancel();
-    _timer = null;
-    debugPrint('🛑 Stopped for rideId: $_rideId');
+    _positionSubscription?.cancel();
+    _positionSubscription = null;
+
+    debugPrint('🛑 Stopped location stream for rideId: $_rideId');
+
     _rideId = null;
   }
 
-  // ─────────────────────────────────────────────
-  // Check if running
-  // ─────────────────────────────────────────────
-  bool get isRunning => _timer != null && _timer!.isActive;
-
-  // ─────────────────────────────────────────────
-  // App lifecycle — ONLY stop when app is terminated
-  // ─────────────────────────────────────────────
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     switch (state) {
-
-    // ✅ Only stop on full app termination
       case AppLifecycleState.detached:
         stop();
-        debugPrint('💀 App terminated — socket stopped');
+        debugPrint('💀 App terminated');
         break;
 
-    // ❌ Keep running when notification/other app opened
+      case AppLifecycleState.resumed:
       case AppLifecycleState.paused:
       case AppLifecycleState.inactive:
-      case AppLifecycleState.resumed:
       case AppLifecycleState.hidden:
-        debugPrint('📱 Lifecycle: $state — socket still running');
-        break;
-
-      default:
+        debugPrint('📱 Lifecycle: $state');
         break;
     }
   }
 
-  // ─────────────────────────────────────────────
-  // Internal emit
-  // ─────────────────────────────────────────────
-  void _emit(String rideId) {
-    SocketServices.socket?.emit('get-driver-location', {'rideId': rideId});
-    debugPrint('📡 Emitting get-driver-location rideId: $rideId');
+
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    stop();
   }
 }

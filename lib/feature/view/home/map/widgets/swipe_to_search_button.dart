@@ -21,7 +21,7 @@ class SwipeToSearchButton extends StatelessWidget {
       final role = userController.userModel.value?.userProfile?.role;
       final status = mapOPTController.rideStatusData.value;
 
-      final swippedButton = role == AppConstants.passenger &&
+      final swipedButton = role == AppConstants.passenger &&
           googleSearchLocationController.isModalOn.value == false &&
           rideController.isSwippedButtonShow.value == false &&
           rideController.viewInMap.value == true &&
@@ -34,10 +34,28 @@ class SwipeToSearchButton extends StatelessWidget {
           status?.passengerCancel != true &&
           status?.completeRide != true;
 
-      if (swippedButton) {
+      if (swipedButton) {
         return Column(
           children: [
-            _buildSwippedButton(),
+            (userController.userModel.value?.userProfile?.wallet ?? 0) > 6
+                ? _buildSwipedButton()
+                : Container(
+              padding: EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: AppColors.errorColor.withAlpha(50)
+              ),
+                    child: Center(
+                      child: Text(
+                        'Your amount too low that\'s why you are not eligible for take ride',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.errorColor,
+                          fontSize: 14
+                        ),
+                      ),
+                    ),
+                  ),
             const SizedBox(height: 100),
           ],
         );
@@ -46,7 +64,7 @@ class SwipeToSearchButton extends StatelessWidget {
     });
   }
 
-  Widget _buildSwippedButton() {
+  Widget _buildSwipedButton() {
     return Padding(
       padding: const EdgeInsets.only(left: 20, right: 20),
       child: SlideAction(
