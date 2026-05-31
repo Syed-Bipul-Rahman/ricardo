@@ -22,6 +22,8 @@ class MapOPTController extends GetxController {
   RxBool showCancelReasonDialog = false.obs;
   final Rx<GetRideDriverLocation?> getRideDriverLocation =
       Rx<GetRideDriverLocation?>(null);
+  RxDouble buttonTop = 300.0.obs;
+  RxDouble buttonRight = 10.0.obs;
 
   @override
   void onInit() {

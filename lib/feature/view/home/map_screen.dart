@@ -23,9 +23,13 @@ import 'package:ricardo/feature/view/home/map/widgets/swipe_to_search_button.dar
 import 'link_export_file.dart';
 
 part 'map/parts/_bootstrap.part.dart';
+
 part 'map/parts/_markers.part.dart';
+
 part 'map/parts/_routes.part.dart';
+
 part 'map/parts/_sockets.part.dart';
+
 part 'map/parts/_tracking.part.dart';
 
 class MapScreen extends StatefulWidget {
@@ -145,7 +149,71 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
             ),
           ),
           const LocationStatusBanner(),
+          Obx(
+            () => Positioned(
+              top: mapOPTController.buttonTop.value,
+              right: mapOPTController.buttonRight.value,
+              child: GestureDetector(
+                onPanUpdate: (details) {
+                  final size = MediaQuery.of(context).size;
+
+                  const buttonSize = 56.0;
+                  const topPadding = 80.0;
+                  const bottomPadding = 180.0;
+
+                  final newTop =
+                      mapOPTController.buttonTop.value + details.delta.dy;
+
+                  final newRight =
+                      mapOPTController.buttonRight.value - details.delta.dx;
+
+                  mapOPTController.buttonTop.value = newTop.clamp(
+                    topPadding,
+                    size.height - bottomPadding,
+                  );
+
+                  mapOPTController.buttonRight.value = newRight.clamp(
+                    10.0,
+                    size.width - buttonSize - 10,
+                  );
+                },
+                child: Material(
+                  elevation: 6,
+                  borderRadius: BorderRadius.circular(30),
+                  color: Colors.white,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(30),
+                    onTap: moveToCurrentLocation,
+                    child: Container(
+                      width: 56,
+                      height: 56,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(28),
+                      ),
+                      child: const Icon(
+                        Icons.my_location,
+                        size: 26,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
         ],
+      ),
+    );
+  }
+
+  void moveToCurrentLocation() {
+    _mapController?.animateCamera(
+      duration: Duration(seconds: 3),
+      CameraUpdate.newLatLng(
+        LatLng(
+          mapOPTController.currentLatitudePosition!.value,
+          mapOPTController.currentLongitudePosition!.value,
+        ),
       ),
     );
   }
