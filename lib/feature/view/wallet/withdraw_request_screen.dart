@@ -211,31 +211,12 @@ class _WithdrawRequestScreenState extends State<WithdrawRequestScreen> {
                   textAlign: TextAlign.center,
                 ),
               ),
-              /*Container(
-                padding: EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                    color: Color(0xff1bb6000d),
-                    borderRadius: BorderRadius.all(Radius.circular(10))),
-                child: Text(
-                  "Our payment cycle runs every Friday, and this option is completely free of charge.If you need your funds earlier, you can choose Emergency Withdrawal. A 10% service fee will be applied for faster processing.",
-                  style: TextStyle(
-                    color: Color(0xff787878),
-                    fontSize: 10,
-                    fontWeight: FontWeight.w400,
-                    fontFamily: FontFamily.poppins,
-                  ),
-                ),
-              ),*/
               SizedBox(height: 18.h),
-
-              // Select Card Section
               Text(
                 'Select Card',
                 style: AppCustomDesign.walletScreenTextStyle,
               ),
               SizedBox(height: 15.h),
-
-              // Card List
               Obx(() {
                 if (paymentController.paymentCardInfoStatus.value == true) {
                   return PaymentMethodSkeletonList();
@@ -309,8 +290,6 @@ class _WithdrawRequestScreenState extends State<WithdrawRequestScreen> {
               }),
 
               SizedBox(height: 25.h),
-
-              // Add Payment Button
               Obx(() {
                 return GestureDetector(
                   onTap: () {
@@ -351,38 +330,14 @@ class _WithdrawRequestScreenState extends State<WithdrawRequestScreen> {
               }),
               SizedBox(height: 14.h),
               Obx(() {
-                /*final double existingAmount = double.tryParse(Get.arguments['existingAmount']) ?? 0.0;
-                final String amountText = withdrawController.amountTEController.text;
-                final double enteredAmount = double.tryParse(amountText) ?? 0.0;
-                final bool isValid = existingAmount >= enteredAmount && enteredAmount > 0;
-                print(
-                    '==================>>>>>>>>>>>>>>>>> DATA $existingAmount existing Amount $amountText amount text $enteredAmount Enter input $isValid validity');*/
                 return CustomPrimaryButton(
                   title: 'Withdraw',
-                  // isDisable: !withdrawController.isFormValid.value || !isValid,
                   onHandler: withdrawController.isFormValid.value
                       ? () => confirmRequestPopupModal(context)
                       : null,
                 );
               }),
               SizedBox(height: 40.h),
-
-              /*Container(
-                padding: EdgeInsets.symmetric(horizontal: 12.h, vertical: 18.w),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(15.r),
-                  color: Color(0x0D01AF44),
-                ),
-                child: Text(
-                  'Our payment cycle runs every Friday. If you need your payment earlier, our support team is here to help—just reach out!',
-                  style: TextStyle(
-                    fontSize: 10.sp,
-                    color: Color(0xff787878),
-                    fontWeight: FontWeight.w400,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ),*/
               SizedBox(height: 10.h),
             ],
           ),
@@ -391,20 +346,13 @@ class _WithdrawRequestScreenState extends State<WithdrawRequestScreen> {
     );
   }
 
-  // Confirm Withdraw Request Pop up Modal
+
   void confirmRequestPopupModal(BuildContext context) {
-    // Amount Related work
     final amountString = withdrawController.amountTEController.text;
     final amount = double.tryParse(amountString) ?? 0.0;
-
-    // Tax Related work
     final taxString = dotenv.env['APP_TAX'] ?? '0';
     final taxPercentage = double.tryParse(taxString) ?? 0.0;
-
-    // Calculate platform fee
     final platformFee = amount * (taxPercentage / 100);
-
-    // Calculate net amount
     final netAmount = amount - platformFee;
 
     showDialog(
@@ -535,22 +483,6 @@ class _WithdrawRequestScreenState extends State<WithdrawRequestScreen> {
                               ],
                             );
                           }),
-                          /*Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceAround,
-                            children: [
-                              Text(
-                                'You Will Receive',
-                                style: testStyle(),
-                              ),
-                              Text(
-                                '\$${netAmount.toStringAsFixed(2)}',
-                                style: testStyle(
-                                  color: AppColors.primaryColor,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              )
-                            ],
-                          ),*/
                         ],
                       ),
                       SizedBox(height: 18.h),

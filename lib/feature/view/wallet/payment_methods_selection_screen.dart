@@ -90,7 +90,6 @@ class _PaymentMethodsSelectionScreenState
             height: 38.h,
           ),
 
-          // Bank Info and there Bottom Section work are here
           Text(
             'Bank Info',
             style: AppCustomDesign.walletScreenTextStyle,
