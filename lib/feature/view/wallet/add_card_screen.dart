@@ -54,7 +54,7 @@ class _AddCardScreenState extends State<AddCardScreen> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Image.asset(
-                        Assets.images.visaPayment.path, // Use visa asset
+                        Assets.images.visaPayment.path,
                         height: 24,
                         width: 36,
                         fit: BoxFit.contain,

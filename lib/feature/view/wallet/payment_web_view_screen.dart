@@ -38,26 +38,23 @@ class _PaymentWebViewScreenState extends State<PaymentWebViewScreen> {
       ..setNavigationDelegate(
         NavigationDelegate(
           onProgress: (int progress) {
-            // Update loading bar if needed
-            print('WebView is loading (progress : $progress%)');
+            debugPrint('WebView is loading (progress : $progress%)');
           },
           onPageStarted: (String url) {
             setState(() {
               isLoading = true;
             });
-            print('Page started loading: $url');
+            debugPrint('Page started loading: $url');
           },
           onPageFinished: (String url) {
             setState(() {
               isLoading = false;
             });
-            print('Page finished loading: $url');
-
-            // Check if payment is successful
+            debugPrint('Page finished loading: $url');
             _checkPaymentStatus(url);
           },
           onWebResourceError: (WebResourceError error) {
-            print('Web resource error: ${error.description}');
+            debugPrint('Web resource error: ${error.description}');
             showSnackbar(
               'Error',
               'Failed to load payment page',
@@ -66,13 +63,10 @@ class _PaymentWebViewScreenState extends State<PaymentWebViewScreen> {
             );
           },
           onNavigationRequest: (NavigationRequest request) {
-            print('Navigation request: ${request.url}');
-
-            // Handle success/cancel URLs
+            debugPrint('Navigation request: ${request.url}');
             if (request.url.contains('success') ||
                 request.url.contains('payment_intent')) {
               _handlePaymentSuccess();
-              // return NavigationDecision.prevent;
             }
 
             if (request.url.contains('cancel')) {
@@ -88,7 +82,6 @@ class _PaymentWebViewScreenState extends State<PaymentWebViewScreen> {
   }
 
   void _checkPaymentStatus(String url) {
-    // Check if URL indicates successful payment
     if (url.contains('success') || url.contains('payment_intent_client_secret')) {
       _handlePaymentSuccess();
     } else if (url.contains('cancel')) {
@@ -161,8 +154,8 @@ class _PaymentWebViewScreenState extends State<PaymentWebViewScreen> {
           ),
           TextButton(
             onPressed: () {
-              Get.back(); // Close dialog
-              Get.back(result: {'success': false}); // Close WebView
+              Get.back();
+              Get.back(result: {'success': false});
             },
             child: const Text(
               'Yes',
