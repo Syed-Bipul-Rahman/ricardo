@@ -1,11 +1,9 @@
 import 'dart:async';
-
 import 'package:flutter/widgets.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:ricardo/services/socket_services.dart';
 
 class DriverLocationService with WidgetsBindingObserver {
-  // Singleton
   static final DriverLocationService _instance =
   DriverLocationService._internal();
 
@@ -30,8 +28,6 @@ class DriverLocationService with WidgetsBindingObserver {
     _positionSubscription = Geolocator.getPositionStream(
       locationSettings: const LocationSettings(
         accuracy: LocationAccuracy.high,
-
-        // Emit only when driver moves 20 meters
         distanceFilter: 20,
       ),
     ).listen(
