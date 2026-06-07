@@ -1,16 +1,8 @@
 import 'package:flutter/cupertino.dart';
-import 'package:get/get.dart';
-import 'package:ricardo/app/helpers/prefs_helper.dart';
-import 'package:ricardo/app/utils/app_constants.dart';
-import 'package:ricardo/feature/controllers/custom_bottom_nav_bar_controller.dart';
 import 'package:ricardo/feature/controllers/history/history_controller.dart';
-import 'package:ricardo/feature/controllers/user_controller.dart';
 import 'package:ricardo/feature/controllers/wallet/recent_history.dart';
 import 'package:ricardo/feature/view/home/link_export_file.dart';
-import 'package:ricardo/routes/app_routes.dart';
 import 'package:ricardo/services/api_client.dart';
-import 'package:ricardo/services/api_urls.dart';
-import 'package:ricardo/services/socket_services.dart';
 import 'package:ricardo/app/helpers/snackbar_helper.dart';
 
 class SignInController extends GetxController {

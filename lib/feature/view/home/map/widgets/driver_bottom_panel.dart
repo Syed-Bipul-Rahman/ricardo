@@ -29,9 +29,6 @@ class DriverBottomPanel extends StatelessWidget {
           false;
       final bool isOnline = connectivity.isConnected.value;
 
-      // ── Waiting GIF ───────────────────────────────
-      // Only when the device actually has internet — sockets can't deliver
-      // ride requests offline, so showing "Looking for rides..." is misleading.
       final showPassengerGif = isOnline &&
           role == AppConstants.driver &&
           mapOPTController.isPassengerRequest.value == false &&
@@ -43,8 +40,7 @@ class DriverBottomPanel extends StatelessWidget {
           status?.arrivingRide != true &&
           status?.startRide != true &&
           status?.driverCancel != true &&
-          status?.passengerCancel != true &&
-          status?.completeRide != true;
+          status?.passengerCancel != true;
 
       if (showPassengerGif) {
         return Container(
@@ -63,8 +59,7 @@ class DriverBottomPanel extends StatelessWidget {
           status?.startRide != true &&
           status?.arrivingRide != true &&
           status?.driverCancel != true &&
-          status?.passengerCancel != true &&
-          status?.completeRide != true) {
+          status?.passengerCancel != true ) {
         return const PassengerRideRequestSheet();
       }
 
