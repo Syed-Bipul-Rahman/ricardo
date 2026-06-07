@@ -2,10 +2,13 @@ class ApiUrls {
   // Base, Image, Socket
   // static const String baseUrl = "https://zsv1pz87-5000.inc1.devtunnels.ms/api/v1";
 
-  static const String baseUrl = "https://api.gogodriver.us/api/v1";
-  static const String imageBaseUrl = "https://api.gogodriver.us/images/";
-  static const String socketUrl = "https://api.gogodriver.us";
-  static const String serverHealth = "https://api.gogodriver.us/test";
+  static const String baseUrl =
+      "https://50l64k43-8080.inc1.devtunnels.ms/api/v1";
+  static const String imageBaseUrl =
+      "https://50l64k43-8080.inc1.devtunnels.ms/images/";
+  static const String socketUrl = "https://50l64k43-8080.inc1.devtunnels.ms";
+  static const String serverHealth =
+      "https://50l64k43-8080.inc1.devtunnels.ms/test";
 
   /*static const String baseUrl =
       "https://api.gogodriver.us/api/v1";
@@ -17,7 +20,7 @@ class ApiUrls {
       'https://api.gogodriver.us/test';
   */
 
- /* static const String baseUrl =
+  /* static const String baseUrl =
       "https://pix-begin-helen-gba.trycloudflare.com/api/v1";
   static const String imageBaseUrl =
       "https://pix-begin-helen-gba.trycloudflare.com/images/";
