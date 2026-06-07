@@ -12,7 +12,7 @@ class HomeScreen extends StatefulWidget{
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  var token='';
+  /*var token='';
   var fcmToken='';
 
   void getData()async{
@@ -35,7 +35,7 @@ class _HomeScreenState extends State<HomeScreen> {
   //     "accessToken" : token ,
   //     "fcmToken" : fcmToken
   //   });
-  // }
+  // }*/
 
   @override
   Widget build(BuildContext context){

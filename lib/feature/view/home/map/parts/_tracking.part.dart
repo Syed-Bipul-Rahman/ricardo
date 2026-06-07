@@ -23,7 +23,7 @@ extension _Tracking on _MapScreenState {
     _positionStream = Geolocator.getPositionStream(
       locationSettings: const LocationSettings(
         accuracy: LocationAccuracy.high,
-        distanceFilter: 5,
+        distanceFilter: 20,
       ),
     ).listen((Position position) async {
       _updateLocalMarker(position);

@@ -50,7 +50,7 @@ class SearchLocationScreen extends StatelessWidget {
             color: AppColors.blackColor,
             fontSize: 18.sp,
             fontWeight: FontWeight.w600,
-            fontFamily: FontFamily.poppins, // ✅ Now defined
+            fontFamily: FontFamily.poppins,
           ),
         ),
         forceMaterialTransparency: true,
