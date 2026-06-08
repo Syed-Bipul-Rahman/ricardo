@@ -52,7 +52,7 @@ class AddMoneyController extends GetxController{
         if (paymentUrl != null && paymentUrl.isNotEmpty) {
           await Get.to(() => PaymentWebViewScreen(paymentUrl: paymentUrl));
         }else{
-          showSnackbar('Error', 'Something went wrong. Please try again!!',
+          showSnackbar('Success', 'Something went wrong. Please try again!!',
               snackPosition: SnackPosition.BOTTOM);
         }
       }else{

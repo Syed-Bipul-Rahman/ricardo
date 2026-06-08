@@ -47,7 +47,7 @@ class PassengerInfoCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  mapOPTController.rideStatusData.value?.passenger?.name ?? 'gdfsgfd',
+                  mapOPTController.rideStatusData.value?.passenger?.name ?? '',
                   style: TextStyle(
                     color: const Color(0xff171717),
                     fontSize: 14,
