@@ -28,6 +28,7 @@ class OtpVerifyController extends GetxController {
       otpText.value = pinTEController.text;
     });
   }
+
   // void startTimerSafely() {
   //   Future.microtask(() => startTimer());
   // }
@@ -74,11 +75,11 @@ class OtpVerifyController extends GetxController {
       if (response.statusCode == 200 || response.statusCode == 201) {
         pinTEController.clear();
         Get.offAllNamed(AppRoutes.signInScreen);
-      }else{
+      } else {
         showSnackbar('Error', response.body['data']['message']);
       }
     } catch (e) {
-      showSnackbar('Error', 'Verification failed: ${e.toString()}');
+      debugPrint('Verification failed :${e.toString()}');
     } finally {
       isVarifyEmail.value = false;
     }

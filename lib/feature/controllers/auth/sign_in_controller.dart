@@ -1,4 +1,5 @@
 import 'package:flutter/cupertino.dart';
+import 'package:ricardo/app/helpers/device_helper.dart';
 import 'package:ricardo/feature/controllers/history/history_controller.dart';
 import 'package:ricardo/feature/controllers/wallet/recent_history.dart';
 import 'package:ricardo/feature/view/home/link_export_file.dart';
@@ -50,7 +51,8 @@ class SignInController extends GetxController {
         await userController.fetchUser();
         final user = userController.userModel.value;
 
-        if (response.body['data']!['user']['role'].toString() == 'super_admin') {
+        if (response.body['data']!['user']['role'].toString() ==
+            'super_admin') {
           showSnackbar('Error', 'You are not Eligible for login!');
           passwordTextEditingController.clear();
           emailTextEditingController.clear();
@@ -60,7 +62,7 @@ class SignInController extends GetxController {
         }
 
         if (user?.userProfile?.isProfileCompleted == true &&
-            user?.userProfile?.role == 'driver' ||
+                user?.userProfile?.role == 'driver' ||
             user?.userProfile?.isProfileCompleted == true &&
                 user?.userProfile?.role == 'passenger') {
           final cnt = Get.find<CustomBottomNavBarController>();
@@ -81,7 +83,7 @@ class SignInController extends GetxController {
           // print('===== FCMTOKEN>>>>>>>>>>>>>>>>>>>>>> $fcmToken ==================');
           // print('=======AccessToken>>>>>>>>>>>>>>>>>>>>>> $getAccessToken');
 
-           /// here will be socket construction
+          /// here will be socket construction
 
           Get.offAllNamed(AppRoutes.customBottomNavBar);
         } else if (user?.userProfile?.isProfileCompleted == false) {
@@ -101,7 +103,9 @@ class SignInController extends GetxController {
       }
     } else {
       final message = response.body is Map
-          ? (response.body['message'] ?? response.statusText ?? 'An error occurred')
+          ? (response.body['message'] ??
+              response.statusText ??
+              'An error occurred')
           : (response.statusText ?? 'An error occurred');
       showSnackbar('Error', message);
     }
@@ -110,9 +114,12 @@ class SignInController extends GetxController {
   }
 
   Future<void> logOut() async {
-    final response = await ApiClient.postData(ApiUrls.authLogOut, {});
+    final deviceId = await PrefsHelper.getString('device_id');
+    final response =
+        await ApiClient.postData(ApiUrls.authLogOut, {'deviceId': deviceId});
     if (response.statusCode == 200 || response.statusCode == 201) {
       await PrefsHelper.remove(AppConstants.bearerToken);
+      await PrefsHelper.remove(AppConstants.deviceId);
       SocketServices.socket?.disconnect();
       SocketServices.socket?.dispose();
       PrefsHelper.remove(AppConstants.bearerToken);
@@ -139,15 +146,15 @@ class SignInController extends GetxController {
     passwordTextEditingController.clear();
   }
 
-
-  void socketConnect() async{
+  void socketConnect() async {
     await SocketServices.init();
-    final String? token = await PrefsHelper.getString(AppConstants.bearerToken) ?? '';
+    final String? token =
+        await PrefsHelper.getString(AppConstants.bearerToken) ?? '';
     final String? fcmToken = await PrefsHelper.getString(AppConstants.fcmToken);
 
-    if (token != null && fcmToken != null ) {
-      SocketServices.socket
-          ?.emit('user-connected', {"accessToken": token, "fcmToken": fcmToken});
+    if (token != null && fcmToken != null) {
+      SocketServices.socket?.emit(
+          'user-connected', {"accessToken": token, "fcmToken": fcmToken});
     }
   }
 

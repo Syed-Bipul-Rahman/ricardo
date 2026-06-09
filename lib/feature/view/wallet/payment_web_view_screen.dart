@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:webview_flutter/webview_flutter.dart';
+
+import 'package:ricardo/app/helpers/snackbar_helper.dart';
+import 'package:ricardo/app/utils/app_colors.dart';
 import 'package:ricardo/feature/controllers/custom_bottom_nav_bar_controller.dart';
 import 'package:ricardo/feature/controllers/wallet/recent_history.dart';
-import 'package:ricardo/feature/models/wallet/wallet_history_model.dart';
-import 'package:ricardo/feature/view/wallet/wallet_screen.dart';
 import 'package:ricardo/routes/app_routes.dart';
-import 'package:webview_flutter/webview_flutter.dart';
-import 'package:ricardo/app/utils/app_colors.dart';
-import 'package:ricardo/app/helpers/snackbar_helper.dart';
 
 class PaymentWebViewScreen extends StatefulWidget {
   final String paymentUrl;
@@ -23,7 +22,9 @@ class PaymentWebViewScreen extends StatefulWidget {
 
 class _PaymentWebViewScreenState extends State<PaymentWebViewScreen> {
   late final WebViewController _controller;
+
   bool isLoading = true;
+  bool _paymentHandled = false;
 
   @override
   void initState() {
@@ -34,27 +35,74 @@ class _PaymentWebViewScreenState extends State<PaymentWebViewScreen> {
   void _initializeWebView() {
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setBackgroundColor(const Color(0x00000000))
+      ..setBackgroundColor(Colors.white)
       ..setNavigationDelegate(
         NavigationDelegate(
           onProgress: (int progress) {
-            debugPrint('WebView is loading (progress : $progress%)');
+            debugPrint('Loading: $progress%');
           },
+
           onPageStarted: (String url) {
-            setState(() {
-              isLoading = true;
-            });
-            debugPrint('Page started loading: $url');
+            debugPrint('Page Started: $url');
+
+            if (mounted) {
+              setState(() {
+                isLoading = true;
+              });
+            }
           },
+
           onPageFinished: (String url) {
-            setState(() {
-              isLoading = false;
-            });
-            debugPrint('Page finished loading: $url');
-            _checkPaymentStatus(url);
+            debugPrint('Page Finished: $url');
+
+            if (mounted) {
+              setState(() {
+                isLoading = false;
+              });
+            }
           },
+
+          onNavigationRequest: (NavigationRequest request) {
+            debugPrint('Navigation URL: ${request.url}');
+
+            /// SUCCESS URL
+            if (request.url.contains('payment-success') ||
+                request.url.contains('success')) {
+              _handlePaymentSuccess();
+
+              return NavigationDecision.prevent;
+            }
+
+            /// CANCEL URL
+            if (request.url.contains('cancel')) {
+              _handlePaymentCancel();
+
+              return NavigationDecision.prevent;
+            }
+
+            return NavigationDecision.navigate;
+          },
+
           onWebResourceError: (WebResourceError error) {
-            debugPrint('Web resource error: ${error.description}');
+            debugPrint('========== WEBVIEW ERROR ==========');
+            debugPrint('URL: ${error.url}');
+            debugPrint('Code: ${error.errorCode}');
+            debugPrint('Description: ${error.description}');
+            debugPrint('Type: ${error.errorType}');
+            debugPrint('===================================');
+
+            final url = error.url ?? '';
+
+            /// Ignore localhost success redirect errors
+            if (url.contains('localhost:8080/payment-success')) {
+              return;
+            }
+
+            /// Ignore errors after success already handled
+            if (_paymentHandled) {
+              return;
+            }
+
             showSnackbar(
               'Error',
               'Failed to load payment page',
@@ -62,91 +110,69 @@ class _PaymentWebViewScreenState extends State<PaymentWebViewScreen> {
               colorText: Colors.white,
             );
           },
-          onNavigationRequest: (NavigationRequest request) {
-            debugPrint('Navigation request: ${request.url}');
-            if (request.url.contains('success') ||
-                request.url.contains('payment_intent')) {
-              _handlePaymentSuccess();
-            }
-
-            if (request.url.contains('cancel')) {
-              _handlePaymentCancel();
-              return NavigationDecision.prevent;
-            }
-
-            return NavigationDecision.navigate;
-          },
         ),
       )
       ..loadRequest(Uri.parse(widget.paymentUrl));
   }
 
-  void _checkPaymentStatus(String url) {
-    if (url.contains('success') || url.contains('payment_intent_client_secret')) {
-      _handlePaymentSuccess();
-    } else if (url.contains('cancel')) {
-      _handlePaymentCancel();
+  Future<void> _handlePaymentSuccess() async {
+    if (_paymentHandled) return;
+
+    _paymentHandled = true;
+
+    debugPrint('PAYMENT SUCCESS');
+
+    try {
+      final historyController = Get.find<RecentHistoryController>();
+
+      await historyController.forceRefresh();
+    } catch (e) {
+      debugPrint('History refresh error: $e');
     }
-  }
 
-  void _handlePaymentSuccess() {
+    try {
+      final navController =
+      Get.find<CustomBottomNavBarController>();
 
-    final hstController = Get.find<RecentHistoryController>();
-    hstController.forceRefresh();
+      navController.selectedIndex.value = 1;
+    } catch (e) {
+      debugPrint('Bottom nav error: $e');
+    }
 
-    final controller = Get.find<CustomBottomNavBarController>();
-    controller.selectedIndex.value = 1;
-    Get.offAllNamed(AppRoutes.customBottomNavBar);
+    showSnackbar(
+      'Success',
+      'Balance added successfully',
+      backgroundColor: Colors.green,
+      colorText: Colors.white,
+    );
+
+    Future.delayed(const Duration(milliseconds: 300), () {
+      Get.offAllNamed(AppRoutes.customBottomNavBar);
+    });
   }
 
   void _handlePaymentCancel() {
-    Get.back(result: {'success': false});
+    if (_paymentHandled) return;
+
+    _paymentHandled = true;
+
     showSnackbar(
       'Cancelled',
       'Payment was cancelled',
       backgroundColor: Colors.orange,
       colorText: Colors.white,
     );
-  }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          'Add Balance',
-          style: TextStyle(
-            fontSize: 18,
-            color: AppColors.whiteColor,
-            fontWeight: FontWeight.w500
-          ),
-        ),
-        backgroundColor: AppColors.primaryColor,
-        leading: IconButton(
-          icon: const Icon(Icons.close,color: AppColors.whiteColor,size: 24,),
-          onPressed: () {
-            _showExitDialog();
-          },
-        ),
-        centerTitle: true,
-      ),
-      body: Stack(
-        children: [
-          WebViewWidget(controller: _controller),
-          if (isLoading)
-            const Center(
-              child: CircularProgressIndicator(),
-            ),
-        ],
-      ),
-    );
+    Get.back(result: {'success': false});
   }
 
   void _showExitDialog() {
     Get.dialog(
       AlertDialog(
         title: const Text('Cancel Payment?'),
-        content: const Text('Are you sure you want to cancel this payment?'),
+        content: const Text(
+          'Are you sure you want to cancel this payment?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Get.back(),
@@ -155,13 +181,49 @@ class _PaymentWebViewScreenState extends State<PaymentWebViewScreen> {
           TextButton(
             onPressed: () {
               Get.back();
-              Get.back(result: {'success': false});
+              _handlePaymentCancel();
             },
             child: const Text(
               'Yes',
               style: TextStyle(color: Colors.red),
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: AppColors.primaryColor,
+        centerTitle: true,
+        title: const Text(
+          'Add Balance',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 18,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        leading: IconButton(
+          icon: const Icon(
+            Icons.close,
+            color: Colors.white,
+          ),
+          onPressed: _showExitDialog,
+        ),
+      ),
+      body: Stack(
+        children: [
+          WebViewWidget(
+            controller: _controller,
+          ),
+          if (isLoading)
+            const Center(
+              child: CircularProgressIndicator(),
+            ),
         ],
       ),
     );

@@ -177,6 +177,7 @@ class DriverProfileController extends GetxController {
       // Handle response
       if (response.statusCode == 200 || response.statusCode == 201) {
         _handleSuccessResponse();
+        clearFieldHandler();
       } else {
         _handleErrorResponse(response);
       }
