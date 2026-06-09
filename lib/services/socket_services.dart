@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:ricardo/app/helpers/device_helper.dart';
 import 'package:ricardo/app/helpers/prefs_helper.dart';
 import 'package:ricardo/app/utils/app_constants.dart';
 import 'package:ricardo/services/api_urls.dart';
@@ -55,10 +56,13 @@ class SocketServices {
       print('✅ Socket connected — emitting user-connected');
       final t = await PrefsHelper.getString(AppConstants.bearerToken);
       final fcm = await PrefsHelper.getString(AppConstants.fcmToken);
+      final deviceId = await DeviceHelper.getDeviceId();
+
       if (t.isNotEmpty && fcm.isNotEmpty) {
         socket?.emit('user-connected', {
           "accessToken": t,
           "fcmToken": fcm,
+          "deviceId": deviceId,
         });
       }
     });

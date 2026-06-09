@@ -58,7 +58,7 @@ class OtpVerifyController extends GetxController {
 
   Future<void> varifyOtp(String route, String reqEmail) async {
     if (pinTEController.text.length != 6) {
-      showSnackbar('Error', 'Please enter 6 digit OTP');
+      showSnackbar('Error', 'Please enter 6 digit OTP 61 no line ');
       return;
     }
 
@@ -75,10 +75,10 @@ class OtpVerifyController extends GetxController {
         pinTEController.clear();
         Get.offAllNamed(AppRoutes.signInScreen);
       }else{
-        showSnackbar('Error', response.body['data']['message']);
+        showSnackbar('Error', ' Riyan ${response.body['data']['message']}');
       }
     } catch (e) {
-      showSnackbar('Error', 'Verification failed: ${e.toString()}');
+      showSnackbar('Error', 'Verification failed Maruf : ${e.toString()}');
     } finally {
       isVarifyEmail.value = false;
     }
@@ -94,9 +94,9 @@ class OtpVerifyController extends GetxController {
           ApiUrls.otpSendVerification, {"email": email});
 
       if (response.statusCode == 200) {
-        showSnackbar('Success', 'OTP sent successfully!');
+        showSnackbar('Success', 'OTP sent successfully! 97 no line ');
       } else {
-        showSnackbar('Error', response.body['data']['message']);
+        showSnackbar('Error', '${response.body['data']['message']} 99 no line ');
       }
       startTimer();
     } catch (e) {
