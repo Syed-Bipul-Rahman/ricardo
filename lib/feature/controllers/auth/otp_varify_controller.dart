@@ -28,6 +28,7 @@ class OtpVerifyController extends GetxController {
       otpText.value = pinTEController.text;
     });
   }
+
   // void startTimerSafely() {
   //   Future.microtask(() => startTimer());
   // }
@@ -58,7 +59,7 @@ class OtpVerifyController extends GetxController {
 
   Future<void> varifyOtp(String route, String reqEmail) async {
     if (pinTEController.text.length != 6) {
-      showSnackbar('Error', 'Please enter 6 digit OTP 61 no line ');
+      showSnackbar('Error', 'Please enter 6 digit OTP');
       return;
     }
 
@@ -74,11 +75,11 @@ class OtpVerifyController extends GetxController {
       if (response.statusCode == 200 || response.statusCode == 201) {
         pinTEController.clear();
         Get.offAllNamed(AppRoutes.signInScreen);
-      }else{
-        showSnackbar('Error', ' Riyan ${response.body['data']['message']}');
+      } else {
+        showSnackbar('Error', response.body['data']['message']);
       }
     } catch (e) {
-      showSnackbar('Error', 'Verification failed Maruf : ${e.toString()}');
+      debugPrint('Verification failed :${e.toString()}');
     } finally {
       isVarifyEmail.value = false;
     }
@@ -94,9 +95,9 @@ class OtpVerifyController extends GetxController {
           ApiUrls.otpSendVerification, {"email": email});
 
       if (response.statusCode == 200) {
-        showSnackbar('Success', 'OTP sent successfully! 97 no line ');
+        showSnackbar('Success', 'OTP sent successfully!');
       } else {
-        showSnackbar('Error', '${response.body['data']['message']} 99 no line ');
+        showSnackbar('Error', response.body['data']['message']);
       }
       startTimer();
     } catch (e) {
