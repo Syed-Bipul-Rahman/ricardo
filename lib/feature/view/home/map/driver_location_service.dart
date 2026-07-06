@@ -28,7 +28,7 @@ class DriverLocationService with WidgetsBindingObserver {
     _positionSubscription = Geolocator.getPositionStream(
       locationSettings: const LocationSettings(
         accuracy: LocationAccuracy.high,
-        distanceFilter: 20,
+        distanceFilter: 1,
       ),
     ).listen(
           (Position position) {
@@ -36,7 +36,7 @@ class DriverLocationService with WidgetsBindingObserver {
           debugPrint('❌ Socket disconnected');
           return;
         }
-
+        print('Get-Driver-location-emit are here');
         SocketServices.socket?.emit(
           'get-driver-location',
           {

@@ -505,6 +505,9 @@ class _RideRequestBottomSheetState extends State<RideRequestBottomSheet> {
                       // View In Map Button - FIXED HERE
                       Container(
                         width: double.infinity,
+                        margin: EdgeInsets.only(
+                          bottom: 25.h
+                        ),
                         height: 50,
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(50),

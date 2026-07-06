@@ -6,7 +6,6 @@ import 'package:ricardo/services/api_urls.dart';
 import 'package:ricardo/app/helpers/snackbar_helper.dart';
 
 class PaymentMethodController extends GetxController{
-  //Payment Card Info Status
   RxBool paymentCardInfoStatus = false.obs;
   RxList<PaymentCardInfoModel?> paymentCardInfo = <PaymentCardInfoModel>[].obs;
 
@@ -27,16 +26,13 @@ class PaymentMethodController extends GetxController{
     }
   }
 
-  // Delete Card Related work are here
   RxBool isCardDelete = false.obs;
   Future<bool> deletePaymentCard(String cardId) async {
     try {
       isCardDelete.value = true;
       final response = await ApiClient.deleteData(ApiUrls.paymentCardDelete(cardId));
       if (response.statusCode == 200 || response.statusCode == 201) {
-        // Remove the card from the list immediately
         paymentCardInfo.removeWhere((card) => card?.sId == cardId);
-
         showSnackbar(
           'Success',
           'Your card is deleted successfully',

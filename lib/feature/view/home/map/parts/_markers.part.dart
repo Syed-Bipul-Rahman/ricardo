@@ -1,4 +1,3 @@
-// ignore_for_file: invalid_use_of_protected_member
 part of '../../map_screen.dart';
 
 extension _Markers on _MapScreenState {
@@ -50,8 +49,6 @@ extension _Markers on _MapScreenState {
         Marker(
           markerId: const MarkerId('currentPassenger'),
           position: LatLng(currentLat, currentLng),
-          // Passenger always shows their own pin at their position.
-          // Driver shows the car icon (rotated to heading).
           icon: isPassenger ? selfIcon : (inActiveRide ? activeIcon : selfIcon),
           rotation: !isPassenger ? heading : 0,
           anchor: !isPassenger
@@ -61,8 +58,6 @@ extension _Markers on _MapScreenState {
         ),
       );
     }
-
-    // For passengers: show driver's real-time position from socket data.
     if (isPassenger) {
       final driverCoords = mapOPTController
           .getRideDriverLocation.value?.driverLocation?.coordinates;

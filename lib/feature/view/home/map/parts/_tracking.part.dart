@@ -5,15 +5,9 @@ extension _Tracking on _MapScreenState {
     if (_isTracking) return;
     _isTracking = true;
 
-    // Subscribe to the magnetometer-driven compass for real-time heading.
-    // GPS heading only updates when moving and at ~1 Hz; the device compass
-    // updates instantly as the phone rotates — this is what Google Maps uses
-    // for the blue arrow / cone direction indicator.
     _compassStream = FlutterCompass.events?.listen((CompassEvent event) {
       final double? h = event.heading;
       if (h == null || h.isNaN) return;
-      // CompassEvent.heading is 0-360 (with -1 when unavailable on some
-      // platforms); normalize and feed into the marker rotation Rx.
       final double normalized = (h % 360 + 360) % 360;
       mapOPTController.headingDegrees.value = normalized;
     });
@@ -73,8 +67,6 @@ extension _Tracking on _MapScreenState {
     final bool isDriver = userController.userModel.value?.userProfile?.role ==
         AppConstants.driver;
 
-    // Only the driver updates the polyline from their own GPS position.
-    // The passenger's polyline is updated via the get-ride-driver-location socket.
     if (isDriver &&
         rideStatus != null &&
         (rideStatus.acceptRide == true ||

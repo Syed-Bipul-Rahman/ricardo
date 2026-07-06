@@ -19,56 +19,68 @@ class _DraggableLocationShowButtonState
   @override
   Widget build(BuildContext context) {
     return Obx(
-      () => Positioned(
-        top: widget.mapOPTController.buttonTop.value,
-        right: widget.mapOPTController.buttonRight.value,
-        child: GestureDetector(
-          onPanUpdate: (details) {
-            final size = MediaQuery.of(context).size;
+      () {
+        final isVisible = widget.mapOPTController.isLocationButtonVisible.value;
 
-            const buttonSize = 56.0;
-            const topPadding = 80.0;
-            const bottomPadding = 180.0;
+        return Positioned(
+          top: widget.mapOPTController.buttonTop.value,
+          right: widget.mapOPTController.buttonRight.value,
+          child: AnimatedOpacity(
+            opacity: isVisible ? 1.0 : 0.0,
+            duration: const Duration(milliseconds: 250),
+            child: IgnorePointer(
+              ignoring: !isVisible,
+              child: GestureDetector(
+                onPanUpdate: (details) {
+                  final size = MediaQuery.of(context).size;
 
-            final newTop =
-                widget.mapOPTController.buttonTop.value + details.delta.dy;
+                  const buttonSize = 56.0;
+                  const topPadding = 80.0;
+                  const bottomPadding = 180.0;
 
-            final newRight =
-                widget.mapOPTController.buttonRight.value - details.delta.dx;
+                  final newTop = widget.mapOPTController.buttonTop.value +
+                      details.delta.dy;
 
-            widget.mapOPTController.buttonTop.value = newTop.clamp(
-              topPadding,
-              size.height - bottomPadding,
-            );
+                  final newRight = widget.mapOPTController.buttonRight.value -
+                      details.delta.dx;
 
-            widget.mapOPTController.buttonRight.value = newRight.clamp(
-              10.0,
-              size.width - buttonSize - 10,
-            );
-          },
-          child: Material(
-            elevation: 6,
-            borderRadius: BorderRadius.circular(30),
-            color: Colors.white,
-            child: InkWell(
-              borderRadius: BorderRadius.circular(30),
-              onTap: widget.onTap,
-              child: Container(
-                width: 56,
-                height: 56,
-                decoration: BoxDecoration(
+                  widget.mapOPTController.buttonTop.value = newTop.clamp(
+                    topPadding,
+                    size.height - bottomPadding,
+                  );
+
+                  widget.mapOPTController.buttonRight.value = newRight.clamp(
+                    10.0,
+                    size.width - buttonSize - 10,
+                  );
+                },
+                child: Material(
+                  elevation: 6,
+                  borderRadius: BorderRadius.circular(30),
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(28),
-                ),
-                child: const Icon(
-                  Icons.my_location,
-                  size: 26,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(30),
+                    onTap: widget.onTap,
+                    child: Container(
+                      width: 56,
+                      height: 56,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(28),
+                      ),
+                      child: const Icon(
+                        Icons.my_location,
+                        size: 26,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }

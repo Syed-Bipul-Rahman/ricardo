@@ -1,6 +1,4 @@
-
 import 'dart:convert';
-
 import 'package:flutter/cupertino.dart';
 import 'package:ricardo/feature/models/user_model.dart';
 import 'package:ricardo/feature/view/home/link_export_file.dart';
@@ -11,10 +9,6 @@ class UserController extends GetxController {
   Rx<UserModel?> userModel = Rx<UserModel?>(null);
 
   RxBool isUserDataLoadingStatus = false.obs;
-
-  /// Returns the HTTP status code from the request. On success, the user is
-  /// cached to prefs for offline fallback. On network failure, falls back to
-  /// the cached copy if present so the app doesn't bounce to login.
   Future<int?> fetchUser() async {
     isUserDataLoadingStatus.value = true;
 
@@ -23,7 +17,6 @@ class UserController extends GetxController {
       final data = response.body['data'];
       userModel.value = UserModel.fromJson(data);
       update();
-      // Persist for offline launches.
       try {
         await PrefsHelper.setString(
             AppConstants.userModelCache, jsonEncode(data));
@@ -31,7 +24,6 @@ class UserController extends GetxController {
         debugPrint('userModelCache write failed: $e');
       }
     } else if (userModel.value == null) {
-      // Network/server error and no in-memory model — try the disk cache.
       await loadCachedUser();
     }
     isUserDataLoadingStatus.value = false;
@@ -39,8 +31,6 @@ class UserController extends GetxController {
     return response.statusCode;
   }
 
-  /// Hydrate userModel from the on-disk cache (no network). Returns true if
-  /// a cached user was loaded.
   Future<bool> loadCachedUser() async {
     final cached = await PrefsHelper.getString(AppConstants.userModelCache);
     if (cached.isEmpty) return false;
@@ -58,10 +48,8 @@ class UserController extends GetxController {
     userModel.value = null;
     await PrefsHelper.remove(AppConstants.userModelCache);
   }
-  /* ****************************
-  * ****** RIDE STATUS RELATED *
-  * ****************************/
-  // Fetch Ride Status related work are here
+
+  /*  RIDE STATUS */
   final RxBool isLoadingActiveRideStatus = false.obs;
   MapOPTController? _mapOPTController;
   MapOPTController get mapOPTController => _mapOPTController ??= Get.find<MapOPTController>();
@@ -73,11 +61,8 @@ class UserController extends GetxController {
   Future<bool?> fetchActiveRideStatus() async{
     try{
       final response = await ApiClient.getData(ApiUrls.getActiveRide);
-      print('==========================================STatus');
-      print('========================>>>>>>>>>>>> ${response.body}');
       if( response.statusCode == 200 || response.statusCode == 201 ){
         activeRideStatus.value = response.body['data']['status'];
-        print('====================>>>>>>>>>>>> $activeRideStatus');
         return true;
       }else{
         return false;

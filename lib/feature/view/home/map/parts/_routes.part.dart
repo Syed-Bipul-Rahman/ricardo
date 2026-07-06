@@ -1,4 +1,3 @@
-// ignore_for_file: invalid_use_of_protected_member
 part of '../../map_screen.dart';
 
 extension _Routes on _MapScreenState {
