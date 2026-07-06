@@ -1,4 +1,3 @@
-// ignore_for_file: invalid_use_of_protected_member, use_build_context_synchronously
 part of '../../map_screen.dart';
 
 extension _Bootstrap on _MapScreenState {
@@ -31,10 +30,6 @@ extension _Bootstrap on _MapScreenState {
   Future<void> initializeMap() async {
     if (!mounted) return;
 
-    // Seed from last cached lat/lng so the map renders immediately on relaunch
-    // (Google Maps SDK uses its on-disk tile cache for that area). Bootstrap
-    // continues in the background; the camera animates to the fresh fix once
-    // it arrives.
     final bool hasCached = await _seedFromCachedLocation();
 
     if (!mounted) return;
@@ -111,7 +106,6 @@ extension _Bootstrap on _MapScreenState {
     if (!mounted) return;
 
     if (position == null) {
-      // If we already showed the cached map, don't bounce back to error UI.
       if (_hasLocation) return;
       setState(() {
         _errorMessage = 'Could not get your location. Tap retry.';
@@ -124,8 +118,6 @@ extension _Bootstrap on _MapScreenState {
     mapOPTController.currentLongitudePosition?.value = position.longitude;
     PrefsHelper.setString('last_lat', position.latitude);
     PrefsHelper.setString('last_lng', position.longitude);
-
-    // Resolve human-readable address, but don't gate the map on it.
     unawaited(mapOPTController.getLocation());
 
     setState(() {

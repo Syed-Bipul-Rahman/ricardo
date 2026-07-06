@@ -228,7 +228,6 @@ class GoogleSearchLocationController extends GetxController {
         dropLat: drop.lat,
         dropLng: drop.lng,
       );
-
       if (apiResponse != null && _updateFareFromResponse(apiResponse)) {
         showPopUpStatus.value = true;
       }

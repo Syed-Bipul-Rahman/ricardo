@@ -98,6 +98,11 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
             onMapCreated: (controller) {
               _mapController = controller;
             },
+            onCameraMove: (_) {
+              // Show the location button whenever the user pans/zooms the map,
+              // exactly like Uber does.
+              mapOPTController.notifyMapMoved();
+            },
           ),
           ...buildPassengerOverlays(
             userController: userController,
@@ -144,6 +149,9 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
   }
 
   void moveToCurrentLocation() {
+    // Hide the button immediately — it reappears only when the map moves again.
+    mapOPTController.hideLocationButton();
+
     _mapController?.animateCamera(
       duration: Duration(seconds: 3),
       CameraUpdate.newLatLng(

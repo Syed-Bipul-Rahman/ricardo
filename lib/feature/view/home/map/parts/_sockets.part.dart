@@ -63,9 +63,6 @@ extension _Sockets on _MapScreenState {
         mapOPTController.getRideDriverLocation.value =
             GetRideDriverLocation.fromJson(jsonData);
         mapOPTController.getRideDriverLocation.refresh();
-
-        // On the passenger side, use the driver's real-time location from the
-        // socket to update the polyline instead of the passenger's own GPS.
         final bool isPassenger =
             userController.userModel.value?.userProfile?.role ==
                 AppConstants.passenger;
@@ -75,7 +72,6 @@ extension _Sockets on _MapScreenState {
           if (coords != null && coords.length >= 2) {
             final driverLatLng = LatLng(coords[1], coords[0]);
             if (_fullRoutePoints.isEmpty) {
-              // No route drawn yet — draw it now that we have driver location.
               final rideStatus = mapOPTController.rideStatusData.value;
               if (rideStatus?.startRide == true ||
                   rideStatus?.completeRide == true) {
@@ -134,7 +130,6 @@ extension _Sockets on _MapScreenState {
           SocketServices.socket?.off('ride-status');
         }
 
-        await mapOPTController.driverServiceFun();
       } catch (e, stackTrace) {
         debugPrint('ride-status ERROR: $e');
         debugPrint('STACK: $stackTrace');

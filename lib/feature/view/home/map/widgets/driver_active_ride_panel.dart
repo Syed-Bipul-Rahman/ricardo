@@ -258,7 +258,7 @@ class DriverActiveRidePanel extends StatelessWidget {
                       200;
 
               debugPrint(
-                  '================>>>>>>>>>>> Location Data ${locationData?.driverToDestination?.distance} ${locationData?.driverToPickup?.distance} ');
+                  '================>>>>>>>>>>> 1111111111111111111111111111 Location Data ${locationData?.driverToDestination?.distance} ${locationData?.driverToPickup?.distance} ');
 
               String getButtonTitle() {
                 if (rideStatus == null) return 'Loading...';
@@ -270,10 +270,12 @@ class DriverActiveRidePanel extends StatelessWidget {
               }
 
               bool isButtonEnabled() {
+                print('Culprit');
                 if (rideStatus == null) return false;
                 if (rideStatus.acceptRide == true) return true;
-                if (rideStatus.ongoingRide == true)
+                if (rideStatus.ongoingRide == true) {
                   return enableArriveInPlace;
+                }
                 if (rideStatus.arrivingRide == true) return true;
                 if (rideStatus.startRide == true) return enableComplete;
                 return false;
@@ -288,6 +290,9 @@ class DriverActiveRidePanel extends StatelessWidget {
                       onHandler: isButtonEnabled()
                           ? () async {
                               final rideId = rideStatus?.ride?.id;
+
+                              print('RIIIIIIIIII $rideId');
+
                               if (rideId == null) return;
 
                               if (rideStatus?.acceptRide == true) {

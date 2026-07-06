@@ -25,6 +25,31 @@ class MapOPTController extends GetxController {
   RxDouble buttonTop = 300.0.obs;
   RxDouble buttonRight = 10.0.obs;
 
+  // Controls Uber-style location button visibility.
+  // Hidden by default; shown when the map camera moves away from the user's
+  // current position; hidden again once the user taps it.
+  RxBool isLocationButtonVisible = false.obs;
+
+  // Set to true while the "go to my location" animation is running so that the
+  // camera-move callbacks fired by the animation don't re-show the button.
+  bool _isCenteringCamera = false;
+
+  void notifyMapMoved() {
+    // Ignore camera events that we triggered ourselves (e.g. animateCamera).
+    if (_isCenteringCamera) return;
+    isLocationButtonVisible.value = true;
+  }
+
+  void hideLocationButton() {
+    _isCenteringCamera = true;
+    isLocationButtonVisible.value = false;
+    // Allow a bit longer than the 3-second camera animation before re-enabling
+    // the flag, so we don't accidentally show the button mid-animation.
+    Future.delayed(const Duration(milliseconds: 3500), () {
+      _isCenteringCamera = false;
+    });
+  }
+
   @override
   void onInit() {
     getLocation();
@@ -317,9 +342,10 @@ class MapOPTController extends GetxController {
   }
 
   //  Driver Service Function are here
-  Future<void> driverServiceFun() async {
-    final String? rideId = rideStatusData.value?.ride?.id ??
-        acceptedRideDriverData.value?.ride?.sId;
+  Future<void> driverServiceFun(String rideId) async {
+    print('FFFFFFFFFF $rideId');
+    // final String? rideId = rideStatusData.value?.ride?.id ??
+    //     acceptedRideDriverData.value?.ride?.sId;
 
     if (rideId == null || rideId.isEmpty) {
       debugPrint('❌ rideId is null or empty, stopping emission');

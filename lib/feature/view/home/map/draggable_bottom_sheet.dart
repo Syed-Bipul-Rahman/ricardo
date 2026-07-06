@@ -320,14 +320,6 @@ class _DraggableBottomSheetState extends State<DraggableBottomSheet> {
                                 ),
                               ),
                             ),
-                            /*GestureDetector(
-                              onTap: () {
-                                launchUrl(Uri.parse(
-                                  "tel:${widget.rideStatus?.driver?.phone}",
-                                ));
-                              },
-                              child: const Icon(Icons.call),
-                            ),*/
                           ],
                         ),
 
@@ -420,15 +412,6 @@ class _DraggableBottomSheetState extends State<DraggableBottomSheet> {
                                   backToHomeController.selectedIndex.value = 0;
 
                                   Get.offAllNamed(AppRoutes.homeScreen);
-                                  // Get.toNamed(
-                                  //   AppRoutes.rateReviewDriver,
-                                  //   arguments: {
-                                  //     'name': widget.rideStatus?.driver?.name,
-                                  //     'driverId': widget
-                                  //         .rideStatus?.driverCar?.driverId,
-                                  //     'rideId': widget.rideStatus?.ride?.id,
-                                  //   },
-                                  // );
                                 },
                               )
                             ],

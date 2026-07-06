@@ -17,11 +17,9 @@ class WithdrawRequestController extends GetxController {
   final TextEditingController amountTEController = TextEditingController();
   final Rx<String?> selectedButtonText = dotenv.env['WITHDRAW_DAY'].obs;
 
-  /// Selected card
   Rx<PaymentCardInfoModel?> selectedCard =
   Rx<PaymentCardInfoModel?>(null);
 
-  /// Form validation
   RxBool isFormValid = false.obs;
   RxBool isFormValidAmount = true.obs;
 

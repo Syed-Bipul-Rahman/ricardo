@@ -28,7 +28,6 @@ class _NearByDriverScreenState extends State<NearByDriverScreen> {
   @override
   void initState() {
     super.initState();
-    // Safely get arguments with null checks
     title = Get.arguments?['title'] ?? 'Nearby Drivers';
     estimatedCost = Get.arguments?['estimatedCost']?.toString() ?? '0';
   }

@@ -2,7 +2,7 @@ class ApiUrls {
   // Base, Image, Socket
   // static const String baseUrl = "https://zsv1pz87-5000.inc1.devtunnels.ms/api/v1";
 
-  static const String _baseLink = 'https://sport-resolutions-zealand-scholarship.trycloudflare.com';
+  static const String _baseLink = 'https://console-connectors-municipality-three.trycloudflare.com';
   static const String baseUrl = "$_baseLink/api/v1";
   static const String imageBaseUrl = "$_baseLink/images/";
   static const String socketUrl = _baseLink;

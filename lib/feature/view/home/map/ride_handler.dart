@@ -7,13 +7,13 @@ class RideHandler {
   static bool isNearPickup(GetRideDriverLocation data) {
     final distance = data.driverToPickup?.distance?.value ?? 1000;
     final time = data.driverToPickup?.time?.value ?? 1000;
-    return distance <= 100 || time <= 60; // 0.1 km or 1 min
+    return distance <= 100 || time <= 60;
   }
 
   static bool isNearDestination(GetRideDriverLocation data) {
     final distance = data.driverToDestination?.distance?.value ?? 1000;
     final time = data.driverToDestination?.time?.value ?? 1000;
-    return distance <= 100 || time <= 60; // 0.1 km or 1 min
+    return distance <= 100 || time <= 60;
   }
 
   static String getDestinationInfo(GetRideDriverLocation data) {
@@ -32,7 +32,6 @@ class RideHandler {
     return '($timeInMin min) $distanceInKm KM';
   }
 
-  // Fixed version - accepts data parameter
   static String isNearPickupString(GetRideDriverLocation data) {
     final distance = data.driverToPickup?.distance?.value ?? 0;
     final time = data.driverToPickup?.time?.value ?? 0;
@@ -41,7 +40,6 @@ class RideHandler {
     return '($timeInMin min) $distanceInKm KM';
   }
 
-  // Alternative: Get from controller
   static String getPickupInfoFromController() {
     final controller = Get.find<MapOPTController>();
     final data = controller.getRideDriverLocation.value;

@@ -16,8 +16,6 @@ import 'package:ricardo/widgets/custom_primary_button.dart';
 import 'package:ricardo/widgets/custom_scaffold.dart';
 import 'package:ricardo/widgets/custom_text_field.dart';
 import 'package:ricardo/app/helpers/snackbar_helper.dart';
-
-// ✅ Define FontFamily class (or replace with string literal 'Poppins')
 class FontFamily {
   static const String poppins = 'Poppins';
 }

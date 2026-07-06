@@ -10,6 +10,7 @@ class MapView extends StatelessWidget {
     required this.markersBuilder,
     required this.polylines,
     required this.onMapCreated,
+    this.onCameraMove,
   });
 
   final MapOPTController mapOPTController;
@@ -18,6 +19,7 @@ class MapView extends StatelessWidget {
   final Set<Marker> Function() markersBuilder;
   final Set<Polyline> polylines;
   final void Function(GoogleMapController) onMapCreated;
+  final void Function(CameraPosition)? onCameraMove;
 
   @override
   Widget build(BuildContext context) {
@@ -41,6 +43,7 @@ class MapView extends StatelessWidget {
         markers: markersBuilder(),
         polylines: polylines,
         onMapCreated: onMapCreated,
+        onCameraMove: onCameraMove,
         myLocationButtonEnabled: true,
         zoomControlsEnabled: false,
         compassEnabled: false,
