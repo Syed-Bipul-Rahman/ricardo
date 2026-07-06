@@ -46,22 +46,28 @@ class _FavouritesRideScreenState extends State<FavouritesRideScreen> {
         ),
         forceMaterialTransparency: true,
       ),
-      body: RefreshIndicator(
-        onRefresh: () async {
-          await controller.fetchFavouriteRides();
-        },
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: EdgeInsets.all(0.0),
-            child: Obx(() {
-              if (controller.isLoadingStatus.value == true) {
-                return FavouriteRiderShimmer();
-              }
+      body: Obx(() {
+        if (controller.isLoadingStatus.value == true) {
+          return FavouriteRiderShimmer();
+        }
 
-              if (controller.favouriteRiderModel.isEmpty) {
-                return Center(
+        if (controller.favouriteRiderModel.isEmpty) {
+          return RefreshIndicator(
+            onRefresh: () async {
+              await controller.fetchFavouriteRides();
+            },
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: MediaQuery.of(context).size.height -
+                      MediaQuery.of(context).padding.top -
+                      kToolbarHeight,
+                ),
+                child: Center(
                   child: Column(
-                    mainAxisSize: MainAxisSize.min,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       Text(
                         'No Favourite Rides',
@@ -84,233 +90,209 @@ class _FavouritesRideScreenState extends State<FavouritesRideScreen> {
                       ),
                     ],
                   ),
-                );
-              }
+                ),
+              ),
+            ),
+          );
+        }
 
-              return ListView.separated(
-                shrinkWrap: true,
-                physics: NeverScrollableScrollPhysics(),
-                itemCount: controller.favouriteRiderModel.length,
-                itemBuilder: (context, index) {
-                  final user = controller.favouriteRiderModel[index];
-                  return Column(
-                    children: [
-                      Container(
-                        padding: EdgeInsets.symmetric(
-                            horizontal: 12.h, vertical: 16.h),
-                        decoration: BoxDecoration(
-                            color: AppColors.whiteColor,
-                            borderRadius: BorderRadius.circular(10.r),
-                            border: Border.all(color: AppColors.successColor)),
-                        child: Column(
+        // Has data — normal scrollable list with refresh support.
+        return RefreshIndicator(
+          onRefresh: () async {
+            await controller.fetchFavouriteRides();
+          },
+          child: ListView.separated(
+            physics: const AlwaysScrollableScrollPhysics(),
+            itemCount: controller.favouriteRiderModel.length,
+            padding: EdgeInsets.only(bottom: 16.h),
+            itemBuilder: (context, index) {
+              final user = controller.favouriteRiderModel[index];
+              return Container(
+                padding:
+                    EdgeInsets.symmetric(horizontal: 12.h, vertical: 16.h),
+                decoration: BoxDecoration(
+                  color: AppColors.whiteColor,
+                  borderRadius: BorderRadius.circular(10.r),
+                  border: Border.all(color: AppColors.successColor),
+                ),
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
                           children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Row(
-                                  children: [
-                                    ClipRRect(
-                                      borderRadius: BorderRadius.circular(50),
-                                      child: Image.network(
-                                          // Assets.images.favoritesProfileImage.path,
-                                          '${ApiUrls.imageBaseUrl}${user.driverProfileImage?.filename}',
-                                          height: 85.h,
-                                          width: 85.w,
-                                          fit: BoxFit.cover,
-                                          errorBuilder:
-                                              (context, error, stackTrace) =>
-                                                  Image.asset(
-                                                    'assets/images/default_image.jpg',
-                                                    height: 85.h,
-                                                    width: 85.w,
-                                                    fit: BoxFit.cover,
-                                                  ),
-                                      ),
-                                    ),
-                                    SizedBox(
-                                      width: 12.w,
-                                    ),
-                                    Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          user.driverName.toString(),
-                                          style: TextStyle(
-                                              fontFamily: FontFamily.poppins,
-                                              fontSize: 14.sp,
-                                              fontWeight: FontWeight.w600,
-                                              color: AppColors.successColor),
-                                        ),
-                                        Row(
-                                          children: [
-                                            Icon(
-                                              Icons.star,
-                                              color: Colors.yellow,
-                                              weight: 12,
-                                            ),
-                                            SizedBox(
-                                              width: 4,
-                                            ),
-                                            Text(
-                                              '${user.driverRating} ( ${user.driverTotalRating} )',
-                                              style: TextStyle(
-                                                fontFamily: FontFamily.poppins,
-                                                fontSize: 12.sp,
-                                                fontWeight: FontWeight.w500,
-                                                color: AppColors.blackBText,
-                                              ),
-                                            ),
-                                            SizedBox(
-                                              width: 8.w,
-                                            ),
-                                            Container(
-                                                width: 2.w,
-                                                height: 15.h,
-                                                decoration: BoxDecoration(
-                                                  color: Colors.black
-                                                      .withOpacity(0.30),
-                                                )),
-                                            SizedBox(
-                                              width: 8.w,
-                                            ),
-                                            Text(
-                                              '${user.totalCompletedRides} Trips',
-                                              style: TextStyle(
-                                                fontFamily: FontFamily.poppins,
-                                                fontSize: 12.sp,
-                                                fontWeight: FontWeight.w500,
-                                                color: AppColors.blackBText,
-                                              ),
-                                            )
-                                          ],
-                                        ),
-                                        Row(
-                                          children: [
-                                            Icon(Icons.call,
-                                                color: AppColors.greenColor),
-                                            SizedBox(
-                                              width: 4,
-                                            ),
-                                            Text(
-                                              '${user.driverPhone}',
-                                              style: TextStyle(
-                                                fontFamily: FontFamily.poppins,
-                                                fontSize: 12.sp,
-                                                fontWeight: FontWeight.w500,
-                                                color: AppColors.blackBText,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ],
-                                    )
-                                  ],
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(50),
+                              child: Image.network(
+                                '${ApiUrls.imageBaseUrl}${user.driverProfileImage?.filename}',
+                                height: 85.h,
+                                width: 85.w,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) =>
+                                    Image.asset(
+                                  'assets/images/default_image.jpg',
+                                  height: 85.h,
+                                  width: 85.w,
+                                  fit: BoxFit.cover,
                                 ),
-                                GestureDetector(
-                                  onTap: () =>
-                                      deleteFavouriteRideHandler(user.driverId),
-                                  child: Image.asset(
-                                    Assets.images.favoriteDusbin.path,
-                                  ),
-                                )
-                              ],
-                            ),
-                            SizedBox(
-                              height: 10.h,
-                            ),
-                            Divider(
-                              color: AppColors.successColor,
-                              height: 1.h,
-                            ),
-                            SizedBox(
-                              height: 10.h,
-                            ),
-                            Text(
-                              'Car info.',
-                              style: TextStyle(
-                                fontSize: 14.sp,
-                                fontWeight: FontWeight.w500,
-                                fontFamily: FontFamily.poppins,
-                                color: Colors.black.withOpacity(0.8),
                               ),
                             ),
-                            SizedBox(
-                              height: 8.h,
-                            ),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            SizedBox(width: 12.w),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                Text(
+                                  user.driverName.toString(),
+                                  style: TextStyle(
+                                    fontFamily: FontFamily.poppins,
+                                    fontSize: 14.sp,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.successColor,
+                                  ),
+                                ),
+                                Row(
                                   children: [
+                                    Icon(Icons.star,
+                                        color: Colors.yellow, size: 16),
+                                    SizedBox(width: 4),
                                     Text(
-                                      '${user.vehicleName}',
+                                      '${user.driverRating} ( ${user.driverTotalRating} )',
                                       style: TextStyle(
-                                        fontWeight: FontWeight.w500,
                                         fontFamily: FontFamily.poppins,
-                                        fontSize: 14.sp,
-                                        color: AppColors.favoriteRitesCarText,
+                                        fontSize: 12.sp,
+                                        fontWeight: FontWeight.w500,
+                                        color: AppColors.blackBText,
                                       ),
                                     ),
-                                    Text(
-                                      '${user.vehicleSeats} Seat',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.w500,
-                                        fontFamily: FontFamily.poppins,
-                                        fontSize: 14.sp,
-                                        color: AppColors.favoriteRitesCarText,
+                                    SizedBox(width: 8.w),
+                                    Container(
+                                      width: 2.w,
+                                      height: 15.h,
+                                      decoration: BoxDecoration(
+                                        color:
+                                            Colors.black.withOpacity(0.30),
                                       ),
                                     ),
+                                    SizedBox(width: 8.w),
                                     Text(
-                                      '${user.vehiclePlateNumber}',
+                                      '${user.totalCompletedRides} Trips',
                                       style: TextStyle(
-                                        fontWeight: FontWeight.w500,
                                         fontFamily: FontFamily.poppins,
-                                        fontSize: 14.sp,
-                                        color: AppColors.favoriteRitesCarText,
+                                        fontSize: 12.sp,
+                                        fontWeight: FontWeight.w500,
+                                        color: AppColors.blackBText,
                                       ),
                                     ),
-                                    Text(
-                                      '5 km away from you.',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.w500,
-                                        fontFamily: FontFamily.poppins,
-                                        fontSize: 14.sp,
-                                        color: AppColors.successColor,
-                                      ),
-                                    )
                                   ],
                                 ),
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(15),
-                                  child: Image.network(
-                                      '${ApiUrls.imageBaseUrl}${user.vehicleImage?.filename}',
-                                      width: 92.w,
-                                      height: 92.h,
-                                      fit: BoxFit.cover,
-                                      errorBuilder:
-                                          (context, error, stackTrace) => Icon(
-                                              Icons.directions_car,
-                                              size: 92.h)),
-                                )
+                                Row(
+                                  children: [
+                                    Icon(Icons.call,
+                                        color: AppColors.greenColor),
+                                    SizedBox(width: 4),
+                                    Text(
+                                      '${user.driverPhone}',
+                                      style: TextStyle(
+                                        fontFamily: FontFamily.poppins,
+                                        fontSize: 12.sp,
+                                        fontWeight: FontWeight.w500,
+                                        color: AppColors.blackBText,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ],
-                            )
+                            ),
                           ],
                         ),
+                        GestureDetector(
+                          onTap: () =>
+                              deleteFavouriteRideHandler(user.driverId),
+                          child: Image.asset(
+                            Assets.images.favoriteDusbin.path,
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 10.h),
+                    Divider(color: AppColors.successColor, height: 1.h),
+                    SizedBox(height: 10.h),
+                    Text(
+                      'Car info.',
+                      style: TextStyle(
+                        fontSize: 14.sp,
+                        fontWeight: FontWeight.w500,
+                        fontFamily: FontFamily.poppins,
+                        color: Colors.black.withOpacity(0.8),
                       ),
-                    ],
-                  );
-                },
-                separatorBuilder: (context, index) {
-                  return SizedBox(height: 8.h);
-                },
-                padding: EdgeInsets.only(bottom: 16.h),
+                    ),
+                    SizedBox(height: 8.h),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '${user.vehicleName}',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w500,
+                                fontFamily: FontFamily.poppins,
+                                fontSize: 14.sp,
+                                color: AppColors.favoriteRitesCarText,
+                              ),
+                            ),
+                            Text(
+                              '${user.vehicleSeats} Seat',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w500,
+                                fontFamily: FontFamily.poppins,
+                                fontSize: 14.sp,
+                                color: AppColors.favoriteRitesCarText,
+                              ),
+                            ),
+                            Text(
+                              '${user.vehiclePlateNumber}',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w500,
+                                fontFamily: FontFamily.poppins,
+                                fontSize: 14.sp,
+                                color: AppColors.favoriteRitesCarText,
+                              ),
+                            ),
+                            Text(
+                              '5 km away from you.',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w500,
+                                fontFamily: FontFamily.poppins,
+                                fontSize: 14.sp,
+                                color: AppColors.successColor,
+                              ),
+                            ),
+                          ],
+                        ),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(15),
+                          child: Image.network(
+                            '${ApiUrls.imageBaseUrl}${user.vehicleImage?.filename}',
+                            width: 92.w,
+                            height: 92.h,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) =>
+                                Icon(Icons.directions_car, size: 92.h),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               );
-            }),
+            },
+            separatorBuilder: (context, index) => SizedBox(height: 8.h),
           ),
-        ),
-      ),
+        );
+      }),
     );
   }
 
@@ -324,23 +306,19 @@ class _FavouritesRideScreenState extends State<FavouritesRideScreen> {
           child: ClipRRect(
             borderRadius: BorderRadius.circular(20.r),
             child: BackdropFilter(
-              filter: ImageFilter.blur(
-                sigmaX: 15,
-                sigmaY: 15,
-              ),
+              filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
               child: Container(
                 padding: EdgeInsets.all(20.r),
                 decoration: BoxDecoration(
-                    color: AppColors.whiteColor.withOpacity(0.15),
-                    border: Border.all(color: Colors.white.withOpacity(0.8))),
+                  color: AppColors.whiteColor.withOpacity(0.15),
+                  border: Border.all(color: Colors.white.withOpacity(0.8)),
+                ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Padding(padding: EdgeInsets.only(top: 32.h)),
                     SvgPicture.asset(Assets.images.glassmorphismLogo),
-                    SizedBox(
-                      height: 30.h,
-                    ),
+                    SizedBox(height: 30.h),
                     Text(
                       'Are you want to delete Ride ??',
                       style: TextStyle(
@@ -349,35 +327,24 @@ class _FavouritesRideScreenState extends State<FavouritesRideScreen> {
                         color: AppColors.whiteColor,
                       ),
                     ),
-                    SizedBox(
-                      height: 30.h,
-                    ),
-                    // CustomPrimaryButton(
-                    //   title: 'Back to Home',
-                    //   onHandler: () {
-                    //     Get.toNamed(AppRoutes.signInScreen);
-                    //   },
-                    // )
+                    SizedBox(height: 30.h),
                     Row(
                       children: [
                         Expanded(
                           child: ElevatedButton(
                             style: ElevatedButton.styleFrom(
                                 backgroundColor: AppColors.greyColor500),
-                            onPressed: () {
-                              Navigator.pop(context);
-                            },
+                            onPressed: () => Navigator.pop(context),
                             child: Text(
                               'Cancel',
                               style: TextStyle(
-                                  color: AppColors.whiteColor,
-                                  fontWeight: FontWeight.w500),
+                                color: AppColors.whiteColor,
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
                           ),
                         ),
-                        SizedBox(
-                          width: 10.w,
-                        ),
+                        SizedBox(width: 10.w),
                         Expanded(
                           child: Obx(() {
                             return ElevatedButton(
@@ -393,14 +360,15 @@ class _FavouritesRideScreenState extends State<FavouritesRideScreen> {
                                     ? 'Delete...'
                                     : 'Delete',
                                 style: TextStyle(
-                                    color: AppColors.whiteColor,
-                                    fontWeight: FontWeight.w500),
+                                  color: AppColors.whiteColor,
+                                  fontWeight: FontWeight.w500,
+                                ),
                               ),
                             );
                           }),
-                        )
+                        ),
                       ],
-                    )
+                    ),
                   ],
                 ),
               ),
