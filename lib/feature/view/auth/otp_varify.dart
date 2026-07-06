@@ -25,11 +25,9 @@ class _OtpVarifyState extends State<OtpVarify> {
   @override
   void initState() {
     super.initState();
-    // controller.startTimer();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       controller.startTimer();
     });
-    // controller.startTimerSafely();
   }
 
   @override
@@ -103,12 +101,8 @@ class _OtpVarifyState extends State<OtpVarify> {
           Column(
             children: [
               SizedBox(height: 22.h),
-
-              // Verify Button - FIXED: Move the variable INSIDE Obx
               Obx(() {
-                // Move this line INSIDE Obx so it can observe the text changes
                 final isButtonEnabled = controller.otpText.value.length == 6;
-
                 return Opacity(
                   opacity: isButtonEnabled ? 1 : 0.6,
                   child: CustomPrimaryButton(
@@ -121,10 +115,7 @@ class _OtpVarifyState extends State<OtpVarify> {
                   ),
                 );
               }),
-
               SizedBox(height: 12.h),
-
-              // Note Section
               Padding(
                 padding: EdgeInsets.symmetric(horizontal: 10.w),
                 child: RichText(
