@@ -43,9 +43,9 @@ class MapOPTController extends GetxController {
   void hideLocationButton() {
     _isCenteringCamera = true;
     isLocationButtonVisible.value = false;
-    // Allow a bit longer than the 3-second camera animation before re-enabling
+    // Allow a bit longer than the 2-second camera animation before re-enabling
     // the flag, so we don't accidentally show the button mid-animation.
-    Future.delayed(const Duration(milliseconds: 3500), () {
+    Future.delayed(const Duration(milliseconds: 2500), () {
       _isCenteringCamera = false;
     });
   }

@@ -1,5 +1,4 @@
 import 'package:flutter/cupertino.dart';
-import 'package:ricardo/app/helpers/device_helper.dart';
 import 'package:ricardo/feature/controllers/history/history_controller.dart';
 import 'package:ricardo/feature/controllers/wallet/recent_history.dart';
 import 'package:ricardo/feature/view/home/link_export_file.dart';
@@ -67,24 +66,6 @@ class SignInController extends GetxController {
                 user?.userProfile?.role == 'passenger') {
           final cnt = Get.find<CustomBottomNavBarController>();
           cnt.onChange(0);
-          // cnt.selectedIndex.value = 0;
-
-          // String? getAccessToken = await PrefsHelper.getString('accessToken');
-          // String? fcmToken = await FirebaseNotificationService.getFCMToken();
-          // PrefsHelper.setString(AppConstants.fcmToken, fcmToken);
-          // await SocketServices.init();
-          //
-          // SocketServices.socket?.emit('user-connected', {
-          //   "accessToken" : getAccessToken,
-          //   "fcmToken" : fcmToken
-          // });
-          //
-          //
-          // print('===== FCMTOKEN>>>>>>>>>>>>>>>>>>>>>> $fcmToken ==================');
-          // print('=======AccessToken>>>>>>>>>>>>>>>>>>>>>> $getAccessToken');
-
-          /// here will be socket construction
-
           Get.offAllNamed(AppRoutes.customBottomNavBar);
         } else if (user?.userProfile?.isProfileCompleted == false) {
           Get.offAllNamed(AppRoutes.driverProfileCreateScreen);
@@ -124,9 +105,6 @@ class SignInController extends GetxController {
       SocketServices.socket?.dispose();
       PrefsHelper.remove(AppConstants.bearerToken);
       PrefsHelper.remove(AppConstants.fcmToken);
-
-      // Wipe the cached user so a different account can't inherit the previous
-      // session's profile on next launch.
       await Get.find<UserController>().clearCachedUser();
 
       final recentCnt = Get.find<RecentHistoryController>();

@@ -3,9 +3,6 @@ import 'dart:io';
 
 import 'package:get/get.dart';
 
-/// Lightweight reactive connectivity tracker. Uses a DNS lookup to verify
-/// actual reachability (Wi-Fi-without-internet returns false), polls every
-/// 10s, and exposes `isConnected` as an `RxBool` for `Obx` consumers.
 class ConnectivityService extends GetxService {
   final RxBool isConnected = true.obs;
   Timer? _timer;
@@ -31,7 +28,6 @@ class ConnectivityService extends GetxService {
     }
   }
 
-  /// Fire an out-of-cycle reachability check (e.g., after a failed API call).
   Future<bool> recheck() => _check();
 
   @override

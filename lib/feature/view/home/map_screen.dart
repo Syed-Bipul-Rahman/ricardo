@@ -153,11 +153,14 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
     mapOPTController.hideLocationButton();
 
     _mapController?.animateCamera(
-      duration: Duration(seconds: 3),
-      CameraUpdate.newLatLng(
-        LatLng(
-          mapOPTController.currentLatitudePosition!.value,
-          mapOPTController.currentLongitudePosition!.value,
+      duration: const Duration(seconds: 2),
+      CameraUpdate.newCameraPosition(
+        CameraPosition(
+          target: LatLng(
+            mapOPTController.currentLatitudePosition!.value,
+            mapOPTController.currentLongitudePosition!.value,
+          ),
+          zoom: currentZoom, // restore the default zoom level too
         ),
       ),
     );

@@ -28,10 +28,6 @@ class OtpVerifyController extends GetxController {
       otpText.value = pinTEController.text;
     });
   }
-
-  // void startTimerSafely() {
-  //   Future.microtask(() => startTimer());
-  // }
   void startTimer() {
     _isTimerActive.value = true;
     _secondsRemaining.value = 180;
@@ -89,8 +85,6 @@ class OtpVerifyController extends GetxController {
     try {
       stopTimer();
       pinTEController.clear();
-
-      // final reqEmail = {"email": email};
       final response = await ApiClient.postData(
           ApiUrls.otpSendVerification, {"email": email});
 

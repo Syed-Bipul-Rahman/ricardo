@@ -16,7 +16,7 @@ import 'logger.dart';
 
 final log = logger(ApiClient);
 
-class ApiClient extends GetxService {
+class ApiClient extends GetxService  {
   static var client = http.Client();
   static const String noInternetMessage = "Can't connect to the internet!";
   static const int timeoutInSeconds = 60;
