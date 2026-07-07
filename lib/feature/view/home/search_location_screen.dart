@@ -166,7 +166,8 @@ class SearchLocationScreen extends StatelessWidget {
           ),
         );
       }
-      if (controller.pickupPlaces.isEmpty) return const SizedBox.shrink();
+      if (!controller.showPickupSuggestions.value ||
+          controller.pickupPlaces.isEmpty) return const SizedBox.shrink();
       return _buildPlaceList(
         places: controller.pickupPlaces,
         onSelect: (place) async {
@@ -195,7 +196,8 @@ class SearchLocationScreen extends StatelessWidget {
           ),
         );
       }
-      if (controller.dropPlaces.isEmpty) return const SizedBox.shrink();
+      if (!controller.showDropSuggestions.value ||
+          controller.dropPlaces.isEmpty) return const SizedBox.shrink();
       return _buildPlaceList(
         places: controller.dropPlaces,
         onSelect: (place) async {

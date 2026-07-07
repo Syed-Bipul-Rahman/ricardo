@@ -21,7 +21,7 @@ class GoogleSearchLocationController extends GetxController {
   final pickupPlaces = <PlaceSuggestion>[].obs;
   final dropPlaces = <PlaceSuggestion>[].obs;
 
-  // Explicit visibility flags
+  // Explicit visibility flags — the ONLY gate the UI should check
   RxBool showPickupSuggestions = false.obs;
   RxBool showDropSuggestions = false.obs;
 
@@ -49,39 +49,55 @@ class GoogleSearchLocationController extends GetxController {
   RxBool showPopUpStatus = false.obs;
   RxBool isBookRideState = false.obs;
 
-  // Timers for search delay
+  // Timers for search debounce
   Timer? _pickupTimer;
   Timer? _dropTimer;
 
-  bool _isSelectingPickup = false;
-  bool _isSelectingDrop = false;
+  // Generation counters — incremented on every selection/clear so any
+  // in-flight network result that arrives late is discarded.
+  int _pickupGen = 0;
+  int _dropGen = 0;
+
+  // When true, the field has a confirmed selection and typing hasn't started
+  // yet, so listener changes must NOT trigger a search.
+  bool _pickupLocked = false;
+  bool _dropLocked = false;
+
+  // The confirmed text at the time of selection. If the listener fires and
+  // the text still equals this, it was NOT a real user keystroke.
+  String _confirmedPickupText = '';
+  String _confirmedDropText = '';
 
   @override
   void onInit() {
     super.onInit();
-    _setupListeners();
+    pickupController.addListener(_pickupListener);
+    dropController.addListener(_dropListener);
   }
 
-  // Named listeners so they can be removed/added
   void _pickupListener() {
-    final hasText = pickupController.text.isNotEmpty;
-    if (showClearPickup.value != hasText) showClearPickup.value = hasText;
-    if (!_isSelectingPickup) {
-      _startPickupSearch();
-    }
+    final text = pickupController.text;
+    showClearPickup.value = text.isNotEmpty;
+
+    // If locked and the text hasn't changed from the confirmed selection,
+    // this is a spurious listener call — ignore it.
+    if (_pickupLocked && text == _confirmedPickupText) return;
+
+    // User started typing something different — unlock and search.
+    _pickupLocked = false;
+    _confirmedPickupText = '';
+    _startPickupSearch();
   }
 
   void _dropListener() {
-    final hasText = dropController.text.isNotEmpty;
-    if (showClearDrop.value != hasText) showClearDrop.value = hasText;
-    if (!_isSelectingDrop) {
-      _startDropSearch();
-    }
-  }
+    final text = dropController.text;
+    showClearDrop.value = text.isNotEmpty;
 
-  void _setupListeners() {
-    pickupController.addListener(_pickupListener);
-    dropController.addListener(_dropListener);
+    if (_dropLocked && text == _confirmedDropText) return;
+
+    _dropLocked = false;
+    _confirmedDropText = '';
+    _startDropSearch();
   }
 
   void _startPickupSearch() {
@@ -99,6 +115,8 @@ class GoogleSearchLocationController extends GetxController {
   }
 
   Future<void> _searchPickup(String query) async {
+    final gen = ++_pickupGen;
+
     if (query.isEmpty) {
       pickupPlaces.clear();
       showPickupSuggestions.value = false;
@@ -109,14 +127,17 @@ class GoogleSearchLocationController extends GetxController {
     isLoadingPickup.value = true;
     try {
       final results = await PlacesService.getPlaceSuggestions(query);
+      if (gen != _pickupGen) return; // stale result, discard
       pickupPlaces.value = results;
       showPickupSuggestions.value = results.isNotEmpty;
     } finally {
-      isLoadingPickup.value = false;
+      if (gen == _pickupGen) isLoadingPickup.value = false;
     }
   }
 
   Future<void> _searchDrop(String query) async {
+    final gen = ++_dropGen;
+
     if (query.isEmpty) {
       dropPlaces.clear();
       showDropSuggestions.value = false;
@@ -127,67 +148,88 @@ class GoogleSearchLocationController extends GetxController {
     isLoadingDrop.value = true;
     try {
       final results = await PlacesService.getPlaceSuggestions(query);
+      if (gen != _dropGen) return; // stale result, discard
       dropPlaces.value = results;
       showDropSuggestions.value = results.isNotEmpty;
     } finally {
-      isLoadingDrop.value = false;
+      if (gen == _dropGen) isLoadingDrop.value = false;
     }
   }
 
   Future<void> selectPickup(PlaceSuggestion place) async {
-    _isSelectingPickup = true;
+    // 1. Cancel any pending debounce timer.
     _pickupTimer?.cancel();
 
-    pickupPlaces.clear();
+    // 2. Invalidate any in-flight network request.
+    ++_pickupGen;
+
+    // 3. Hide suggestions and spinner immediately — synchronous, instant.
     showPickupSuggestions.value = false;
+    isLoadingPickup.value = false;
+    pickupPlaces.clear();
 
-    pickupController.removeListener(_pickupListener);
+    // 4. Set text without triggering a search by locking first.
+    _pickupLocked = true;
+    _confirmedPickupText = place.description;
     pickupController.text = place.description;
-    pickupController.addListener(_pickupListener);
-
     showClearPickup.value = true;
-    _isSelectingPickup = false;
 
-    final details = await PlacesService.getPlaceDetails(place.placeId);
-    selectedPickup.value = details;
+    // 5. Fetch place details in the background.
+    try {
+      final details = await PlacesService.getPlaceDetails(place.placeId);
+      selectedPickup.value = details;
+    } catch (_) {
+      // Keep the text even if details fetch fails
+    }
   }
 
   Future<void> selectDrop(PlaceSuggestion place) async {
-    _isSelectingDrop = true;
     _dropTimer?.cancel();
+    ++_dropGen;
 
-    dropPlaces.clear();
     showDropSuggestions.value = false;
+    isLoadingDrop.value = false;
+    dropPlaces.clear();
 
-    dropController.removeListener(_dropListener);
+    _dropLocked = true;
+    _confirmedDropText = place.description;
     dropController.text = place.description;
-    dropController.addListener(_dropListener);
-
     showClearDrop.value = true;
-    _isSelectingDrop = false;
 
-    final details = await PlacesService.getPlaceDetails(place.placeId);
-    selectedDrop.value = details;
+    try {
+      final details = await PlacesService.getPlaceDetails(place.placeId);
+      selectedDrop.value = details;
+    } catch (_) {
+      // Keep the text even if details fetch fails
+    }
   }
 
   void clearPickup() {
-    pickupController.removeListener(_pickupListener);
-    pickupController.clear();
-    pickupController.addListener(_pickupListener);
+    ++_pickupGen;
+    _pickupTimer?.cancel();
+    _pickupLocked = false;
+    _confirmedPickupText = '';
+
+    pickupController.text = '';
     showClearPickup.value = false;
     pickupPlaces.clear();
     showPickupSuggestions.value = false;
+    isLoadingPickup.value = false;
     selectedPickup.value = null;
     _clearFare();
   }
 
   void clearDrop() {
-    dropController.removeListener(_dropListener);
-    dropController.clear();
-    dropController.addListener(_dropListener);
+    ++_dropGen;
+    _dropTimer?.cancel();
+    _dropLocked = false;
+    _confirmedDropText = '';
+
+    dropController.text = '';
     showClearDrop.value = false;
     dropPlaces.clear();
     showDropSuggestions.value = false;
+    isLoadingDrop.value = false;
     selectedDrop.value = null;
     _clearFare();
   }
@@ -269,36 +311,32 @@ class GoogleSearchLocationController extends GetxController {
       final apiStatus = response['status'];
       if (apiStatus != 'OK') {
         final errorMsg = response['error_message'] ?? 'no error_message field';
-        debugPrint('Distance Matrix API error: status=$apiStatus, message=$errorMsg');
+        debugPrint(
+            'Distance Matrix API error: status=$apiStatus, message=$errorMsg');
         _clearFare();
         return false;
       }
 
       final rows = response['rows'];
       if (rows is! List || rows.isEmpty) {
-        debugPrint('No distance matrix rows');
         _clearFare();
         return false;
       }
 
       final firstRow = rows.first;
       if (firstRow is! Map<String, dynamic>) {
-        debugPrint('Invalid distance matrix row');
         _clearFare();
         return false;
       }
 
       final elements = firstRow['elements'];
       if (elements is! List || elements.isEmpty) {
-        debugPrint('No distance matrix elements');
         _clearFare();
         return false;
       }
 
       final data = elements.first;
-
       if (data is! Map<String, dynamic> || data['status'] != 'OK') {
-        debugPrint('No valid distance data');
         _clearFare();
         return false;
       }
@@ -307,7 +345,6 @@ class GoogleSearchLocationController extends GetxController {
       duration.value = data['duration']?['text'] ?? '';
 
       final distanceInMeters = (data['distance']?['value'] ?? 0).toDouble();
-
       sendingMetersValue.value = distanceInMeters;
 
       final distanceInMiles = distanceInMeters / 1609.34;
@@ -376,22 +413,25 @@ class GoogleSearchLocationController extends GetxController {
   }
 
   void cleanField() {
-    pickupController.removeListener(_pickupListener);
-    dropController.removeListener(_dropListener);
+    _pickupTimer?.cancel();
+    _dropTimer?.cancel();
+    _pickupLocked = false;
+    _dropLocked = false;
+    _confirmedPickupText = '';
+    _confirmedDropText = '';
 
-    pickupController.clear();
-    dropController.clear();
+    pickupController.text = '';
+    dropController.text = '';
     noteController.clear();
     pickupPlaces.clear();
     dropPlaces.clear();
     showPickupSuggestions.value = false;
     showDropSuggestions.value = false;
+    showClearPickup.value = false;
+    showClearDrop.value = false;
     selectedPickup.value = null;
     selectedDrop.value = null;
     _clearFare();
-
-    pickupController.addListener(_pickupListener);
-    dropController.addListener(_dropListener);
   }
 
   @override
