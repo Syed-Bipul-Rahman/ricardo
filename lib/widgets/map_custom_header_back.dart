@@ -35,7 +35,7 @@ class _MapCustomHeaderBackState extends State<MapCustomHeaderBack> {
           child: BackdropFilter(
             filter: ui.ImageFilter.blur(sigmaX: 16, sigmaY: 16),
             child: Container(
-              height: MediaQuery.of(context).size.height * 0.14,
+              height: MediaQuery.of(context).size.height * 0.16,
               decoration: BoxDecoration(
                 color: Color(0x80FFFFFF),
                 borderRadius: BorderRadius.only(
