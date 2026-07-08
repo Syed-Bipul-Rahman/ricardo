@@ -6,17 +6,37 @@ extension _Sockets on _MapScreenState {
     await PrefsHelper.setString(AppConstants.fcmToken, fcmToken);
 
     SocketServices.socket?.on('new-ride-request', (data) {
-      if (data['newRideRequest'] == true) {
+      try {
+        if (data is! Map || data['newRideRequest'] != true) return;
+
+        final rawDetails = data['rideDetails'];
+        if (rawDetails is! Map) {
+          debugPrint('new-ride-request: rideDetails missing or invalid');
+          return;
+        }
+
+        final details = RideDetailsSocketModel.fromJson(
+          Map<String, dynamic>.from(rawDetails),
+        );
+        if (details.rideId == null || details.rideId!.isEmpty) {
+          debugPrint('new-ride-request: rideId missing in payload');
+          return;
+        }
+
+        mapOPTController.rideDetailsData.value = details;
+        mapOPTController.rideDetailsData.refresh();
         mapOPTController.startRideRequestTimer();
         mapOPTController.isPassengerRequest.value = true;
-        mapOPTController.rideDetailsData.value =
-            RideDetailsSocketModel.fromJson(data['rideDetails']);
+      } catch (e, stackTrace) {
+        debugPrint('new-ride-request error: $e');
+        debugPrint('STACK: $stackTrace');
       }
     });
 
     SocketServices.socket?.on('cancel-ride-request', (data) {
       if (data['isCancelPickRequest'] == true) {
         mapOPTController.isPassengerRequest.value = false;
+        mapOPTController.rideDetailsData.value = null;
         mapOPTController.cancelRideRequestTimer();
       }
     });

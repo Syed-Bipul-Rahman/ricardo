@@ -207,6 +207,11 @@ class MapOPTController extends GetxController {
   final isRideAcceptStatusLoading = false.obs;
 
   Future<void> rideAcceptRide(String rideId) async {
+    if (rideId.isEmpty) {
+      showSnackbar('Error', 'Ride id is missing');
+      return;
+    }
+
     isRideAcceptStatusLoading.value = true;
     LatLng currentLatLun = await CustomLocationHelper.getCurrentLocation();
 
@@ -218,6 +223,7 @@ class MapOPTController extends GetxController {
     if (response.statusCode == 200 || response.statusCode == 201) {
       isRideAcceptStatusLoading.value = false;
       isPassengerRequest.value = false;
+      rideDetailsData.value = null;
       cancelRideRequestTimer();
       await driverServiceFun(rideId);
       await prefetchPickupRouteEstimate();
