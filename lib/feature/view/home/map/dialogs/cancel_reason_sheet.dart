@@ -135,9 +135,9 @@ void showCancelReasonSheet(
                               debugPrint('❌ Ride ID is null');
                               return;
                             }
-                            final cnt = mapOPTController
+                            final success = await mapOPTController
                                 .cancelRideByDriverHandler(rideId);
-                            if (cnt == true) {
+                            if (success == true) {
                               onConfirmed();
                               Navigator.pop(context);
                             }
