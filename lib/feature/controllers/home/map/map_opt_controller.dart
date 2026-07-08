@@ -32,6 +32,8 @@ class MapOPTController extends GetxController {
   DateTime? _lastGetDriverLocationEmitAt;
   Timer? _rideLocationSyncTimer;
   String? _syncingRideId;
+  String? _lastFinishedRideId;
+  DateTime? _lastFinishedAt;
   RxDouble buttonTop = 300.0.obs;
   RxDouble buttonRight = 10.0.obs;
 
@@ -384,6 +386,34 @@ class MapOPTController extends GetxController {
     return null;
   }
 
+  void markRideFinished(String rideId) {
+    if (rideId.isEmpty) return;
+    _lastFinishedRideId = rideId;
+    _lastFinishedAt = DateTime.now();
+  }
+
+  bool shouldIgnoreRideStatus(String? rideId) {
+    if (rideId == null || rideId.isEmpty || _lastFinishedRideId == null) {
+      return false;
+    }
+    if (_lastFinishedRideId != rideId) return false;
+    final finishedAt = _lastFinishedAt;
+    if (finishedAt == null) return false;
+    return DateTime.now().difference(finishedAt) < const Duration(minutes: 2);
+  }
+
+  void refreshRideObservables() {
+    rideStatusData.refresh();
+    acceptedRideDriverData.refresh();
+    acceptedRideDriverDataStatus.refresh();
+    isPassengerRequest.refresh();
+    rideDetailsData.refresh();
+    getRideDriverLocation.refresh();
+    isCompleteRideLoading.refresh();
+    isRideStatusChangeLoading.refresh();
+    update();
+  }
+
   bool get isDriverLocationSocketFresh {
     final at = lastDriverLocationSocketAt.value;
     if (at == null) return false;
@@ -508,18 +538,25 @@ class MapOPTController extends GetxController {
 
   //  Complete Related work are here
   RxBool isCompleteRideLoading = false.obs;
-  Future<void> completeRideHandler(String rideId, int waitingTime) async {
+  Future<bool> completeRideHandler(String rideId, int waitingTime) async {
     try {
       isCompleteRideLoading.value = true;
       final response = await ApiClient.postData(
           ApiUrls.completeRideByDriver(rideId), {"waitingTime": waitingTime});
       if (response.statusCode == 200 || response.statusCode == 201) {
-
+        markRideFinished(rideId);
+        stopRideLocationSync();
+        return true;
       } else {
-        showSnackbar('Error', response.body['message']);
+        final message = response.body is Map
+            ? response.body['message'] ?? 'Something went wrong'
+            : 'Something went wrong';
+        showSnackbar('Error', message);
+        return false;
       }
     } catch (e) {
-      isCompleteRideLoading.value = false;
+      debugPrint(e.toString());
+      return false;
     } finally {
       isCompleteRideLoading.value = false;
     }

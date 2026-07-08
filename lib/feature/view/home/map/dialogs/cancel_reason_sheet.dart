@@ -4,7 +4,7 @@ import 'package:ricardo/feature/view/home/link_export_file.dart';
 void showCancelReasonSheet(
   BuildContext context, {
   required MapOPTController mapOPTController,
-  required VoidCallback onConfirmed,
+  required Future<void> Function() onConfirmed,
 }) {
   final reasons = [
     'Passenger no show',
@@ -138,8 +138,8 @@ void showCancelReasonSheet(
                             final cnt = mapOPTController
                                 .cancelRideByDriverHandler(rideId);
                             if (cnt == true) {
-                              onConfirmed();
-                              Navigator.pop(context);
+                              await onConfirmed();
+                              if (context.mounted) Navigator.pop(context);
                             }
                           },
                     child: Obx(() {

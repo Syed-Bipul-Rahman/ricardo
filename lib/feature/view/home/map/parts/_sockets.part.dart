@@ -122,7 +122,31 @@ extension _Sockets on _MapScreenState {
         final RideModel.RideStatusModel rideStatus =
             RideModel.RideStatusModel.fromJson(jsonData);
 
+        final rideId = rideStatus.ride?.id;
+        if (mapOPTController.shouldIgnoreRideStatus(rideId) &&
+            rideStatus.completeRide != true &&
+            rideStatus.driverCancel != true &&
+            rideStatus.passengerCancel != true) {
+          debugPrint('ride-status ignored — ride already finished locally');
+          return;
+        }
+
+        if (rideStatus.completeRide == true) {
+          debugPrint('✅ ride-status: Ride completed');
+          await finishRide(rideId: rideId);
+          return;
+        }
+
+        if (rideStatus.driverCancel == true ||
+            rideStatus.passengerCancel == true) {
+          debugPrint('❌ ride-status: Ride cancelled');
+          await finishRide(rideId: rideId);
+          SocketServices.socket?.off('ride-status');
+          return;
+        }
+
         mapOPTController.rideStatusData.value = rideStatus;
+        mapOPTController.rideStatusData.refresh();
 
         if (rideStatus.acceptRide == true) {
           rideController.drivers.clear();
@@ -160,14 +184,6 @@ extension _Sockets on _MapScreenState {
             mapOPTController.maybeEmitGetDriverLocation(rideId);
           }
           pickupToDestinationRoute();
-        } else if (rideStatus.completeRide == true) {
-          mapOPTController.stopRideLocationSync();
-        } else if (rideStatus.driverCancel == true ||
-            rideStatus.passengerCancel == true) {
-          debugPrint('❌ ride-status: Ride cancelled');
-          mapOPTController.stopRideLocationSync();
-          clearRideState();
-          SocketServices.socket?.off('ride-status');
         }
 
       } catch (e, stackTrace) {

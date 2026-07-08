@@ -13,7 +13,7 @@ class DriverActiveRidePanel extends StatelessWidget {
   });
 
   final MapOPTController mapOPTController;
-  final VoidCallback onRideCancelled;
+  final Future<void> Function() onRideCancelled;
 
   @override
   Widget build(BuildContext context) {
@@ -269,8 +269,11 @@ class DriverActiveRidePanel extends StatelessWidget {
                                 debugPrint('🚕 start_ride → complete');
                                 mapOPTController.isPassengerRequest.value =
                                     false;
-                                mapOPTController.completeRideHandler(
-                                    rideId, 0);
+                                final completed = await mapOPTController
+                                    .completeRideHandler(rideId, 0);
+                                if (completed) {
+                                  await onRideCancelled();
+                                }
                               }
                             }
                           : null,

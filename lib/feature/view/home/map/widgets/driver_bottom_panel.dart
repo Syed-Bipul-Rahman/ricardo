@@ -16,7 +16,7 @@ class DriverBottomPanel extends StatelessWidget {
   final UserController userController;
   final RideController rideController;
   final MapOPTController mapOPTController;
-  final VoidCallback onRideCancelled;
+  final Future<void> Function() onRideCancelled;
 
   @override
   Widget build(BuildContext context) {

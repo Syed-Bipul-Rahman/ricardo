@@ -22,16 +22,48 @@ extension _Bootstrap on _MapScreenState {
     mapOPTController.stopRideLocationSync();
     rideController.isRideAccepted.value = false;
     rideController.acceptRideModel.value = null;
+    rideController.drivers.clear();
     mapOPTController.acceptedRideDriverDataStatus.value = false;
     mapOPTController.acceptedRideDriverData.value = null;
     mapOPTController.isPassengerRequest.value = false;
+    mapOPTController.isCurrentMarkerShowOrNot.value = true;
     mapOPTController.rideStatusData.value = null;
     mapOPTController.rideRequestReceivedAt.value = null;
+    mapOPTController.rideDetailsData.value = null;
+    mapOPTController.getRideDriverLocation.value = null;
+    mapOPTController.showCancelReasonDialog.value = false;
     mapOPTController.clearPrefetchedRouteEstimates();
+    userController.activeRideStatus.value = '';
     PrefsHelper.setString('status', '');
     PrefsHelper.setString('ride-accepted-data', '');
     PrefsHelper.setString('driver-status', '');
     PrefsHelper.setString('ride-accepted-driver-data', '');
+    mapOPTController.refreshRideObservables();
+    rideController.isRideAccepted.refresh();
+    rideController.acceptRideModel.refresh();
+    rideController.update();
+    userController.update();
+  }
+
+  void clearRideMapUi() {
+    _polylines.clear();
+    markers.clear();
+    _fullRoutePoints = [];
+    _routeTarget = null;
+    _isReFetchingRoute = false;
+    if (mounted) setState(() {});
+  }
+
+  Future<void> finishRide({String? rideId}) async {
+    final resolvedRideId = rideId ?? mapOPTController.activeRideId;
+    if (resolvedRideId != null && resolvedRideId.isNotEmpty) {
+      mapOPTController.markRideFinished(resolvedRideId);
+    }
+    clearRideState();
+    clearRideMapUi();
+    moveToCurrentLocation();
+    await userController.fetchActiveRideStatus();
+    if (mounted) setState(() {});
   }
 
   Future<void> initializeMap() async {
