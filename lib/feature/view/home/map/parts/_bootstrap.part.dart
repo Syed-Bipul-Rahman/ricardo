@@ -14,13 +14,46 @@ extension _Bootstrap on _MapScreenState {
 
   void clearRideState() {
     DriverLocationService().stop();
+
+    // ── controller state ──────────────────────────────────────────────────
     rideController.isRideAccepted.value = false;
     rideController.acceptRideModel.value = null;
+    rideController.viewInMap.value = true;
+    rideController.viewInMapReturn.value = false;
+    rideController.rideCancel.value = false;
+    rideController.drivers.clear();
+    rideController.isSwippedButtonShow.value = false;
+
     mapOPTController.acceptedRideDriverDataStatus.value = false;
     mapOPTController.acceptedRideDriverData.value = null;
     mapOPTController.isPassengerRequest.value = false;
     mapOPTController.rideStatusData.value = null;
     mapOPTController.rideRequestReceivedAt.value = null;
+    mapOPTController.isCurrentMarkerShowOrNot.value = true;
+    mapOPTController.getRideDriverLocation.value = null;
+
+    googleSearchLocationController.isModalOn.value = false;
+    googleSearchLocationController.cleanField();
+
+    // Force userModel observers to re-evaluate — the nav bar Obx reads
+    // userModel to decide the passenger role, so it must re-run.
+    userController.userModel.refresh();
+
+    // ── map visuals ────────────────────────────────────────────────────────
+    _fullRoutePoints = [];
+    _routeTarget = null;
+    _isReFetchingRoute = false;
+
+    if (mounted) {
+      setState(() {
+        _polylines.clear();
+        markers.removeWhere((m) =>
+            m.markerId.value != 'current_location' &&
+            m.markerId.value != 'my_location');
+      });
+    }
+
+    // ── prefs ──────────────────────────────────────────────────────────────
     PrefsHelper.setString('status', '');
     PrefsHelper.setString('ride-accepted-data', '');
     PrefsHelper.setString('driver-status', '');

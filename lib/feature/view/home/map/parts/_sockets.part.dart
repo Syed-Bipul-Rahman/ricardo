@@ -107,6 +107,26 @@ extension _Sockets on _MapScreenState {
         final RideModel.RideStatusModel rideStatus =
             RideModel.RideStatusModel.fromJson(jsonData);
 
+        // For cancel/complete events we reset immediately without ever
+        // storing the status — storing driverCancel=true would re-hide
+        // the nav bar after clearRideState() already showed it.
+        if (rideStatus.driverCancel == true ||
+            rideStatus.passengerCancel == true) {
+          debugPrint('❌ ride-status: Ride cancelled');
+          clearRideState();
+          SocketServices.socket?.off('ride-status');
+          return;
+        }
+
+        if (rideStatus.completeRide == true) {
+          debugPrint('✅ ride-status: Ride completed');
+          Future.delayed(const Duration(seconds: 2), () {
+            clearRideState();
+            SocketServices.socket?.off('ride-status');
+          });
+          return;
+        }
+
         mapOPTController.rideStatusData.value = rideStatus;
 
         if (rideStatus.acceptRide == true) {
@@ -123,11 +143,6 @@ extension _Sockets on _MapScreenState {
           _fullRoutePoints = [];
           _routeTarget = null;
           pickupToDestinationRoute();
-        } else if (rideStatus.driverCancel == true ||
-            rideStatus.passengerCancel == true) {
-          debugPrint('❌ ride-status: Ride cancelled');
-          clearRideState();
-          SocketServices.socket?.off('ride-status');
         }
 
       } catch (e, stackTrace) {

@@ -131,8 +131,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                   rideController: rideController,
                   mapOPTController: mapOPTController,
                   onRideCancelled: () {
-                    _polylines.clear();
-                    buildMarkers().clear();
+                    clearRideState();
                   },
                 ),
               ],
