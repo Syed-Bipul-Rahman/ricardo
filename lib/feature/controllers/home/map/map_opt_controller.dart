@@ -4,13 +4,15 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:ricardo/app/helpers/custom_location_helper.dart';
+import 'package:ricardo/app/helpers/snackbar_helper.dart';
 import 'package:ricardo/feature/models/home/ride_status_model.dart';
 import 'package:ricardo/feature/models/socket/accept_ride_driver_model.dart';
 import 'package:ricardo/feature/models/socket/get_ride_driver_location.dart';
 import 'package:ricardo/feature/view/home/link_export_file.dart';
 import 'package:ricardo/feature/view/home/map/driver_location_service.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:ricardo/services/direction_services.dart';
 import 'package:ricardo/services/api_client.dart';
-import 'package:ricardo/app/helpers/snackbar_helper.dart';
 
 class MapOPTController extends GetxController {
   // Controller are here
@@ -22,6 +24,12 @@ class MapOPTController extends GetxController {
   RxBool showCancelReasonDialog = false.obs;
   final Rx<GetRideDriverLocation?> getRideDriverLocation =
       Rx<GetRideDriverLocation?>(null);
+  final prefetchedPickupDistance = 0.obs;
+  final prefetchedPickupDuration = 0.obs;
+  final prefetchedDestinationDistance = 0.obs;
+  final prefetchedDestinationDuration = 0.obs;
+  final Rxn<DateTime> lastDriverLocationSocketAt = Rxn<DateTime>();
+  DateTime? _lastGetDriverLocationEmitAt;
   RxDouble buttonTop = 300.0.obs;
   RxDouble buttonRight = 10.0.obs;
 
@@ -205,6 +213,10 @@ class MapOPTController extends GetxController {
 
     if (response.statusCode == 200 || response.statusCode == 201) {
       isRideAcceptStatusLoading.value = false;
+      isPassengerRequest.value = false;
+      cancelRideRequestTimer();
+      await driverServiceFun(rideId);
+      await prefetchPickupRouteEstimate();
     } else {
       isRideAcceptStatusLoading.value = false;
       showSnackbar('Error', response.body['message']);
@@ -342,6 +354,82 @@ class MapOPTController extends GetxController {
   }
 
   //  Driver Service Function are here
+  void clearPrefetchedRouteEstimates() {
+    prefetchedPickupDistance.value = 0;
+    prefetchedPickupDuration.value = 0;
+    prefetchedDestinationDistance.value = 0;
+    prefetchedDestinationDuration.value = 0;
+    lastDriverLocationSocketAt.value = null;
+    _lastGetDriverLocationEmitAt = null;
+  }
+
+  bool get isDriverLocationSocketFresh {
+    final at = lastDriverLocationSocketAt.value;
+    if (at == null) return false;
+    return DateTime.now().difference(at) < const Duration(seconds: 45);
+  }
+
+  void markDriverLocationSocketReceived() {
+    lastDriverLocationSocketAt.value = DateTime.now();
+  }
+
+  void maybeEmitGetDriverLocation(String rideId) {
+    if (rideId.isEmpty || !SocketServices.isConnected) return;
+
+    final now = DateTime.now();
+    if (_lastGetDriverLocationEmitAt != null &&
+        now.difference(_lastGetDriverLocationEmitAt!) <
+            const Duration(seconds: 3)) {
+      return;
+    }
+
+    _lastGetDriverLocationEmitAt = now;
+    SocketServices.emit('get-driver-location', {'rideId': rideId});
+  }
+
+  Future<void> prefetchPickupRouteEstimate() async {
+    final pickupCoords = rideStatusData.value?.ride?.pickupLocation?.coordinates ??
+        acceptedRideDriverData.value?.ride?.pickupLocation?.coordinates;
+    if (pickupCoords == null || pickupCoords.length < 2) return;
+
+    final driverLat = currentLatitudePosition?.value;
+    final driverLng = currentLongitudePosition?.value;
+    if (driverLat == null || driverLng == null || driverLat == 0 || driverLng == 0) {
+      return;
+    }
+
+    final metrics = await DirectionsService.getRouteMetrics(
+      LatLng(driverLat, driverLng),
+      LatLng(pickupCoords[1], pickupCoords[0]),
+    );
+    if (metrics == null) return;
+
+    prefetchedPickupDistance.value = metrics.distanceMeters;
+    prefetchedPickupDuration.value = metrics.durationSeconds;
+  }
+
+  Future<void> prefetchDestinationRouteEstimate() async {
+    final destinationCoords =
+        rideStatusData.value?.ride?.destinationLocation?.coordinates ??
+            acceptedRideDriverData.value?.ride?.destinationLocation?.coordinates;
+    if (destinationCoords == null || destinationCoords.length < 2) return;
+
+    final driverLat = currentLatitudePosition?.value;
+    final driverLng = currentLongitudePosition?.value;
+    if (driverLat == null || driverLng == null || driverLat == 0 || driverLng == 0) {
+      return;
+    }
+
+    final metrics = await DirectionsService.getRouteMetrics(
+      LatLng(driverLat, driverLng),
+      LatLng(destinationCoords[1], destinationCoords[0]),
+    );
+    if (metrics == null) return;
+
+    prefetchedDestinationDistance.value = metrics.distanceMeters;
+    prefetchedDestinationDuration.value = metrics.durationSeconds;
+  }
+
   Future<void> driverServiceFun(String rideId) async {
     print('FFFFFFFFFF $rideId');
     // final String? rideId = rideStatusData.value?.ride?.id ??

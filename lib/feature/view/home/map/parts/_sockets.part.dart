@@ -43,6 +43,15 @@ extension _Sockets on _MapScreenState {
           mapOPTController.acceptedRideDriverDataStatus.value = true;
           mapOPTController.acceptedRideDriverData.value =
               AcceptRideDriverModel.fromJson(data);
+          mapOPTController.isPassengerRequest.value = false;
+          mapOPTController.cancelRideRequestTimer();
+
+          final rideId =
+              mapOPTController.acceptedRideDriverData.value?.ride?.sId;
+          if (rideId != null && rideId.isNotEmpty) {
+            mapOPTController.driverServiceFun(rideId);
+            mapOPTController.prefetchPickupRouteEstimate();
+          }
         }
       }
     });
@@ -63,6 +72,7 @@ extension _Sockets on _MapScreenState {
         mapOPTController.getRideDriverLocation.value =
             GetRideDriverLocation.fromJson(jsonData);
         mapOPTController.getRideDriverLocation.refresh();
+        mapOPTController.markDriverLocationSocketReceived();
         final bool isPassenger =
             userController.userModel.value?.userProfile?.role ==
                 AppConstants.passenger;
@@ -112,6 +122,17 @@ extension _Sockets on _MapScreenState {
         if (rideStatus.acceptRide == true) {
           rideController.drivers.clear();
           mapOPTController.isCurrentMarkerShowOrNot.value = true;
+          mapOPTController.isPassengerRequest.value = false;
+          mapOPTController.cancelRideRequestTimer();
+
+          final isDriver =
+              userController.userModel.value?.userProfile?.role ==
+                  AppConstants.driver;
+          final rideId = rideStatus.ride?.id;
+          if (isDriver && rideId != null && rideId.isNotEmpty) {
+            mapOPTController.driverServiceFun(rideId);
+            mapOPTController.prefetchPickupRouteEstimate();
+          }
         } else if (rideStatus.ongoingRide == true) {
           loadAcceptedRideRoute();
         } else if (rideStatus.arrivingRide == true) {
@@ -122,6 +143,7 @@ extension _Sockets on _MapScreenState {
         } else if (rideStatus.startRide == true) {
           _fullRoutePoints = [];
           _routeTarget = null;
+          mapOPTController.prefetchDestinationRouteEstimate();
           pickupToDestinationRoute();
         } else if (rideStatus.driverCancel == true ||
             rideStatus.passengerCancel == true) {

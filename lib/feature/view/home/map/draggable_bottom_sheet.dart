@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:ricardo/app/helpers/ride_distance_formatter.dart';
+import 'package:ricardo/app/helpers/ride_eta_resolver.dart';
 import 'package:ricardo/feature/models/home/ride_status_model.dart';
 import 'package:ricardo/feature/view/home/link_export_file.dart';
 import 'package:ricardo/widgets/widgets.dart';
@@ -120,60 +122,16 @@ class _DraggableBottomSheetState extends State<DraggableBottomSheet> {
 
                             /// TIME BOX (REACTIVE)
                             Obx(() {
-                              final rideData =
-                                  controller.getRideDriverLocation.value;
+                              controller.currentLatitudePosition?.value;
+                              controller.currentLongitudePosition?.value;
 
-                              final distance =
-                                  rideData?.driverToPickup?.distance?.value ??
-                                      0;
-                              final int time =
-                                  rideData?.driverToPickup?.time?.value ?? 0;
-                              String convertSecondsToTime(int seconds) {
-                                if (seconds < 0) return '0 Min';
+                              final metrics = RideEtaResolver.resolve(
+                                controller: controller,
+                                rideStatus: controller.rideStatusData.value,
+                              );
 
-                                final int days = seconds ~/ 86400;
-                                final int hours = (seconds % 86400) ~/ 3600;
-                                final int minutes = (seconds % 3600) ~/ 60;
-                                final int secs = seconds % 60;
-
-                                if (days > 0) {
-                                  if (hours > 0)
-                                    return '$days Day${days > 1 ? 's' : ''} $hours Hr${hours > 1 ? 's' : ''}';
-                                  return '$days Day${days > 1 ? 's' : ''}';
-                                }
-
-                                if (hours > 0) {
-                                  if (minutes > 0)
-                                    return '$hours Hr${hours > 1 ? 's' : ''} $minutes Min';
-                                  return '$hours Hr${hours > 1 ? 's' : ''}';
-                                }
-
-                                if (minutes > 0) {
-                                  if (secs > 0) return '$minutes Min $secs Sec';
-                                  return '$minutes Min';
-                                }
-
-                                return '$secs Sec';
-                              }
-
-                              String convertMetersToDistance(double meters) {
-                                if (meters < 0) return '0 M';
-
-                                if (meters < 1000) {
-                                  return '${meters.toStringAsFixed(0)} M';
-                                }
-
-                                final double km = meters / 1000;
-
-                                if (km < 100) {
-                                  return '${km.toStringAsFixed(2)} KM';
-                                }
-
-                                return '${km.toStringAsFixed(1)} KM';
-                              }
-
-                              final isNear =
-                                  (time == 0 || (distance ?? 9999) <= 500);
+                              final isNear = metrics.distanceMeters > 0 &&
+                                  metrics.distanceMeters <= 500;
 
                               return Container(
                                 padding: const EdgeInsets.all(6),
@@ -184,7 +142,9 @@ class _DraggableBottomSheetState extends State<DraggableBottomSheet> {
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: Text(
-                                  convertSecondsToTime(time),
+                                  RideDistanceFormatter.formatDuration(
+                                    metrics.durationSeconds,
+                                  ),
                                   style: const TextStyle(
                                     color: Colors.white,
                                   ),

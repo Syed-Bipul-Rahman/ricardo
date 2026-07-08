@@ -21,6 +21,7 @@ extension _Bootstrap on _MapScreenState {
     mapOPTController.isPassengerRequest.value = false;
     mapOPTController.rideStatusData.value = null;
     mapOPTController.rideRequestReceivedAt.value = null;
+    mapOPTController.clearPrefetchedRouteEstimates();
     PrefsHelper.setString('status', '');
     PrefsHelper.setString('ride-accepted-data', '');
     PrefsHelper.setString('driver-status', '');

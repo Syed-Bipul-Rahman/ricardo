@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:ricardo/app/helpers/ride_distance_formatter.dart';
+import 'package:ricardo/app/helpers/ride_eta_resolver.dart';
 import 'package:ricardo/feature/view/home/link_export_file.dart';
 import 'package:ricardo/feature/view/home/map/dialogs/cancel_reason_sheet.dart';
 import 'package:ricardo/widgets/custom_loader.dart';
@@ -37,59 +39,21 @@ class DriverActiveRidePanel extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Obx(() {
-                  final rideData =
-                      mapOPTController.getRideDriverLocation.value;
+                  // Keep GPS position in the Obx subscription so distance
+                  // updates while the driver moves, even without socket data.
+                  mapOPTController.currentLatitudePosition?.value;
+                  mapOPTController.currentLongitudePosition?.value;
 
-                  final distance =
-                      rideData?.driverToPickup?.distance?.value ?? 0;
-                  final int time =
-                      rideData?.driverToPickup?.time?.value ?? 0;
-                  String convertSecondsToTime(int seconds) {
-                    if (seconds < 0) return '0 Min';
-
-                    final int days = seconds ~/ 86400;
-                    final int hours = (seconds % 86400) ~/ 3600;
-                    final int minutes = (seconds % 3600) ~/ 60;
-                    final int secs = seconds % 60;
-
-                    if (days > 0) {
-                      if (hours > 0)
-                        return '$days Day${days > 1 ? 's' : ''} $hours Hr${hours > 1 ? 's' : ''}';
-                      return '$days Day${days > 1 ? 's' : ''}';
-                    }
-
-                    if (hours > 0) {
-                      if (minutes > 0)
-                        return '$hours Hr${hours > 1 ? 's' : ''} $minutes Min';
-                      return '$hours Hr${hours > 1 ? 's' : ''}';
-                    }
-
-                    if (minutes > 0) {
-                      if (secs > 0) return '$minutes Min $secs Sec';
-                      return '$minutes Min';
-                    }
-
-                    return '$secs Sec';
-                  }
-
-                  String convertMetersToDistance(double meters) {
-                    if (meters < 0) return '0 M';
-
-                    if (meters < 1000) {
-                      return '${meters.toStringAsFixed(0)} M';
-                    }
-
-                    final double km = meters / 1000;
-
-                    if (km < 100) {
-                      return '${km.toStringAsFixed(2)} KM';
-                    }
-
-                    return '${km.toStringAsFixed(1)} KM';
-                  }
+                  final metrics = RideEtaResolver.resolve(
+                    controller: mapOPTController,
+                    rideStatus: mapOPTController.rideStatusData.value,
+                  );
 
                   return Text(
-                    '( ${convertSecondsToTime(time)}) ${convertMetersToDistance(distance.toDouble())}',
+                    RideDistanceFormatter.formatEtaLine(
+                      durationSeconds: metrics.durationSeconds,
+                      distanceMeters: metrics.distanceMeters,
+                    ),
                     style: TextStyle(
                       color: AppColors.timeAndDurationColor,
                       fontWeight: FontWeight.bold,
@@ -242,23 +206,17 @@ class DriverActiveRidePanel extends StatelessWidget {
             }),
             const SizedBox(height: 24),
             Obx(() {
-              final locationData =
-                  mapOPTController.getRideDriverLocation.value;
+              final metrics = RideEtaResolver.resolve(
+                controller: mapOPTController,
+                rideStatus: mapOPTController.rideStatusData.value,
+              );
               final rideStatus = mapOPTController.rideStatusData.value;
 
-              final bool enableArriveInPlace =
-                  (rideStatus?.ongoingRide == true) &&
-                      (locationData?.driverToPickup?.distance?.value ??
-                              double.maxFinite.toInt()) <=
-                          200;
+              final bool enableArriveInPlace = (rideStatus?.ongoingRide == true) &&
+                  metrics.distanceMeters <= 200;
 
               final bool enableComplete = (rideStatus?.startRide == true) &&
-                  (locationData?.driverToDestination?.distance?.value ??
-                          double.maxFinite.toInt()) <=
-                      200;
-
-              debugPrint(
-                  '================>>>>>>>>>>> 1111111111111111111111111111 Location Data ${locationData?.driverToDestination?.distance} ${locationData?.driverToPickup?.distance} ');
+                  metrics.distanceMeters <= 200;
 
               String getButtonTitle() {
                 if (rideStatus == null) return 'Loading...';
