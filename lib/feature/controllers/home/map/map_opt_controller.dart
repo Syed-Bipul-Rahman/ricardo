@@ -30,6 +30,8 @@ class MapOPTController extends GetxController {
   final prefetchedDestinationDuration = 0.obs;
   final Rxn<DateTime> lastDriverLocationSocketAt = Rxn<DateTime>();
   DateTime? _lastGetDriverLocationEmitAt;
+  Timer? _rideLocationSyncTimer;
+  String? _syncingRideId;
   RxDouble buttonTop = 300.0.obs;
   RxDouble buttonRight = 10.0.obs;
 
@@ -363,6 +365,25 @@ class MapOPTController extends GetxController {
     _lastGetDriverLocationEmitAt = null;
   }
 
+  bool get isInActiveRide {
+    final status = rideStatusData.value;
+    if (status == null) return false;
+    return status.acceptRide == true ||
+        status.ongoingRide == true ||
+        status.arrivingRide == true ||
+        status.startRide == true;
+  }
+
+  String? get activeRideId {
+    final fromStatus = rideStatusData.value?.ride?.id;
+    if (fromStatus != null && fromStatus.isNotEmpty) return fromStatus;
+    final fromDriverAccept = acceptedRideDriverData.value?.ride?.sId;
+    if (fromDriverAccept != null && fromDriverAccept.isNotEmpty) {
+      return fromDriverAccept;
+    }
+    return null;
+  }
+
   bool get isDriverLocationSocketFresh {
     final at = lastDriverLocationSocketAt.value;
     if (at == null) return false;
@@ -373,6 +394,8 @@ class MapOPTController extends GetxController {
     lastDriverLocationSocketAt.value = DateTime.now();
   }
 
+  /// Both passenger and driver emit this; backend replies on the same socket
+  /// with [get-ride-driver-location].
   void maybeEmitGetDriverLocation(String rideId) {
     if (rideId.isEmpty || !SocketServices.isConnected) return;
 
@@ -385,6 +408,55 @@ class MapOPTController extends GetxController {
 
     _lastGetDriverLocationEmitAt = now;
     SocketServices.emit('get-driver-location', {'rideId': rideId});
+  }
+
+  void stopRideLocationSync() {
+    _rideLocationSyncTimer?.cancel();
+    _rideLocationSyncTimer = null;
+    _syncingRideId = null;
+    DriverLocationService().stop();
+  }
+
+  Future<void> startRideLocationSync(String rideId) async {
+    if (rideId.isEmpty) {
+      stopRideLocationSync();
+      return;
+    }
+
+    if (!SocketServices.isConnected) {
+      debugPrint('❌ Socket not connected, skipping ride location sync');
+      return;
+    }
+
+    final isDriver = userController.userModel.value?.userProfile?.role ==
+        AppConstants.driver;
+
+    if (_syncingRideId == rideId &&
+        (isDriver ? DriverLocationService().isRunning : _rideLocationSyncTimer != null)) {
+      maybeEmitGetDriverLocation(rideId);
+      return;
+    }
+
+    stopRideLocationSync();
+    _syncingRideId = rideId;
+
+    if (isDriver) {
+      DriverLocationService().startEmitting(rideId);
+    } else {
+      _rideLocationSyncTimer = Timer.periodic(
+        const Duration(seconds: 3),
+        (_) => maybeEmitGetDriverLocation(rideId),
+      );
+    }
+
+    maybeEmitGetDriverLocation(rideId);
+  }
+
+  void resumeRideLocationSyncIfNeeded() {
+    final rideId = activeRideId;
+    if (rideId != null && isInActiveRide) {
+      startRideLocationSync(rideId);
+    }
   }
 
   Future<void> prefetchPickupRouteEstimate() async {
@@ -431,28 +503,7 @@ class MapOPTController extends GetxController {
   }
 
   Future<void> driverServiceFun(String rideId) async {
-    print('FFFFFFFFFF $rideId');
-    // final String? rideId = rideStatusData.value?.ride?.id ??
-    //     acceptedRideDriverData.value?.ride?.sId;
-
-    if (rideId == null || rideId.isEmpty) {
-      debugPrint('❌ rideId is null or empty, stopping emission');
-      DriverLocationService().stop();
-      return;
-    }
-
-    if (SocketServices.socket == null ||
-        SocketServices.socket?.connected == false) {
-      debugPrint('❌ Socket not connected, skipping emission start');
-      return;
-    }
-
-    // Start emitting driver location to backend so it can calculate
-    // driverToPickup / driverToDestination distances and emit them back.
-    // The get-ride-driver-location listener is owned by connectSocket() and
-    // must not be replaced here — replacing it would strip passenger polyline
-    // update logic registered there.
-    DriverLocationService().startEmitting(rideId);
+    await startRideLocationSync(rideId);
   }
 
   //  Complete Related work are here
@@ -475,10 +526,11 @@ class MapOPTController extends GetxController {
   }
 
   @override
-  void dispose() {
+  void onClose() {
+    stopRideLocationSync();
     provideTips.dispose();
     selectedReason?.dispose();
     _rideRequestTimer?.cancel();
-    super.dispose();
+    super.onClose();
   }
 }

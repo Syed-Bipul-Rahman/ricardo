@@ -8,12 +8,18 @@ extension _Bootstrap on _MapScreenState {
       if (rideStatus != null &&
           (rideStatus.acceptRide == true ||
               rideStatus.ongoingRide == true ||
-              rideStatus.arrivingRide == true)) {}
+              rideStatus.arrivingRide == true ||
+              rideStatus.startRide == true)) {
+        final rideId = rideStatus.ride?.id;
+        if (rideId != null && rideId.isNotEmpty) {
+          mapOPTController.startRideLocationSync(rideId);
+        }
+      }
     }
   }
 
   void clearRideState() {
-    DriverLocationService().stop();
+    mapOPTController.stopRideLocationSync();
     rideController.isRideAccepted.value = false;
     rideController.acceptRideModel.value = null;
     mapOPTController.acceptedRideDriverDataStatus.value = false;

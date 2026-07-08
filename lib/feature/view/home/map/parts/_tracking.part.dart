@@ -46,19 +46,9 @@ extension _Tracking on _MapScreenState {
     mapOPTController.currentLatitudePosition?.value = position.latitude;
     mapOPTController.currentLongitudePosition?.value = position.longitude;
 
-    final rideStatus = mapOPTController.rideStatusData.value;
-    final bool isDriver = userController.userModel.value?.userProfile?.role ==
-        AppConstants.driver;
-    if (!isDriver || rideStatus == null) return;
+    if (!mapOPTController.isInActiveRide) return;
 
-    final bool inActiveRide = rideStatus.acceptRide == true ||
-        rideStatus.ongoingRide == true ||
-        rideStatus.arrivingRide == true ||
-        rideStatus.startRide == true;
-
-    if (!inActiveRide) return;
-
-    final rideId = rideStatus.ride?.id;
+    final rideId = mapOPTController.activeRideId;
     if (rideId != null && rideId.isNotEmpty) {
       mapOPTController.maybeEmitGetDriverLocation(rideId);
     }

@@ -35,6 +35,11 @@ extension _Sockets on _MapScreenState {
       } catch (e) {
         debugPrint('ride-accepted parse error: $e');
       }
+
+      final rideId = rideController.acceptRideModel.value?.ride?.id;
+      if (rideId != null && rideId.isNotEmpty) {
+        mapOPTController.startRideLocationSync(rideId);
+      }
     });
 
     SocketServices.socket?.on('ride-accepted-driver', (data) {
@@ -49,7 +54,7 @@ extension _Sockets on _MapScreenState {
           final rideId =
               mapOPTController.acceptedRideDriverData.value?.ride?.sId;
           if (rideId != null && rideId.isNotEmpty) {
-            mapOPTController.driverServiceFun(rideId);
+            mapOPTController.startRideLocationSync(rideId);
             mapOPTController.prefetchPickupRouteEstimate();
           }
         }
@@ -129,11 +134,17 @@ extension _Sockets on _MapScreenState {
               userController.userModel.value?.userProfile?.role ==
                   AppConstants.driver;
           final rideId = rideStatus.ride?.id;
-          if (isDriver && rideId != null && rideId.isNotEmpty) {
-            mapOPTController.driverServiceFun(rideId);
-            mapOPTController.prefetchPickupRouteEstimate();
+          if (rideId != null && rideId.isNotEmpty) {
+            mapOPTController.startRideLocationSync(rideId);
+            if (isDriver) {
+              mapOPTController.prefetchPickupRouteEstimate();
+            }
           }
         } else if (rideStatus.ongoingRide == true) {
+          final rideId = rideStatus.ride?.id;
+          if (rideId != null && rideId.isNotEmpty) {
+            mapOPTController.maybeEmitGetDriverLocation(rideId);
+          }
           loadAcceptedRideRoute();
         } else if (rideStatus.arrivingRide == true) {
           markers.clear();
@@ -144,10 +155,17 @@ extension _Sockets on _MapScreenState {
           _fullRoutePoints = [];
           _routeTarget = null;
           mapOPTController.prefetchDestinationRouteEstimate();
+          final rideId = rideStatus.ride?.id;
+          if (rideId != null && rideId.isNotEmpty) {
+            mapOPTController.maybeEmitGetDriverLocation(rideId);
+          }
           pickupToDestinationRoute();
+        } else if (rideStatus.completeRide == true) {
+          mapOPTController.stopRideLocationSync();
         } else if (rideStatus.driverCancel == true ||
             rideStatus.passengerCancel == true) {
           debugPrint('❌ ride-status: Ride cancelled');
+          mapOPTController.stopRideLocationSync();
           clearRideState();
           SocketServices.socket?.off('ride-status');
         }
@@ -157,9 +175,13 @@ extension _Sockets on _MapScreenState {
         debugPrint('STACK: $stackTrace');
       }
     });
+
+    SocketServices.onReconnected =
+        mapOPTController.resumeRideLocationSyncIfNeeded;
   }
 
   void disconnectSocket() {
+    SocketServices.onReconnected = null;
     SocketServices.socket?.off('new-ride-request');
     SocketServices.socket?.off('cancel-ride-request');
     SocketServices.socket?.off('ride-accepted');
