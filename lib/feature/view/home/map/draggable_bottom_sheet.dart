@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:ricardo/app/helpers/ride_distance_formatter.dart';
 import 'package:ricardo/app/helpers/ride_eta_resolver.dart';
@@ -29,6 +30,11 @@ class _DraggableBottomSheetState extends State<DraggableBottomSheet> {
 
       final isComplete = data?.completeRide == true;
       final isArriving = data?.arrivingRide == true;
+
+      debugPrint(
+        '🧳📋 bottom sheet build | completeRide=${data?.completeRide} '
+        'startRide=${data?.startRide} isComplete=$isComplete rideId=${data?.ride?.id}',
+      );
 
       return DraggableScrollableSheet(
         initialChildSize: 0.35,
@@ -152,19 +158,29 @@ class _DraggableBottomSheetState extends State<DraggableBottomSheet> {
                               );
                             }),
                             Obx(() {
-                              final complete =
+                              final startRide =
                                   controller.rideStatusData.value?.startRide ==
-                                          true &&
-                                      (controller
-                                                  .getRideDriverLocation
-                                                  .value
-                                                  ?.driverToDestination
-                                                  ?.distance
-                                                  ?.value ??
-                                              double.infinity) <
-                                          150;
+                                      true;
+                              final distance = controller
+                                      .getRideDriverLocation
+                                      .value
+                                      ?.driverToDestination
+                                      ?.distance
+                                      ?.value ??
+                                  double.infinity;
+                              final showReport =
+                                  startRide && distance < 150;
 
-                              if (!complete) return const SizedBox();
+                              if (!showReport) {
+                                debugPrint(
+                                  '🚨❌ Report hidden | startRide=$startRide distance=$distance',
+                                );
+                                return const SizedBox();
+                              }
+
+                              debugPrint(
+                                '🚨✅ Report visible | startRide=$startRide distance=$distance',
+                              );
 
                               return ElevatedButton(
                                 style: ElevatedButton.styleFrom(
@@ -181,24 +197,21 @@ class _DraggableBottomSheetState extends State<DraggableBottomSheet> {
                                   Get.toNamed(AppRoutes.reportScreen,arguments: {'rideId' :  controller.rideStatusData.value?.ride?.id});
                                 },
                                 child: Row(
+                                  mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Expanded(
-                                        child: Icon(
+                                    Icon(
                                       Icons.add_alert_sharp,
                                       color: AppColors.errorColor,
                                       fontWeight: FontWeight.w700,
-                                    )),
-                                    SizedBox(
-                                      width: 10.w,
                                     ),
-                                    Expanded(
-                                      child: Text(
-                                        'Report',
-                                        style: TextStyle(
-                                            fontSize: 16.sp,
-                                            fontWeight: FontWeight.w600,
-                                            fontFamily: FontFamily.poppins,
-                                            color: AppColors.errorColor),
+                                    SizedBox(width: 10.w),
+                                    Text(
+                                      'Report',
+                                      style: TextStyle(
+                                        fontSize: 16.sp,
+                                        fontWeight: FontWeight.w600,
+                                        fontFamily: FontFamily.poppins,
+                                        color: AppColors.errorColor,
                                       ),
                                     ),
                                   ],
@@ -313,18 +326,23 @@ class _DraggableBottomSheetState extends State<DraggableBottomSheet> {
                         /// COMPLETE BUTTON
                         Obx(() {
                           final complete =
-                              controller.rideStatusData.value?.startRide ==
-                                      true &&
-                                  (controller
-                                              .getRideDriverLocation
-                                              .value
-                                              ?.driverToDestination
-                                              ?.distance
-                                              ?.value ??
-                                          double.infinity) <
-                                      150;
+                              controller.rideStatusData.value?.completeRide ==
+                                  true;
 
-                          if (!complete) return const SizedBox();
+                          if (!complete) {
+                            debugPrint(
+                              '🔘❌ Review/Tips/BackToHome HIDDEN | '
+                              'completeRide=${controller.rideStatusData.value?.completeRide} '
+                              'startRide=${controller.rideStatusData.value?.startRide} '
+                              'ride.status=${controller.rideStatusData.value?.ride?.status}',
+                            );
+                            return const SizedBox();
+                          }
+
+                          debugPrint(
+                            '🔘✅ Review/Tips/BackToHome VISIBLE | '
+                            'completeRide=true rideId=${controller.rideStatusData.value?.ride?.id}',
+                          );
 
                           return Column(
                             children: [
@@ -367,6 +385,7 @@ class _DraggableBottomSheetState extends State<DraggableBottomSheet> {
                               CustomPrimaryButton(
                                 title: 'Back to Home',
                                 onHandler: () async {
+                                  debugPrint('🏠👆 passenger tapped Back to Home');
                                   final rideId =
                                       controller.rideStatusData.value?.ride?.id;
                                   if (rideId != null && rideId.isNotEmpty) {
@@ -384,6 +403,7 @@ class _DraggableBottomSheetState extends State<DraggableBottomSheet> {
                                   Get.offAllNamed(AppRoutes.customBottomNavBar);
                                   Get.find<CustomBottomNavBarController>()
                                       .onChange(0);
+                                  debugPrint('🏠✅ Back to Home done → navbar home');
                                 },
                               )
                             ],

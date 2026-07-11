@@ -136,35 +136,62 @@ extension _Sockets on _MapScreenState {
         } else if (data is Map) {
           jsonData = Map<String, dynamic>.from(data);
         } else {
+          debugPrint('📡❌ ride-status: unknown payload type → $data');
           return;
         }
+
+        debugPrint('📡 ride-status received → $jsonData');
 
         final RideModel.RideStatusModel rideStatus =
             RideModel.RideStatusModel.fromJson(jsonData);
 
         final rideId = rideStatus.ride?.id;
+        final role = userController.userModel.value?.userProfile?.role;
+        debugPrint(
+          '📡 ride-status parsed | role=$role rideId=$rideId '
+          'acceptRide=${rideStatus.acceptRide} ongoingRide=${rideStatus.ongoingRide} '
+          'arrivingRide=${rideStatus.arrivingRide} startRide=${rideStatus.startRide} '
+          'completeRide=${rideStatus.completeRide} ride.status=${rideStatus.ride?.status}',
+        );
+
         if (mapOPTController.shouldIgnoreRideStatus(rideId) &&
             rideStatus.completeRide != true &&
             rideStatus.driverCancel != true &&
             rideStatus.passengerCancel != true) {
-          debugPrint('ride-status ignored — ride already finished locally');
+          debugPrint('📡⏭️ ride-status ignored — ride already finished locally');
           return;
         }
 
         if (rideStatus.completeRide == true) {
-          debugPrint('✅ ride-status: Ride completed');
-          await finishRide(rideId: rideId);
+          debugPrint('🏁✅ ride-status: completeRide=true | role=$role');
+          final isDriver = role == AppConstants.driver;
+          if (isDriver) {
+            debugPrint('🏁🚗 driver → finishRide()');
+            await finishRide(rideId: rideId);
+          } else {
+            debugPrint(
+              '🏁🧳 passenger → keep panel, set completeRide=true | rideId=$rideId',
+            );
+            mapOPTController.rideStatusData.value = rideStatus;
+            mapOPTController.rideStatusData.refresh();
+            mapOPTController.stopRideLocationSync();
+            debugPrint(
+              '🏁🧳 passenger rideStatusData updated → '
+              'completeRide=${mapOPTController.rideStatusData.value?.completeRide}',
+            );
+          }
           return;
         }
 
         if (rideStatus.driverCancel == true ||
             rideStatus.passengerCancel == true) {
-          debugPrint('❌ ride-status: Ride cancelled');
+          debugPrint('📡❌ ride-status: Ride cancelled | role=$role');
           await finishRide(rideId: rideId);
           SocketServices.socket?.off('ride-status');
           return;
         }
 
+        debugPrint('📡 ride-status: normal update → saving rideStatusData');
         mapOPTController.rideStatusData.value = rideStatus;
         mapOPTController.rideStatusData.refresh();
 
@@ -207,8 +234,8 @@ extension _Sockets on _MapScreenState {
         }
 
       } catch (e, stackTrace) {
-        debugPrint('ride-status ERROR: $e');
-        debugPrint('STACK: $stackTrace');
+        debugPrint('📡❌ ride-status ERROR: $e');
+        debugPrint('📡❌ STACK: $stackTrace');
       }
     });
 

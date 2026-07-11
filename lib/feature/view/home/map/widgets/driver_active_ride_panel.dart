@@ -271,7 +271,11 @@ class DriverActiveRidePanel extends StatelessWidget {
                                     false;
                                 final completed = await mapOPTController
                                     .completeRideHandler(rideId, 0);
+                                debugPrint(
+                                  '🚗🏁 driver Complete tapped | apiSuccess=$completed',
+                                );
                                 if (completed) {
+                                  debugPrint('🚗🧹 driver → onRideCancelled/finishRide');
                                   await onRideCancelled();
                                 }
                               }

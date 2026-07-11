@@ -32,6 +32,8 @@ extension _Bootstrap on _MapScreenState {
   }
 
   Future<void> finishRide({String? rideId}) async {
+    final role = userController.userModel.value?.userProfile?.role;
+    debugPrint('🧹 finishRide() called | role=$role rideId=$rideId');
     final resolvedRideId = rideId ?? mapOPTController.activeRideId;
     if (resolvedRideId != null && resolvedRideId.isNotEmpty) {
       mapOPTController.markRideFinished(resolvedRideId);
@@ -40,6 +42,7 @@ extension _Bootstrap on _MapScreenState {
     clearRideMapUi();
     moveToCurrentLocation();
     await userController.fetchActiveRideStatus();
+    debugPrint('🧹 finishRide() done | role=$role rideStatusData cleared');
     if (mounted) setState(() {});
   }
 

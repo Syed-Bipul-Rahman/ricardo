@@ -31,14 +31,12 @@ class RideStatusModel {
       ongoingRide: json['ongoingRide'],
       arrivingRide: json['arrivingRide'],
       driverCancel: json['driverCancel'],
-      startRide: json['startRide'],
+      startRide: json['startRide'] ?? json['rideStart'],
       passengerCancel: json['passengerCancel'],
       completeRide: json['completeRide'],
       ride: json['ride'] != null ? Ride.fromJson(json['ride']) : null,
-      passenger: json['passenger'] != null
-          ? Passenger.fromJson(json['passenger'])
-          : null,
-      driver: json['driver'] != null ? Driver.fromJson(json['driver']) : null,
+      passenger: _passengerFromDynamic(json['passenger']),
+      driver: _driverFromDynamic(json['driver']),
       driverCar: json['driverCar'] != null
           ? DriverCar.fromJson(json['driverCar'])
           : null,
@@ -64,7 +62,7 @@ class Ride {
   dynamic cancellationReason;
   int? cancellationFine;
   dynamic reviewId;
-  int? totalPayAmount;
+  double? totalPayAmount;
   String? acceptedAt;
   dynamic completeAt;
   dynamic cancelledAt;
@@ -110,11 +108,8 @@ class Ride {
   factory Ride.fromJson(Map<String, dynamic> json) {
     return Ride(
       id: json['_id'],
-      passenger: json['passenger'] != null
-          ? Passenger.fromJson(json['passenger'])
-          : null,
-      driver:
-      json['driver'] != null ? Passenger.fromJson(json['driver']) : null,
+      passenger: _passengerFromDynamic(json['passenger']),
+      driver: _passengerFromDynamic(json['driver']),
       pickupAddress: json['pickupAddress'],
       destinationAddress: json['destinationAddress'],
       pickupLocation: json['pickupLocation'] != null
@@ -123,22 +118,22 @@ class Ride {
       destinationLocation: json['destinationLocation'] != null
           ? Location.fromJson(json['destinationLocation'])
           : null,
-      destinationMeters: json['destinationMeters'],
+      destinationMeters: _toInt(json['destinationMeters']),
       fare: (json['fare'] as num?)?.toDouble(),
       note: json['note'],
       status: json['status'],
-      waitingTime: json['waitingTime'],
-      waitingTimeFare: json['waitingTimeFare'],
+      waitingTime: _toInt(json['waitingTime']),
+      waitingTimeFare: _toInt(json['waitingTimeFare']),
       cancelledBy: json['cancelledBy'],
       cancellationReason: json['cancellationReason'],
-      cancellationFine: json['cancellationFine'],
+      cancellationFine: _toInt(json['cancellationFine']),
       reviewId: json['reviewId'],
-      totalPayAmount: json['totalPayAmount'],
+      totalPayAmount: (json['totalPayAmount'] as num?)?.toDouble(),
       acceptedAt: json['acceptedAt'],
       completeAt: json['completeAt'],
       cancelledAt: json['cancelledAt'],
       searchStartedAt: json['searchStartedAt'],
-      searchRadiusIndex: json['searchRadiusIndex'],
+      searchRadiusIndex: _toInt(json['searchRadiusIndex']),
       lastSearchAt: json['lastSearchAt'],
       notifiedDriverIds: (json['notifiedDriverIds'] as List?)
           ?.map((e) => e.toString())
@@ -150,6 +145,32 @@ class Ride {
           : null,
     );
   }
+}
+
+Driver? _driverFromDynamic(dynamic value) {
+  if (value == null) return null;
+  if (value is Map) {
+    return Driver.fromJson(Map<String, dynamic>.from(value));
+  }
+  return null;
+}
+
+int? _toInt(dynamic value) {
+  if (value == null) return null;
+  if (value is int) return value;
+  if (value is num) return value.toInt();
+  return int.tryParse(value.toString());
+}
+
+Passenger? _passengerFromDynamic(dynamic value) {
+  if (value == null) return null;
+  if (value is Map) {
+    return Passenger.fromJson(Map<String, dynamic>.from(value));
+  }
+  if (value is String && value.isNotEmpty) {
+    return Passenger(id: value);
+  }
+  return null;
 }
 
 class Location {

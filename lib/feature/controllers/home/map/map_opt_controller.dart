@@ -575,13 +575,18 @@ class MapOPTController extends GetxController {
   Future<bool> completeRideHandler(String rideId, int waitingTime) async {
     try {
       isCompleteRideLoading.value = true;
+      debugPrint('🚗🏁 driver complete API start | rideId=$rideId');
       final response = await ApiClient.postData(
           ApiUrls.completeRideByDriver(rideId), {"waitingTime": waitingTime});
       if (response.statusCode == 200 || response.statusCode == 201) {
+        debugPrint('🚗✅ driver complete API success | body=${response.body}');
         markRideFinished(rideId);
         stopRideLocationSync();
         return true;
       } else {
+        debugPrint(
+          '🚗❌ driver complete API failed | status=${response.statusCode} body=${response.body}',
+        );
         final message = response.body is Map
             ? response.body['message'] ?? 'Something went wrong'
             : 'Something went wrong';
@@ -589,7 +594,7 @@ class MapOPTController extends GetxController {
         return false;
       }
     } catch (e) {
-      debugPrint(e.toString());
+      debugPrint('🚗❌ driver complete API error → $e');
       return false;
     } finally {
       isCompleteRideLoading.value = false;
