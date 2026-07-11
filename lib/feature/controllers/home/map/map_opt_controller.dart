@@ -420,6 +420,34 @@ class MapOPTController extends GetxController {
     update();
   }
 
+  void clearRideSession() {
+    stopRideLocationSync();
+    final rideController = Get.find<RideController>();
+    rideController.isRideAccepted.value = false;
+    rideController.acceptRideModel.value = null;
+    rideController.drivers.clear();
+    acceptedRideDriverDataStatus.value = false;
+    acceptedRideDriverData.value = null;
+    isPassengerRequest.value = false;
+    isCurrentMarkerShowOrNot.value = true;
+    rideStatusData.value = null;
+    rideRequestReceivedAt.value = null;
+    rideDetailsData.value = null;
+    getRideDriverLocation.value = null;
+    showCancelReasonDialog.value = false;
+    clearPrefetchedRouteEstimates();
+    userController.activeRideStatus.value = '';
+    PrefsHelper.setString('status', '');
+    PrefsHelper.setString('ride-accepted-data', '');
+    PrefsHelper.setString('driver-status', '');
+    PrefsHelper.setString('ride-accepted-driver-data', '');
+    refreshRideObservables();
+    rideController.isRideAccepted.refresh();
+    rideController.acceptRideModel.refresh();
+    rideController.update();
+    userController.update();
+  }
+
   bool get isDriverLocationSocketFresh {
     final at = lastDriverLocationSocketAt.value;
     if (at == null) return false;

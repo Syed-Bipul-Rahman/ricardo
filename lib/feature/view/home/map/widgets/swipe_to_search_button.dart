@@ -34,6 +34,45 @@ class SwipeToSearchButton extends StatelessWidget {
           status?.passengerCancel != true &&
           status?.completeRide != true;
 
+      if (!swipedButton) {
+        final checks = <String, bool>{
+          'isPassenger': role == AppConstants.passenger,
+          'isModalOff': googleSearchLocationController.isModalOn.value == false,
+          'isSwippedButtonShowFalse':
+              rideController.isSwippedButtonShow.value == false,
+          'viewInMap': rideController.viewInMap.value == true,
+          'isRideAcceptedFalse':
+              rideController.isRideAccepted.value == false,
+          'noAcceptRide': status?.acceptRide != true,
+          'noOngoingRide': status?.ongoingRide != true,
+          'noArrivingRide': status?.arrivingRide != true,
+          'noStartRide': status?.startRide != true,
+          'noDriverCancel': status?.driverCancel != true,
+          'noPassengerCancel': status?.passengerCancel != true,
+          'noCompleteRide': status?.completeRide != true,
+        };
+        final failed = checks.entries
+            .where((entry) => !entry.value)
+            .map((entry) => entry.key)
+            .toList();
+        debugPrint(
+          'LetsGo swipe hidden | failed: $failed | values: '
+          'role=$role, isModalOn=${googleSearchLocationController.isModalOn.value}, '
+          'isSwippedButtonShow=${rideController.isSwippedButtonShow.value}, '
+          'viewInMap=${rideController.viewInMap.value}, '
+          'viewInMapReturn=${rideController.viewInMapReturn.value}, '
+          'isRideAccepted=${rideController.isRideAccepted.value}, '
+          'acceptRide=${status?.acceptRide}, ongoingRide=${status?.ongoingRide}, '
+          'arrivingRide=${status?.arrivingRide}, startRide=${status?.startRide}, '
+          'driverCancel=${status?.driverCancel}, passengerCancel=${status?.passengerCancel}, '
+          'completeRide=${status?.completeRide}',
+        );
+      } else {
+        debugPrint(
+          'LetsGo swipe visible | wallet=${userController.userModel.value?.userProfile?.wallet ?? 0}',
+        );
+      }
+
       if (swipedButton) {
         return Column(
           children: [

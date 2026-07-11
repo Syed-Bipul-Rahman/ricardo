@@ -366,12 +366,24 @@ class _DraggableBottomSheetState extends State<DraggableBottomSheet> {
                               ),
                               CustomPrimaryButton(
                                 title: 'Back to Home',
-                                onHandler: () {
-                                  final backToHomeController =
-                                      Get.find<CustomBottomNavBarController>();
-                                  backToHomeController.selectedIndex.value = 0;
-
-                                  Get.offAllNamed(AppRoutes.homeScreen);
+                                onHandler: () async {
+                                  final rideId =
+                                      controller.rideStatusData.value?.ride?.id;
+                                  if (rideId != null && rideId.isNotEmpty) {
+                                    controller.markRideFinished(rideId);
+                                  }
+                                  controller.clearRideSession();
+                                  final rideController = Get.find<RideController>();
+                                  rideController.returnToNormalView();
+                                  rideController.isSwippedButtonShow.value = false;
+                                  Get.find<GoogleSearchLocationController>()
+                                      .isModalOn
+                                      .value = false;
+                                  await Get.find<UserController>()
+                                      .fetchActiveRideStatus();
+                                  Get.offAllNamed(AppRoutes.customBottomNavBar);
+                                  Get.find<CustomBottomNavBarController>()
+                                      .onChange(0);
                                 },
                               )
                             ],
