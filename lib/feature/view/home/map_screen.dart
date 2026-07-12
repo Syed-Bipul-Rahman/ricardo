@@ -130,6 +130,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                   userController: userController,
                   rideController: rideController,
                   mapOPTController: mapOPTController,
+                  onRideCancelled: () => finishRide(),
                   onRideCancelled: () {
                     clearRideState();
                   },

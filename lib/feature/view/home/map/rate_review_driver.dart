@@ -169,12 +169,57 @@ class RateReviewDriver extends StatelessWidget {
                 }
                 return CustomPrimaryButton(
                   title: 'Submit Review',
-                  onHandler: () async{
-                    final value = await controller.rateAndReviewDriverHandler(rideId!, driverId!);
-                    if( value == true ){
+                  onHandler: () async {
+                    final role = Get.find<UserController>()
+                        .userModel
+                        .value
+                        ?.userProfile
+                        ?.role;
+                    if (role != AppConstants.passenger) {
+                      ScaffoldMessenger.of(context)
+                        ..hideCurrentSnackBar()
+                        ..showSnackBar(
+                          SnackBar(
+                            content: const Text(
+                              'Only passengers can submit a review',
+                            ),
+                            backgroundColor: AppColors.errorColor,
+                          ),
+                        );
+                      return;
+                    }
+
+                    if (rideId == null || driverId == null) {
+                      ScaffoldMessenger.of(context)
+                        ..hideCurrentSnackBar()
+                        ..showSnackBar(
+                          SnackBar(
+                            content: const Text('Ride or driver information missing'),
+                            backgroundColor: AppColors.errorColor,
+                          ),
+                        );
+                      return;
+                    }
+
+                    final value = await controller.rateAndReviewDriverHandler(
+                      rideId!,
+                      driverId!,
+                    );
+                    if (value) {
                       Get.back();
-                    }else{
-                      showSnackbar('Error', "Something Went Wrong");
+                      return;
+                    }
+
+                    final message = controller.errorMessage.value;
+                    if (message.isNotEmpty) {
+                      ScaffoldMessenger.of(context)
+                        ..hideCurrentSnackBar()
+                        ..showSnackBar(
+                          SnackBar(
+                            content: Text(message),
+                            backgroundColor: AppColors.errorColor,
+                          ),
+                        );
                     }
                   },
                 );

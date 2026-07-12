@@ -11,6 +11,7 @@ import 'package:socket_io_client/socket_io_client.dart';
 class SocketServices {
   static String token = '';
   static IO.Socket? socket;
+  static void Function()? onReconnected;
 
   // Singleton pattern
   static final SocketServices _instance = SocketServices._internal();
@@ -65,6 +66,7 @@ class SocketServices {
           "deviceId": deviceId,
         });
       }
+      onReconnected?.call();
     });
     socket?.onConnectError((err) => print('❌ Socket connection error: $err'));
     socket?.onError((err) => print('❌ Socket error: $err'));

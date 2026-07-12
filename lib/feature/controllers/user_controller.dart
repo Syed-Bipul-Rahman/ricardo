@@ -61,12 +61,12 @@ class UserController extends GetxController {
   Future<bool?> fetchActiveRideStatus() async{
     try{
       final response = await ApiClient.getData(ApiUrls.getActiveRide);
-      if( response.statusCode == 200 || response.statusCode == 201 ){
-        activeRideStatus.value = response.body['data']['status'];
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        activeRideStatus.value = response.body['data']['status'] ?? '';
         return true;
-      }else{
-        return false;
       }
+      activeRideStatus.value = '';
+      return false;
     }catch(e){
       debugPrint(e.toString());
     }finally{

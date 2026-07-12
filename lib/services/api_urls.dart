@@ -1,5 +1,5 @@
 class ApiUrls {
-  static const String _baseLink = 'https://console-connectors-municipality-three.trycloudflare.com';
+  static const String _baseLink = 'https://panel-apollo-ata-frozen.trycloudflare.com';
   static const String baseUrl = "$_baseLink/api/v1";
   static const String imageBaseUrl = "$_baseLink/images/";
   static const String socketUrl = _baseLink;
@@ -47,6 +47,7 @@ class ApiUrls {
   // Payment Related work are here
   static const String addBalance = '/payment/add-balance';
   static const String withdrawRequest = '/payment/withdraw-request';
+  static const String withdrawSettings = '/dashboard/withdraw-settings';
 
   // Ride History
   static const String rideHistory = '/ride/get-complete-ride-history';

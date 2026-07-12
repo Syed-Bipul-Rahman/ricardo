@@ -8,11 +8,42 @@ extension _Bootstrap on _MapScreenState {
       if (rideStatus != null &&
           (rideStatus.acceptRide == true ||
               rideStatus.ongoingRide == true ||
-              rideStatus.arrivingRide == true)) {}
+              rideStatus.arrivingRide == true ||
+              rideStatus.startRide == true)) {
+        final rideId = rideStatus.ride?.id;
+        if (rideId != null && rideId.isNotEmpty) {
+          mapOPTController.startRideLocationSync(rideId);
+        }
+      }
     }
   }
 
   void clearRideState() {
+    mapOPTController.clearRideSession();
+  }
+
+  void clearRideMapUi() {
+    _polylines.clear();
+    markers.clear();
+    _fullRoutePoints = [];
+    _routeTarget = null;
+    _isReFetchingRoute = false;
+    if (mounted) setState(() {});
+  }
+
+  Future<void> finishRide({String? rideId}) async {
+    final role = userController.userModel.value?.userProfile?.role;
+    debugPrint('🧹 finishRide() called | role=$role rideId=$rideId');
+    final resolvedRideId = rideId ?? mapOPTController.activeRideId;
+    if (resolvedRideId != null && resolvedRideId.isNotEmpty) {
+      mapOPTController.markRideFinished(resolvedRideId);
+    }
+    clearRideState();
+    clearRideMapUi();
+    moveToCurrentLocation();
+    await userController.fetchActiveRideStatus();
+    debugPrint('🧹 finishRide() done | role=$role rideStatusData cleared');
+    if (mounted) setState(() {});
     DriverLocationService().stop();
 
     // ── controller state ──────────────────────────────────────────────────

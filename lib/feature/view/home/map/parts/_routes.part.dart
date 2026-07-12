@@ -37,10 +37,11 @@ extension _Routes on _MapScreenState {
 
       final bool arrive = acceptedRide.arrivingRide == true;
       final bool onGoingRide = acceptedRide.ongoingRide == true;
+      final bool acceptRide = acceptedRide.acceptRide == true;
 
       List<LatLng> activeRoutePoints = [];
 
-      if (arrive || onGoingRide) {
+      if (arrive || onGoingRide || acceptRide) {
         activeRoutePoints = await DirectionsService.getPolyline(
           driverLocation,
           pickupLocation,

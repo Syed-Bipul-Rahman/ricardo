@@ -26,4 +26,21 @@ class HistoryController extends GetxController{
       isHistoryFetchStatus.value = false;
     }
   }
+
+  void markRideAsReviewed(String rideId, {String? reviewId}) {
+    if (rideId.isEmpty) return;
+
+    for (final dateGroup in historyDatas) {
+      final rides = dateGroup?.rides;
+      if (rides == null) continue;
+
+      for (final ride in rides) {
+        if (ride.sId == rideId) {
+          ride.reviewId = reviewId ?? ride.sId ?? 'reviewed';
+          historyDatas.refresh();
+          return;
+        }
+      }
+    }
+  }
 }

@@ -17,7 +17,7 @@ extension _Tracking on _MapScreenState {
     _positionStream = Geolocator.getPositionStream(
       locationSettings: const LocationSettings(
         accuracy: LocationAccuracy.high,
-        distanceFilter: 20,
+        distanceFilter: 5,
       ),
     ).listen((Position position) async {
       _updateLocalMarker(position);
@@ -35,7 +35,7 @@ extension _Tracking on _MapScreenState {
         position.longitude,
       );
 
-      if (distance >= 20) {
+      if (distance >= 5) {
         _lastSentPosition = position;
         sendLocation(position, token);
       }
@@ -45,6 +45,13 @@ extension _Tracking on _MapScreenState {
   void _updateLocalMarker(Position position) {
     mapOPTController.currentLatitudePosition?.value = position.latitude;
     mapOPTController.currentLongitudePosition?.value = position.longitude;
+
+    if (!mapOPTController.isInActiveRide) return;
+
+    final rideId = mapOPTController.activeRideId;
+    if (rideId != null && rideId.isNotEmpty) {
+      mapOPTController.maybeEmitGetDriverLocation(rideId);
+    }
   }
 
   void sendLocation(Position position, String? token) {

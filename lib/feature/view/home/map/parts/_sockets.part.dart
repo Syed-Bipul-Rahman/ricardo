@@ -6,17 +6,37 @@ extension _Sockets on _MapScreenState {
     await PrefsHelper.setString(AppConstants.fcmToken, fcmToken);
 
     SocketServices.socket?.on('new-ride-request', (data) {
-      if (data['newRideRequest'] == true) {
+      try {
+        if (data is! Map || data['newRideRequest'] != true) return;
+
+        final rawDetails = data['rideDetails'];
+        if (rawDetails is! Map) {
+          debugPrint('new-ride-request: rideDetails missing or invalid');
+          return;
+        }
+
+        final details = RideDetailsSocketModel.fromJson(
+          Map<String, dynamic>.from(rawDetails),
+        );
+        if (details.rideId == null || details.rideId!.isEmpty) {
+          debugPrint('new-ride-request: rideId missing in payload');
+          return;
+        }
+
+        mapOPTController.rideDetailsData.value = details;
+        mapOPTController.rideDetailsData.refresh();
         mapOPTController.startRideRequestTimer();
         mapOPTController.isPassengerRequest.value = true;
-        mapOPTController.rideDetailsData.value =
-            RideDetailsSocketModel.fromJson(data['rideDetails']);
+      } catch (e, stackTrace) {
+        debugPrint('new-ride-request error: $e');
+        debugPrint('STACK: $stackTrace');
       }
     });
 
     SocketServices.socket?.on('cancel-ride-request', (data) {
       if (data['isCancelPickRequest'] == true) {
         mapOPTController.isPassengerRequest.value = false;
+        mapOPTController.rideDetailsData.value = null;
         mapOPTController.cancelRideRequestTimer();
       }
     });
@@ -35,6 +55,11 @@ extension _Sockets on _MapScreenState {
       } catch (e) {
         debugPrint('ride-accepted parse error: $e');
       }
+
+      final rideId = rideController.acceptRideModel.value?.ride?.id;
+      if (rideId != null && rideId.isNotEmpty) {
+        mapOPTController.startRideLocationSync(rideId);
+      }
     });
 
     SocketServices.socket?.on('ride-accepted-driver', (data) {
@@ -43,6 +68,15 @@ extension _Sockets on _MapScreenState {
           mapOPTController.acceptedRideDriverDataStatus.value = true;
           mapOPTController.acceptedRideDriverData.value =
               AcceptRideDriverModel.fromJson(data);
+          mapOPTController.isPassengerRequest.value = false;
+          mapOPTController.cancelRideRequestTimer();
+
+          final rideId =
+              mapOPTController.acceptedRideDriverData.value?.ride?.sId;
+          if (rideId != null && rideId.isNotEmpty) {
+            mapOPTController.startRideLocationSync(rideId);
+            mapOPTController.prefetchPickupRouteEstimate();
+          }
         }
       }
     });
@@ -63,6 +97,7 @@ extension _Sockets on _MapScreenState {
         mapOPTController.getRideDriverLocation.value =
             GetRideDriverLocation.fromJson(jsonData);
         mapOPTController.getRideDriverLocation.refresh();
+        mapOPTController.markDriverLocationSocketReceived();
         final bool isPassenger =
             userController.userModel.value?.userProfile?.role ==
                 AppConstants.passenger;
@@ -101,12 +136,29 @@ extension _Sockets on _MapScreenState {
         } else if (data is Map) {
           jsonData = Map<String, dynamic>.from(data);
         } else {
+          debugPrint('📡❌ ride-status: unknown payload type → $data');
           return;
         }
+
+        debugPrint('📡 ride-status received → $jsonData');
 
         final RideModel.RideStatusModel rideStatus =
             RideModel.RideStatusModel.fromJson(jsonData);
 
+        final rideId = rideStatus.ride?.id;
+        final role = userController.userModel.value?.userProfile?.role;
+        debugPrint(
+          '📡 ride-status parsed | role=$role rideId=$rideId '
+          'acceptRide=${rideStatus.acceptRide} ongoingRide=${rideStatus.ongoingRide} '
+          'arrivingRide=${rideStatus.arrivingRide} startRide=${rideStatus.startRide} '
+          'completeRide=${rideStatus.completeRide} ride.status=${rideStatus.ride?.status}',
+        );
+
+        if (mapOPTController.shouldIgnoreRideStatus(rideId) &&
+            rideStatus.completeRide != true &&
+            rideStatus.driverCancel != true &&
+            rideStatus.passengerCancel != true) {
+          debugPrint('📡⏭️ ride-status ignored — ride already finished locally');
         // For cancel/complete events we reset immediately without ever
         // storing the status — storing driverCancel=true would re-hide
         // the nav bar after clearRideState() already showed it.
@@ -119,6 +171,35 @@ extension _Sockets on _MapScreenState {
         }
 
         if (rideStatus.completeRide == true) {
+          debugPrint('🏁✅ ride-status: completeRide=true | role=$role');
+          final isDriver = role == AppConstants.driver;
+          if (isDriver) {
+            debugPrint('🏁🚗 driver → finishRide()');
+            await finishRide(rideId: rideId);
+          } else {
+            debugPrint(
+              '🏁🧳 passenger → keep panel, set completeRide=true | rideId=$rideId',
+            );
+            mapOPTController.rideStatusData.value = rideStatus;
+            mapOPTController.rideStatusData.refresh();
+            mapOPTController.stopRideLocationSync();
+            debugPrint(
+              '🏁🧳 passenger rideStatusData updated → '
+              'completeRide=${mapOPTController.rideStatusData.value?.completeRide}',
+            );
+          }
+          return;
+        }
+
+        if (rideStatus.driverCancel == true ||
+            rideStatus.passengerCancel == true) {
+          debugPrint('📡❌ ride-status: Ride cancelled | role=$role');
+          await finishRide(rideId: rideId);
+          SocketServices.socket?.off('ride-status');
+          return;
+        }
+
+        debugPrint('📡 ride-status: normal update → saving rideStatusData');
           debugPrint('✅ ride-status: Ride completed');
           Future.delayed(const Duration(seconds: 2), () {
             clearRideState();
@@ -128,11 +209,29 @@ extension _Sockets on _MapScreenState {
         }
 
         mapOPTController.rideStatusData.value = rideStatus;
+        mapOPTController.rideStatusData.refresh();
 
         if (rideStatus.acceptRide == true) {
           rideController.drivers.clear();
           mapOPTController.isCurrentMarkerShowOrNot.value = true;
+          mapOPTController.isPassengerRequest.value = false;
+          mapOPTController.cancelRideRequestTimer();
+
+          final isDriver =
+              userController.userModel.value?.userProfile?.role ==
+                  AppConstants.driver;
+          final rideId = rideStatus.ride?.id;
+          if (rideId != null && rideId.isNotEmpty) {
+            mapOPTController.startRideLocationSync(rideId);
+            if (isDriver) {
+              mapOPTController.prefetchPickupRouteEstimate();
+            }
+          }
         } else if (rideStatus.ongoingRide == true) {
+          final rideId = rideStatus.ride?.id;
+          if (rideId != null && rideId.isNotEmpty) {
+            mapOPTController.maybeEmitGetDriverLocation(rideId);
+          }
           loadAcceptedRideRoute();
         } else if (rideStatus.arrivingRide == true) {
           markers.clear();
@@ -142,17 +241,26 @@ extension _Sockets on _MapScreenState {
         } else if (rideStatus.startRide == true) {
           _fullRoutePoints = [];
           _routeTarget = null;
+          mapOPTController.prefetchDestinationRouteEstimate();
+          final rideId = rideStatus.ride?.id;
+          if (rideId != null && rideId.isNotEmpty) {
+            mapOPTController.maybeEmitGetDriverLocation(rideId);
+          }
           pickupToDestinationRoute();
         }
 
       } catch (e, stackTrace) {
-        debugPrint('ride-status ERROR: $e');
-        debugPrint('STACK: $stackTrace');
+        debugPrint('📡❌ ride-status ERROR: $e');
+        debugPrint('📡❌ STACK: $stackTrace');
       }
     });
+
+    SocketServices.onReconnected =
+        mapOPTController.resumeRideLocationSyncIfNeeded;
   }
 
   void disconnectSocket() {
+    SocketServices.onReconnected = null;
     SocketServices.socket?.off('new-ride-request');
     SocketServices.socket?.off('cancel-ride-request');
     SocketServices.socket?.off('ride-accepted');

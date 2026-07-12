@@ -4,13 +4,15 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:ricardo/app/helpers/custom_location_helper.dart';
+import 'package:ricardo/app/helpers/snackbar_helper.dart';
 import 'package:ricardo/feature/models/home/ride_status_model.dart';
 import 'package:ricardo/feature/models/socket/accept_ride_driver_model.dart';
 import 'package:ricardo/feature/models/socket/get_ride_driver_location.dart';
 import 'package:ricardo/feature/view/home/link_export_file.dart';
 import 'package:ricardo/feature/view/home/map/driver_location_service.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:ricardo/services/direction_services.dart';
 import 'package:ricardo/services/api_client.dart';
-import 'package:ricardo/app/helpers/snackbar_helper.dart';
 
 class MapOPTController extends GetxController {
   // Controller are here
@@ -22,6 +24,16 @@ class MapOPTController extends GetxController {
   RxBool showCancelReasonDialog = false.obs;
   final Rx<GetRideDriverLocation?> getRideDriverLocation =
       Rx<GetRideDriverLocation?>(null);
+  final prefetchedPickupDistance = 0.obs;
+  final prefetchedPickupDuration = 0.obs;
+  final prefetchedDestinationDistance = 0.obs;
+  final prefetchedDestinationDuration = 0.obs;
+  final Rxn<DateTime> lastDriverLocationSocketAt = Rxn<DateTime>();
+  DateTime? _lastGetDriverLocationEmitAt;
+  Timer? _rideLocationSyncTimer;
+  String? _syncingRideId;
+  String? _lastFinishedRideId;
+  DateTime? _lastFinishedAt;
   RxDouble buttonTop = 300.0.obs;
   RxDouble buttonRight = 10.0.obs;
 
@@ -195,6 +207,11 @@ class MapOPTController extends GetxController {
   final isRideAcceptStatusLoading = false.obs;
 
   Future<void> rideAcceptRide(String rideId) async {
+    if (rideId.isEmpty) {
+      showSnackbar('Error', 'Ride id is missing');
+      return;
+    }
+
     isRideAcceptStatusLoading.value = true;
     LatLng currentLatLun = await CustomLocationHelper.getCurrentLocation();
 
@@ -205,6 +222,11 @@ class MapOPTController extends GetxController {
 
     if (response.statusCode == 200 || response.statusCode == 201) {
       isRideAcceptStatusLoading.value = false;
+      isPassengerRequest.value = false;
+      rideDetailsData.value = null;
+      cancelRideRequestTimer();
+      await driverServiceFun(rideId);
+      await prefetchPickupRouteEstimate();
     } else {
       isRideAcceptStatusLoading.value = false;
       showSnackbar('Error', response.body['message']);
@@ -342,55 +364,249 @@ class MapOPTController extends GetxController {
   }
 
   //  Driver Service Function are here
+  void clearPrefetchedRouteEstimates() {
+    prefetchedPickupDistance.value = 0;
+    prefetchedPickupDuration.value = 0;
+    prefetchedDestinationDistance.value = 0;
+    prefetchedDestinationDuration.value = 0;
+    lastDriverLocationSocketAt.value = null;
+    _lastGetDriverLocationEmitAt = null;
+  }
+
+  bool get isInActiveRide {
+    final status = rideStatusData.value;
+    if (status == null) return false;
+    return status.acceptRide == true ||
+        status.ongoingRide == true ||
+        status.arrivingRide == true ||
+        status.startRide == true;
+  }
+
+  String? get activeRideId {
+    final fromStatus = rideStatusData.value?.ride?.id;
+    if (fromStatus != null && fromStatus.isNotEmpty) return fromStatus;
+    final fromDriverAccept = acceptedRideDriverData.value?.ride?.sId;
+    if (fromDriverAccept != null && fromDriverAccept.isNotEmpty) {
+      return fromDriverAccept;
+    }
+    return null;
+  }
+
+  void markRideFinished(String rideId) {
+    if (rideId.isEmpty) return;
+    _lastFinishedRideId = rideId;
+    _lastFinishedAt = DateTime.now();
+  }
+
+  bool shouldIgnoreRideStatus(String? rideId) {
+    if (rideId == null || rideId.isEmpty || _lastFinishedRideId == null) {
+      return false;
+    }
+    if (_lastFinishedRideId != rideId) return false;
+    final finishedAt = _lastFinishedAt;
+    if (finishedAt == null) return false;
+    return DateTime.now().difference(finishedAt) < const Duration(minutes: 2);
+  }
+
+  void refreshRideObservables() {
+    rideStatusData.refresh();
+    acceptedRideDriverData.refresh();
+    acceptedRideDriverDataStatus.refresh();
+    isPassengerRequest.refresh();
+    rideDetailsData.refresh();
+    getRideDriverLocation.refresh();
+    isCompleteRideLoading.refresh();
+    isRideStatusChangeLoading.refresh();
+    update();
+  }
+
+  void clearRideSession() {
+    stopRideLocationSync();
+    final rideController = Get.find<RideController>();
+    rideController.isRideAccepted.value = false;
+    rideController.acceptRideModel.value = null;
+    rideController.drivers.clear();
+    acceptedRideDriverDataStatus.value = false;
+    acceptedRideDriverData.value = null;
+    isPassengerRequest.value = false;
+    isCurrentMarkerShowOrNot.value = true;
+    rideStatusData.value = null;
+    rideRequestReceivedAt.value = null;
+    rideDetailsData.value = null;
+    getRideDriverLocation.value = null;
+    showCancelReasonDialog.value = false;
+    clearPrefetchedRouteEstimates();
+    userController.activeRideStatus.value = '';
+    PrefsHelper.setString('status', '');
+    PrefsHelper.setString('ride-accepted-data', '');
+    PrefsHelper.setString('driver-status', '');
+    PrefsHelper.setString('ride-accepted-driver-data', '');
+    refreshRideObservables();
+    rideController.isRideAccepted.refresh();
+    rideController.acceptRideModel.refresh();
+    rideController.update();
+    userController.update();
+  }
+
+  bool get isDriverLocationSocketFresh {
+    final at = lastDriverLocationSocketAt.value;
+    if (at == null) return false;
+    return DateTime.now().difference(at) < const Duration(seconds: 45);
+  }
+
+  void markDriverLocationSocketReceived() {
+    lastDriverLocationSocketAt.value = DateTime.now();
+  }
+
+  /// Both passenger and driver emit this; backend replies on the same socket
+  /// with [get-ride-driver-location].
+  void maybeEmitGetDriverLocation(String rideId) {
+    if (rideId.isEmpty || !SocketServices.isConnected) return;
+
+    final now = DateTime.now();
+    if (_lastGetDriverLocationEmitAt != null &&
+        now.difference(_lastGetDriverLocationEmitAt!) <
+            const Duration(seconds: 3)) {
+      return;
+    }
+
+    _lastGetDriverLocationEmitAt = now;
+    SocketServices.emit('get-driver-location', {'rideId': rideId});
+  }
+
+  void stopRideLocationSync() {
+    _rideLocationSyncTimer?.cancel();
+    _rideLocationSyncTimer = null;
+    _syncingRideId = null;
+    DriverLocationService().stop();
+  }
+
+  Future<void> startRideLocationSync(String rideId) async {
+    if (rideId.isEmpty) {
+      stopRideLocationSync();
+      return;
+    }
+
+    if (!SocketServices.isConnected) {
+      debugPrint('❌ Socket not connected, skipping ride location sync');
+      return;
+    }
+
+    final isDriver = userController.userModel.value?.userProfile?.role ==
+        AppConstants.driver;
+
+    if (_syncingRideId == rideId &&
+        (isDriver ? DriverLocationService().isRunning : _rideLocationSyncTimer != null)) {
+      maybeEmitGetDriverLocation(rideId);
+      return;
+    }
+
+    stopRideLocationSync();
+    _syncingRideId = rideId;
+
+    if (isDriver) {
+      DriverLocationService().startEmitting(rideId);
+    } else {
+      _rideLocationSyncTimer = Timer.periodic(
+        const Duration(seconds: 3),
+        (_) => maybeEmitGetDriverLocation(rideId),
+      );
+    }
+
+    maybeEmitGetDriverLocation(rideId);
+  }
+
+  void resumeRideLocationSyncIfNeeded() {
+    final rideId = activeRideId;
+    if (rideId != null && isInActiveRide) {
+      startRideLocationSync(rideId);
+    }
+  }
+
+  Future<void> prefetchPickupRouteEstimate() async {
+    final pickupCoords = rideStatusData.value?.ride?.pickupLocation?.coordinates ??
+        acceptedRideDriverData.value?.ride?.pickupLocation?.coordinates;
+    if (pickupCoords == null || pickupCoords.length < 2) return;
+
+    final driverLat = currentLatitudePosition?.value;
+    final driverLng = currentLongitudePosition?.value;
+    if (driverLat == null || driverLng == null || driverLat == 0 || driverLng == 0) {
+      return;
+    }
+
+    final metrics = await DirectionsService.getRouteMetrics(
+      LatLng(driverLat, driverLng),
+      LatLng(pickupCoords[1], pickupCoords[0]),
+    );
+    if (metrics == null) return;
+
+    prefetchedPickupDistance.value = metrics.distanceMeters;
+    prefetchedPickupDuration.value = metrics.durationSeconds;
+  }
+
+  Future<void> prefetchDestinationRouteEstimate() async {
+    final destinationCoords =
+        rideStatusData.value?.ride?.destinationLocation?.coordinates ??
+            acceptedRideDriverData.value?.ride?.destinationLocation?.coordinates;
+    if (destinationCoords == null || destinationCoords.length < 2) return;
+
+    final driverLat = currentLatitudePosition?.value;
+    final driverLng = currentLongitudePosition?.value;
+    if (driverLat == null || driverLng == null || driverLat == 0 || driverLng == 0) {
+      return;
+    }
+
+    final metrics = await DirectionsService.getRouteMetrics(
+      LatLng(driverLat, driverLng),
+      LatLng(destinationCoords[1], destinationCoords[0]),
+    );
+    if (metrics == null) return;
+
+    prefetchedDestinationDistance.value = metrics.distanceMeters;
+    prefetchedDestinationDuration.value = metrics.durationSeconds;
+  }
+
   Future<void> driverServiceFun(String rideId) async {
-    print('FFFFFFFFFF $rideId');
-    // final String? rideId = rideStatusData.value?.ride?.id ??
-    //     acceptedRideDriverData.value?.ride?.sId;
-
-    if (rideId == null || rideId.isEmpty) {
-      debugPrint('❌ rideId is null or empty, stopping emission');
-      DriverLocationService().stop();
-      return;
-    }
-
-    if (SocketServices.socket == null ||
-        SocketServices.socket?.connected == false) {
-      debugPrint('❌ Socket not connected, skipping emission start');
-      return;
-    }
-
-    // Start emitting driver location to backend so it can calculate
-    // driverToPickup / driverToDestination distances and emit them back.
-    // The get-ride-driver-location listener is owned by connectSocket() and
-    // must not be replaced here — replacing it would strip passenger polyline
-    // update logic registered there.
-    DriverLocationService().startEmitting(rideId);
+    await startRideLocationSync(rideId);
   }
 
   //  Complete Related work are here
   RxBool isCompleteRideLoading = false.obs;
-  Future<void> completeRideHandler(String rideId, int waitingTime) async {
+  Future<bool> completeRideHandler(String rideId, int waitingTime) async {
     try {
       isCompleteRideLoading.value = true;
+      debugPrint('🚗🏁 driver complete API start | rideId=$rideId');
       final response = await ApiClient.postData(
           ApiUrls.completeRideByDriver(rideId), {"waitingTime": waitingTime});
       if (response.statusCode == 200 || response.statusCode == 201) {
-
+        debugPrint('🚗✅ driver complete API success | body=${response.body}');
+        markRideFinished(rideId);
+        stopRideLocationSync();
+        return true;
       } else {
-        showSnackbar('Error', response.body['message']);
+        debugPrint(
+          '🚗❌ driver complete API failed | status=${response.statusCode} body=${response.body}',
+        );
+        final message = response.body is Map
+            ? response.body['message'] ?? 'Something went wrong'
+            : 'Something went wrong';
+        showSnackbar('Error', message);
+        return false;
       }
     } catch (e) {
-      isCompleteRideLoading.value = false;
+      debugPrint('🚗❌ driver complete API error → $e');
+      return false;
     } finally {
       isCompleteRideLoading.value = false;
     }
   }
 
   @override
-  void dispose() {
+  void onClose() {
+    stopRideLocationSync();
     provideTips.dispose();
     selectedReason?.dispose();
     _rideRequestTimer?.cancel();
-    super.dispose();
+    super.onClose();
   }
 }

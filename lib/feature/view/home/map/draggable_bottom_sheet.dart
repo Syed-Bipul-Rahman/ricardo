@@ -1,4 +1,7 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:ricardo/app/helpers/ride_distance_formatter.dart';
+import 'package:ricardo/app/helpers/ride_eta_resolver.dart';
 import 'package:ricardo/feature/models/home/ride_status_model.dart';
 import 'package:ricardo/feature/view/home/link_export_file.dart';
 import 'package:ricardo/widgets/widgets.dart';
@@ -27,6 +30,11 @@ class _DraggableBottomSheetState extends State<DraggableBottomSheet> {
 
       final isComplete = data?.completeRide == true;
       final isArriving = data?.arrivingRide == true;
+
+      debugPrint(
+        '🧳📋 bottom sheet build | completeRide=${data?.completeRide} '
+        'startRide=${data?.startRide} isComplete=$isComplete rideId=${data?.ride?.id}',
+      );
 
       return DraggableScrollableSheet(
         initialChildSize: 0.35,
@@ -120,60 +128,16 @@ class _DraggableBottomSheetState extends State<DraggableBottomSheet> {
 
                             /// TIME BOX (REACTIVE)
                             Obx(() {
-                              final rideData =
-                                  controller.getRideDriverLocation.value;
+                              controller.currentLatitudePosition?.value;
+                              controller.currentLongitudePosition?.value;
 
-                              final distance =
-                                  rideData?.driverToPickup?.distance?.value ??
-                                      0;
-                              final int time =
-                                  rideData?.driverToPickup?.time?.value ?? 0;
-                              String convertSecondsToTime(int seconds) {
-                                if (seconds < 0) return '0 Min';
+                              final metrics = RideEtaResolver.resolve(
+                                controller: controller,
+                                rideStatus: controller.rideStatusData.value,
+                              );
 
-                                final int days = seconds ~/ 86400;
-                                final int hours = (seconds % 86400) ~/ 3600;
-                                final int minutes = (seconds % 3600) ~/ 60;
-                                final int secs = seconds % 60;
-
-                                if (days > 0) {
-                                  if (hours > 0)
-                                    return '$days Day${days > 1 ? 's' : ''} $hours Hr${hours > 1 ? 's' : ''}';
-                                  return '$days Day${days > 1 ? 's' : ''}';
-                                }
-
-                                if (hours > 0) {
-                                  if (minutes > 0)
-                                    return '$hours Hr${hours > 1 ? 's' : ''} $minutes Min';
-                                  return '$hours Hr${hours > 1 ? 's' : ''}';
-                                }
-
-                                if (minutes > 0) {
-                                  if (secs > 0) return '$minutes Min $secs Sec';
-                                  return '$minutes Min';
-                                }
-
-                                return '$secs Sec';
-                              }
-
-                              String convertMetersToDistance(double meters) {
-                                if (meters < 0) return '0 M';
-
-                                if (meters < 1000) {
-                                  return '${meters.toStringAsFixed(0)} M';
-                                }
-
-                                final double km = meters / 1000;
-
-                                if (km < 100) {
-                                  return '${km.toStringAsFixed(2)} KM';
-                                }
-
-                                return '${km.toStringAsFixed(1)} KM';
-                              }
-
-                              final isNear =
-                                  (time == 0 || (distance ?? 9999) <= 500);
+                              final isNear = metrics.distanceMeters > 0 &&
+                                  metrics.distanceMeters <= 500;
 
                               return Container(
                                 padding: const EdgeInsets.all(6),
@@ -184,7 +148,9 @@ class _DraggableBottomSheetState extends State<DraggableBottomSheet> {
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: Text(
-                                  convertSecondsToTime(time),
+                                  RideDistanceFormatter.formatDuration(
+                                    metrics.durationSeconds,
+                                  ),
                                   style: const TextStyle(
                                     color: Colors.white,
                                   ),
@@ -192,19 +158,29 @@ class _DraggableBottomSheetState extends State<DraggableBottomSheet> {
                               );
                             }),
                             Obx(() {
-                              final complete =
+                              final startRide =
                                   controller.rideStatusData.value?.startRide ==
-                                          true &&
-                                      (controller
-                                                  .getRideDriverLocation
-                                                  .value
-                                                  ?.driverToDestination
-                                                  ?.distance
-                                                  ?.value ??
-                                              double.infinity) <
-                                          150;
+                                      true;
+                              final distance = controller
+                                      .getRideDriverLocation
+                                      .value
+                                      ?.driverToDestination
+                                      ?.distance
+                                      ?.value ??
+                                  double.infinity;
+                              final showReport =
+                                  startRide && distance < 150;
 
-                              if (!complete) return const SizedBox();
+                              if (!showReport) {
+                                debugPrint(
+                                  '🚨❌ Report hidden | startRide=$startRide distance=$distance',
+                                );
+                                return const SizedBox();
+                              }
+
+                              debugPrint(
+                                '🚨✅ Report visible | startRide=$startRide distance=$distance',
+                              );
 
                               return ElevatedButton(
                                 style: ElevatedButton.styleFrom(
@@ -221,24 +197,21 @@ class _DraggableBottomSheetState extends State<DraggableBottomSheet> {
                                   Get.toNamed(AppRoutes.reportScreen,arguments: {'rideId' :  controller.rideStatusData.value?.ride?.id});
                                 },
                                 child: Row(
+                                  mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Expanded(
-                                        child: Icon(
+                                    Icon(
                                       Icons.add_alert_sharp,
                                       color: AppColors.errorColor,
                                       fontWeight: FontWeight.w700,
-                                    )),
-                                    SizedBox(
-                                      width: 10.w,
                                     ),
-                                    Expanded(
-                                      child: Text(
-                                        'Report',
-                                        style: TextStyle(
-                                            fontSize: 16.sp,
-                                            fontWeight: FontWeight.w600,
-                                            fontFamily: FontFamily.poppins,
-                                            color: AppColors.errorColor),
+                                    SizedBox(width: 10.w),
+                                    Text(
+                                      'Report',
+                                      style: TextStyle(
+                                        fontSize: 16.sp,
+                                        fontWeight: FontWeight.w600,
+                                        fontFamily: FontFamily.poppins,
+                                        color: AppColors.errorColor,
                                       ),
                                     ),
                                   ],
@@ -353,22 +326,33 @@ class _DraggableBottomSheetState extends State<DraggableBottomSheet> {
                         /// COMPLETE BUTTON
                         Obx(() {
                           final complete =
-                              controller.rideStatusData.value?.startRide ==
-                                      true &&
-                                  (controller
-                                              .getRideDriverLocation
-                                              .value
-                                              ?.driverToDestination
-                                              ?.distance
-                                              ?.value ??
-                                          double.infinity) <
-                                      150;
+                              controller.rideStatusData.value?.completeRide ==
+                                  true;
 
-                          if (!complete) return const SizedBox();
+                          if (!complete) {
+                            debugPrint(
+                              '🔘❌ Review/Tips/BackToHome HIDDEN | '
+                              'completeRide=${controller.rideStatusData.value?.completeRide} '
+                              'startRide=${controller.rideStatusData.value?.startRide} '
+                              'ride.status=${controller.rideStatusData.value?.ride?.status}',
+                            );
+                            return const SizedBox();
+                          }
+
+                          debugPrint(
+                            '🔘✅ Review/Tips/BackToHome VISIBLE | '
+                            'completeRide=true rideId=${controller.rideStatusData.value?.ride?.id}',
+                          );
 
                           return Column(
                             children: [
-                              Row(
+                              if (Get.find<UserController>()
+                                      .userModel
+                                      .value
+                                      ?.userProfile
+                                      ?.role ==
+                                  AppConstants.passenger)
+                                Row(
                                 children: [
                                   Flexible(
                                     child: CustomPrimaryButton(
@@ -406,12 +390,26 @@ class _DraggableBottomSheetState extends State<DraggableBottomSheet> {
                               ),
                               CustomPrimaryButton(
                                 title: 'Back to Home',
-                                onHandler: () {
-                                  final backToHomeController =
-                                      Get.find<CustomBottomNavBarController>();
-                                  backToHomeController.selectedIndex.value = 0;
-
-                                  Get.offAllNamed(AppRoutes.homeScreen);
+                                onHandler: () async {
+                                  debugPrint('🏠👆 passenger tapped Back to Home');
+                                  final rideId =
+                                      controller.rideStatusData.value?.ride?.id;
+                                  if (rideId != null && rideId.isNotEmpty) {
+                                    controller.markRideFinished(rideId);
+                                  }
+                                  controller.clearRideSession();
+                                  final rideController = Get.find<RideController>();
+                                  rideController.returnToNormalView();
+                                  rideController.isSwippedButtonShow.value = false;
+                                  Get.find<GoogleSearchLocationController>()
+                                      .isModalOn
+                                      .value = false;
+                                  await Get.find<UserController>()
+                                      .fetchActiveRideStatus();
+                                  Get.offAllNamed(AppRoutes.customBottomNavBar);
+                                  Get.find<CustomBottomNavBarController>()
+                                      .onChange(0);
+                                  debugPrint('🏠✅ Back to Home done → navbar home');
                                 },
                               )
                             ],

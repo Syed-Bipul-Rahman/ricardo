@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:ricardo/feature/view/home/link_export_file.dart';
 
@@ -23,9 +24,25 @@ List<Widget> buildPassengerOverlays({
               rideStatus?.startRide == true ||
               rideStatus?.arrivingRide == true ||
               rideStatus?.driverCancel == true ||
-              rideStatus?.passengerCancel == true);
+              rideStatus?.passengerCancel == true ||
+              rideStatus?.completeRide == true);
 
-      if (!shouldShow) return const SizedBox.shrink();
+      if (!shouldShow) {
+        if (role == AppConstants.passenger) {
+          debugPrint(
+            '🧳❌ passenger panel HIDDEN | acceptRideModel=${acceptRideModel?.isRideAccepted} '
+            'acceptRide=${rideStatus?.acceptRide} ongoing=${rideStatus?.ongoingRide} '
+            'arriving=${rideStatus?.arrivingRide} startRide=${rideStatus?.startRide} '
+            'completeRide=${rideStatus?.completeRide}',
+          );
+        }
+        return const SizedBox.shrink();
+      }
+
+      debugPrint(
+        '🧳✅ passenger panel VISIBLE | completeRide=${rideStatus?.completeRide} '
+        'startRide=${rideStatus?.startRide} rideId=${rideStatus?.ride?.id}',
+      );
 
       return DraggableBottomSheet(
         rideStatus: rideStatus,

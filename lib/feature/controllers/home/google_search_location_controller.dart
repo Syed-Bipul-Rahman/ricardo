@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:get/get.dart';
+import 'package:ricardo/feature/controllers/app_settings_controller.dart';
 import 'package:ricardo/feature/controllers/home/map/ride_controller.dart';
 import 'package:ricardo/feature/controllers/user_controller.dart';
 import 'package:ricardo/feature/models/home/place_suggestion.dart';
@@ -261,6 +262,11 @@ class GoogleSearchLocationController extends GetxController {
     isLoadingFare.value = true;
 
     try {
+      final appSettings = Get.find<AppSettingsController>();
+      if (appSettings.settings.value == null) {
+        await appSettings.fetchSettings();
+      }
+
       final pickup = selectedPickup.value!;
       final drop = selectedDrop.value!;
 
@@ -348,8 +354,7 @@ class GoogleSearchLocationController extends GetxController {
       sendingMetersValue.value = distanceInMeters;
 
       final distanceInMiles = distanceInMeters / 1609.34;
-      final milesRateStr = dotenv.env['MILES_FARE'];
-      final milesRate = double.tryParse(milesRateStr ?? '') ?? 1;
+      final milesRate = Get.find<AppSettingsController>().perMilePrice;
 
       fare.value = double.parse(
         (distanceInMiles * milesRate).toStringAsFixed(2),

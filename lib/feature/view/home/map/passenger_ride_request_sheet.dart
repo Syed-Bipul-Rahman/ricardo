@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ricardo/app/helpers/snackbar_helper.dart';
 import 'package:ricardo/feature/view/home/link_export_file.dart';
 import 'package:ricardo/widgets/accepted_ride_button.dart';
 import 'package:ricardo/widgets/glass_background_multiple_children_widget.dart';
@@ -223,7 +224,10 @@ class PassengerRideRequestSheet extends StatelessWidget {
         ),
         const SizedBox(height: 10),
         Obx(() => Text(
-              mapOPTController.rideDetailsData.value?.destinationAddress ?? '',
+              mapOPTController.rideDetailsData.value?.note?.trim().isNotEmpty ==
+                      true
+                  ? mapOPTController.rideDetailsData.value!.note!
+                  : 'No note provided',
             )),
         const SizedBox(height: 18),
 
@@ -236,12 +240,22 @@ class PassengerRideRequestSheet extends StatelessWidget {
               ),
             );
           }
+
+          final rideId = mapOPTController.rideDetailsData.value?.rideId;
+          final hasRideDetails =
+              rideId != null && rideId.isNotEmpty;
+
           return AcceptRideButton(
-            onPressed: () {
-              mapOPTController.rideAcceptRide(
-                mapOPTController.rideDetailsData.value!.rideId.toString(),
-              );
-            },
+            onPressed: hasRideDetails
+                ? () {
+                    mapOPTController.rideAcceptRide(rideId);
+                  }
+                : () {
+                    showSnackbar(
+                      'Error',
+                      'Ride details are missing. Please wait for the request to reload.',
+                    );
+                  },
           );
         }),
         const SizedBox(height: 80),
