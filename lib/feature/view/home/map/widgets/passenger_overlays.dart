@@ -85,15 +85,18 @@ List<Widget> buildPassengerOverlays({
         AppConstants.passenger)
       Obx(() {
         final rideStatus = mapOPTController.rideStatusData.value;
-        if (rideController.viewInMap.value &&
-                rideController.viewInMapReturn.value == false ||
+        final showRideHeader =
+            (rideController.viewInMap.value == true &&
+                rideController.viewInMapReturn.value == false) ||
             rideStatus?.acceptRide == true ||
             rideStatus?.ongoingRide == true ||
             rideStatus?.startRide == true ||
             rideStatus?.arrivingRide == true ||
             rideStatus?.driverCancel == true ||
             rideStatus?.passengerCancel == true ||
-            rideStatus?.completeRide == true) {
+            rideStatus?.completeRide == true;
+
+        if (showRideHeader) {
           return CustomHeader(mapOPTController: mapOPTController);
         }
         return MapCustomHeaderBack(rideController: rideController);
