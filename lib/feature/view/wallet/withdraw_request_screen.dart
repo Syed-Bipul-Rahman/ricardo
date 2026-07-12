@@ -1,11 +1,9 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
-import 'package:intl/intl.dart';
 import 'package:ricardo/app/utils/app_colors.dart';
 import 'package:ricardo/app/utils/app_custom_design.dart';
 import 'package:ricardo/feature/controllers/custom_bottom_nav_bar_controller.dart';
@@ -74,8 +72,24 @@ class _WithdrawRequestScreenState extends State<WithdrawRequestScreen> {
                   keyboardType: TextInputType.number,
                 ),
               ),
-              Obx((){
-                if( withdrawController.isFormValidAmount.value == false ){
+              Obx(() {
+                if (withdrawController.isMinimumAmountValid.value == false) {
+                  return Center(
+                    child: Container(
+                      padding: EdgeInsets.all(10),
+                      margin: EdgeInsets.symmetric(vertical: 10),
+                      decoration: BoxDecoration(
+                        color: AppColors.errorColor.withOpacity(0.2),
+                        borderRadius: BorderRadius.all(Radius.circular(10)),
+                      ),
+                      child: Text(
+                        'Minimum withdraw amount is \$${withdrawController.minimumWithdrawAmount.toStringAsFixed(0)}',
+                        style: TextStyle(color: AppColors.errorColor, fontSize: 12),
+                      ),
+                    ),
+                  );
+                }
+                if (withdrawController.isFormValidAmount.value == false) {
                   return Container(
                     padding: EdgeInsets.all(10),
                     margin: EdgeInsets.symmetric(
@@ -95,122 +109,51 @@ class _WithdrawRequestScreenState extends State<WithdrawRequestScreen> {
               SizedBox(
                 height: 25.h,
               ),
-              Row(
-                children: [
-                  Expanded(
-                    child: Obx(
-                      () => ElevatedButton(
-                        onPressed: () {
-                          String envDay =
-                              dotenv.env['WITHDRAW_DAY'] ?? 'Friday';
-                          withdrawController.selectDay(envDay);
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor:
-                          withdrawController.selectedButtonText.value ==
-                              dotenv.env['WITHDRAW_DAY']
-                              ? Colors.grey.shade800
-                              : Colors.grey.shade300,
-                          foregroundColor:
-                          withdrawController.selectedButtonText.value ==
-                              dotenv.env['WITHDRAW_DAY']
-                              ? AppColors.whiteColor
-                              : AppColors.blackColor,
+              Obx(() {
+                if (withdrawController.isWithdrawDisabled) {
+                  return Container(
+                    padding: EdgeInsets.symmetric(horizontal: 12.h, vertical: 18.w),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(15.r),
+                      color: AppColors.errorColor.withOpacity(0.1),
+                    ),
+                    child: Text(
+                      'Withdraw is currently disabled. Please contact support.',
+                      style: TextStyle(
+                        fontSize: 10.sp,
+                        color: AppColors.errorColor,
+                        fontWeight: FontWeight.w400,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  );
+                }
 
-                          elevation: 0,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(30),
-                              side: BorderSide(
-                                  color: withdrawController.selectedButtonText.value ==
-                                      dotenv.env['WITHDRAW_DAY']
-                                      ? Colors.green.shade300
-                                      : Colors.grey.shade300,
-                                  width: 2
-                              )
-                          ),
-                        ),
-                        child: Text(
-                          'Withdraw on ${dotenv.env['WITHDRAW_DAY'] ?? 'Friday'}',
-                          style: TextStyle(
-                            fontSize: 14.sp,
-                            fontFamily: 'Poppins',
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ),
+                final freeDays = withdrawController.formattedFreeWithdrawDays;
+                final fee = withdrawController.platformFeePercentage.toStringAsFixed(0);
+                final isFreeDay = withdrawController.isTodayFreeWithdrawDay;
+
+                return Container(
+                  padding: EdgeInsets.symmetric(horizontal: 12.h, vertical: 18.w),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(15.r),
+                    color: Color(0x0D01AF44),
                   ),
-                  const SizedBox(width: 8),
-                  Obx(
-                    () => Expanded(
-                      child: ElevatedButton(
-                        onPressed: () {
-                          String currentDayName =
-                              DateFormat('EEEE').format(DateTime.now());
-                          withdrawController.selectDay(currentDayName);
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor:
-                              withdrawController.selectedButtonText.value !=
-                                      dotenv.env['WITHDRAW_DAY']
-                                  ? Colors.grey.shade800
-                                  : Colors.grey.shade300,
-                          foregroundColor:
-                              withdrawController.selectedButtonText.value !=
-                                      dotenv.env['WITHDRAW_DAY']
-                                  ? AppColors.whiteColor
-                                  : AppColors.blackColor,
-                          elevation: 0,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(30),
-                            side: BorderSide(
-                              color: withdrawController.selectedButtonText.value !=
-                                  dotenv.env['WITHDRAW_DAY']
-                                  ? Colors.green.shade300
-                                  : Colors.grey.shade300,
-                              width: 2
-                            )
-                          ),
-                        ),
-                        child: Text(
-                          'Emergency Withdraw',
-                          style: TextStyle(
-                            fontSize: 14.sp,
-                            fontFamily: 'Poppins',
-                            fontWeight: FontWeight.w600,
-                            color:
-                                withdrawController.selectedButtonText.value !=
-                                        dotenv.env['WITHDRAW_DAY']
-                                    ? AppColors.whiteColor
-                                    : AppColors.darkColor,
-                          ),
-                        ),
-                      ),
+                  child: Text(
+                    freeDays.isEmpty
+                        ? 'Withdrawals are currently unavailable.'
+                        : isFreeDay
+                            ? 'Today is a free withdraw day ($freeDays). No service fee will be applied.'
+                            : 'Free withdraw days are $freeDays. Outside those days, Emergency Withdrawal applies a $fee% service fee for faster processing.',
+                    style: TextStyle(
+                      fontSize: 10.sp,
+                      color: AppColors.errorColor.withOpacity(0.8),
+                      fontWeight: FontWeight.w400,
                     ),
-                  )
-                ],
-              ),
-              SizedBox(
-                height: 15.h,
-              ),
-              Container(
-                padding: EdgeInsets.symmetric(horizontal: 12.h, vertical: 18.w),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(15.r),
-                  color: Color(0x0D01AF44),
-                ),
-                child: Text(
-                  "Our payment cycle runs every Friday, and this option is completely free of charge.If you need your funds earlier, you can choose Emergency Withdrawal. A 10% service fee will be applied for faster processing.",
-                  style: TextStyle(
-                    fontSize: 10.sp,
-                    color: AppColors.errorColor.withOpacity(0.8),
-                    fontWeight: FontWeight.w400,
+                    textAlign: TextAlign.center,
                   ),
-                  textAlign: TextAlign.center,
-                ),
-              ),
+                );
+              }),
               SizedBox(height: 18.h),
               Text(
                 'Select Card',
@@ -350,8 +293,7 @@ class _WithdrawRequestScreenState extends State<WithdrawRequestScreen> {
   void confirmRequestPopupModal(BuildContext context) {
     final amountString = withdrawController.amountTEController.text;
     final amount = double.tryParse(amountString) ?? 0.0;
-    final taxString = dotenv.env['APP_TAX'] ?? '0';
-    final taxPercentage = double.tryParse(taxString) ?? 0.0;
+    final taxPercentage = withdrawController.platformFeePercentage;
     final platformFee = amount * (taxPercentage / 100);
     final netAmount = amount - platformFee;
 
@@ -427,12 +369,12 @@ class _WithdrawRequestScreenState extends State<WithdrawRequestScreen> {
                           ),
                           SizedBox(height: 4.h),
                           Obx(() {
-                            if (withdrawController.selectedButtonText.value != dotenv.env['WITHDRAW_DAY']) {
+                            if (!withdrawController.isTodayFreeWithdrawDay) {
                               return Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                                 children: [
                                   Text(
-                                    'Platform Fee (${dotenv.env['APP_TAX'] ?? '0'}%)',  // Added null safety
+                                    'Platform Fee (${withdrawController.platformFeePercentage.toStringAsFixed(0)}%)',
                                     style: testStyle(),
                                   ),
                                   Text(
@@ -448,7 +390,7 @@ class _WithdrawRequestScreenState extends State<WithdrawRequestScreen> {
                           }),
                           SizedBox(height: 4.h),
                           Obx(() {
-                            if (withdrawController.selectedButtonText.value != dotenv.env['WITHDRAW_DAY']) {
+                            if (!withdrawController.isTodayFreeWithdrawDay) {
                               return Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                                 children: [

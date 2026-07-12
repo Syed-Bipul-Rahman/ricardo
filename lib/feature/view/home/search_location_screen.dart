@@ -1,11 +1,11 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
 import 'package:ricardo/app/utils/app_colors.dart';
+import 'package:ricardo/feature/controllers/app_settings_controller.dart';
 import 'package:ricardo/feature/controllers/home/google_search_location_controller.dart';
 import 'package:ricardo/feature/models/home/place_suggestion.dart';
 import 'package:ricardo/feature/view/home/link_export_file.dart';
@@ -25,6 +25,7 @@ class SearchLocationScreen extends StatelessWidget {
 
   final controller = Get.put(GoogleSearchLocationController());
   final googleSearchLocationController = Get.find<GoogleSearchLocationController>();
+  final appSettings = Get.find<AppSettingsController>();
 
   final pickupFocus = FocusNode();
   final dropFocus = FocusNode();
@@ -514,7 +515,13 @@ class SearchLocationScreen extends StatelessWidget {
                         ),
                         SizedBox(height: 16.h),
                         // Info section
-                        Container(
+                        Obx(() {
+                          final waitingCharge =
+                              appSettings.waitingTimeCharge.toStringAsFixed(2);
+                          final cancellationFee =
+                              appSettings.cancellationFeePerMile.toStringAsFixed(2);
+
+                          return Container(
                           padding: EdgeInsets.all(12.w),
                           decoration: BoxDecoration(
                             color: Colors.blue.withOpacity(0.1),
@@ -541,7 +548,7 @@ class SearchLocationScreen extends StatelessWidget {
                                   children: [
                                     const TextSpan(text: '• If you are late, a '),
                                     TextSpan(
-                                      text: '\$${dotenv.env["LATE_FINE_CHARGE"]}/min',
+                                      text: '\$$waitingCharge/min',
                                       style: TextStyle(color: AppColors.errorColor),
                                     ),
                                     const TextSpan(
@@ -551,7 +558,7 @@ class SearchLocationScreen extends StatelessWidget {
                               ),
                               SizedBox(height: 4.h),
                               Text(
-                                '• If you cancel after a driver is on the way, a cancellation fee will be charged.',
+                                '• If you cancel after a driver is on the way, a \$$cancellationFee/mile cancellation fee will apply.',
                                 style: TextStyle(
                                   fontSize: 11.sp,
                                   color: Colors.grey[700],
@@ -559,7 +566,8 @@ class SearchLocationScreen extends StatelessWidget {
                               ),
                             ],
                           ),
-                        ),
+                        );
+                        }),
                         SizedBox(height: 16.h),
                         Text(
                           'Do you want to continue?',

@@ -1,3 +1,4 @@
+import 'package:ricardo/feature/controllers/app_settings_controller.dart';
 import 'package:ricardo/feature/controllers/auth/car_registration_controller.dart';
 import 'package:ricardo/feature/controllers/home/map/notification_controller.dart';
 import 'package:ricardo/feature/controllers/home/map/rate_review_controller.dart';
@@ -29,6 +30,7 @@ class DependencyInjection implements Bindings {
   @override
   void dependencies() {
     Get.put(ConnectivityService(), permanent: true);
+    Get.put(AppSettingsController(), permanent: true);
     Get.put(SocketServices());
     Get.put(LegalController());
     Get.put(CustomBottomNavBarController());

@@ -346,7 +346,13 @@ class _DraggableBottomSheetState extends State<DraggableBottomSheet> {
 
                           return Column(
                             children: [
-                              Row(
+                              if (Get.find<UserController>()
+                                      .userModel
+                                      .value
+                                      ?.userProfile
+                                      ?.role ==
+                                  AppConstants.passenger)
+                                Row(
                                 children: [
                                   Flexible(
                                     child: CustomPrimaryButton(

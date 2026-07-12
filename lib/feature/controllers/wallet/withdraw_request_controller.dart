@@ -1,32 +1,64 @@
-import 'package:flutter/cupertino.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:intl/intl.dart';
+import 'package:ricardo/app/utils/app_colors.dart';
+import 'package:ricardo/feature/controllers/app_settings_controller.dart';
 import 'package:ricardo/feature/controllers/custom_bottom_nav_bar_controller.dart';
-import 'package:ricardo/feature/controllers/user_controller.dart';
 import 'package:ricardo/feature/controllers/wallet/recent_history.dart';
 import 'package:ricardo/feature/models/wallet/payment_card_info.dart';
 import 'package:ricardo/routes/app_routes.dart';
 import 'package:ricardo/services/api_client.dart';
 import 'package:ricardo/services/api_urls.dart';
-import 'package:ricardo/app/helpers/snackbar_helper.dart';
 
 class WithdrawRequestController extends GetxController {
-  final controller    = Get.find<RecentHistoryController>();
+  final controller = Get.find<RecentHistoryController>();
+  final appSettings = Get.find<AppSettingsController>();
+
   RxBool isWithdrawRequestStatus = false.obs;
 
   final TextEditingController amountTEController = TextEditingController();
-  final Rx<String?> selectedButtonText = dotenv.env['WITHDRAW_DAY'].obs;
 
-  Rx<PaymentCardInfoModel?> selectedCard =
-  Rx<PaymentCardInfoModel?>(null);
+  Rx<PaymentCardInfoModel?> selectedCard = Rx<PaymentCardInfoModel?>(null);
 
   RxBool isFormValid = false.obs;
   RxBool isFormValidAmount = true.obs;
+  RxBool isMinimumAmountValid = true.obs;
+
+  bool get isWithdrawDisabled => appSettings.isWithdrawDisabled;
+
+  bool get isTodayFreeWithdrawDay {
+    final days = appSettings.freeWithdrawDays;
+    if (days.isEmpty) return false;
+    final today = DateFormat('EEEE').format(DateTime.now()).toUpperCase();
+    return days.contains(today);
+  }
+
+  double get platformFeePercentage => appSettings.platformFeePercentage;
+
+  double get minimumWithdrawAmount => appSettings.minimumWithdrawAmount;
+
+  String get formattedFreeWithdrawDays {
+    final days = appSettings.freeWithdrawDays;
+    if (days.isEmpty) return '';
+    return days.map(_formatDayName).join(', ');
+  }
+
+  String _formatDayName(String day) {
+    if (day.isEmpty) return day;
+    final lower = day.toLowerCase();
+    return lower[0].toUpperCase() + lower.substring(1);
+  }
 
   @override
   void onInit() {
     super.onInit();
     amountTEController.addListener(_validateForm);
+    ever(appSettings.settings, (_) => _validateForm());
+    if (appSettings.settings.value == null) {
+      appSettings.fetchSettings();
+    } else {
+      _validateForm();
+    }
   }
 
   void selectCard(PaymentCardInfoModel card) {
@@ -34,16 +66,19 @@ class WithdrawRequestController extends GetxController {
     _validateForm();
   }
 
-  void selectDay( String dayName ){
-    selectedButtonText.value = dayName;
-  }
-
   void _validateForm() {
     final amountText = amountTEController.text.trim();
-    final amount = int.tryParse(amountText) ?? 0;
-    isFormValidAmount.value = controller.userWallet > amount;
-    isFormValid.value =
-        amount > 0 && selectedCard.value != null && isFormValidAmount.value;
+    final amount = double.tryParse(amountText) ?? 0;
+    final minAmount = minimumWithdrawAmount;
+
+    isFormValidAmount.value = controller.userWallet >= amount;
+    isMinimumAmountValid.value = amount >= minAmount;
+
+    isFormValid.value = !isWithdrawDisabled &&
+        amount > 0 &&
+        selectedCard.value != null &&
+        isFormValidAmount.value &&
+        isMinimumAmountValid.value;
   }
 
   Future<void> withdrawRequestHandler() async {
@@ -69,7 +104,7 @@ class WithdrawRequestController extends GetxController {
         ApiUrls.withdrawRequest,
         reqBody,
       );
-      if( response.statusCode == 200 || response.statusCode == 201 ){
+      if (response.statusCode == 200 || response.statusCode == 201) {
         clearField();
         selectedCard.value = null;
 
@@ -80,9 +115,20 @@ class WithdrawRequestController extends GetxController {
         cntTwo.selectedIndex(1);
 
         Get.offAllNamed(AppRoutes.customBottomNavBar);
-
-      }else{
-        showSnackbar('Error', response.body['data']['message'],snackPosition: SnackPosition.BOTTOM);
+      } else {
+        final errorMessage = response.body['message']?.toString();
+        if (errorMessage != null &&
+            errorMessage.isNotEmpty &&
+            Get.context != null) {
+          ScaffoldMessenger.of(Get.context!)
+            ..hideCurrentSnackBar()
+            ..showSnackBar(
+              SnackBar(
+                content: Text(errorMessage),
+                backgroundColor: AppColors.errorColor,
+              ),
+            );
+        }
       }
     } catch (e) {
       debugPrint(e.toString());
@@ -91,7 +137,7 @@ class WithdrawRequestController extends GetxController {
     }
   }
 
-  void clearField(){
+  void clearField() {
     amountTEController.clear();
   }
 

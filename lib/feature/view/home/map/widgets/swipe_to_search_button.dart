@@ -41,8 +41,7 @@ class SwipeToSearchButton extends StatelessWidget {
           'isSwippedButtonShowFalse':
               rideController.isSwippedButtonShow.value == false,
           'viewInMap': rideController.viewInMap.value == true,
-          'isRideAcceptedFalse':
-              rideController.isRideAccepted.value == false,
+          'isRideAcceptedFalse': rideController.isRideAccepted.value == false,
           'noAcceptRide': status?.acceptRide != true,
           'noOngoingRide': status?.ongoingRide != true,
           'noArrivingRide': status?.arrivingRide != true,
@@ -79,19 +78,17 @@ class SwipeToSearchButton extends StatelessWidget {
             (userController.userModel.value?.userProfile?.wallet ?? 0) > 6
                 ? _buildSwipedButton()
                 : Container(
-              padding: EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: AppColors.errorColor.withAlpha(50)
-              ),
+                    padding: EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                        color: AppColors.errorColor.withAlpha(50)),
                     child: Center(
                       child: Text(
-                        'Your amount too low that\'s why you are not eligible for take ride',
+                        'Your account balance is too low. \n A minimum of \$5 is required to book a ride.',
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.errorColor,
-                          fontSize: 14
-                        ),
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.errorColor,
+                            fontSize: 14),
                       ),
                     ),
                   ),
