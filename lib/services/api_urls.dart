@@ -64,6 +64,7 @@ class ApiUrls {
   static String cancelRequest(String riderId, String driverId) =>
       '/ride/cancel-pick-request?rideId=$riderId&driverId=$driverId';
 
+
   //Notification
   static String notification(int limit, int page) =>
       '/notification?limit=$limit&page=$page';
