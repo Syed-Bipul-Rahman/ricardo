@@ -287,7 +287,7 @@ class Driver {
   String? email;
   ImageModel? image;
   Location? location;
-  int? averageRating;
+  double? averageRating;
   int? totalCompletedRides;
   int? totalRatings;
 

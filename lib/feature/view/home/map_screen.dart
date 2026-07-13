@@ -99,8 +99,6 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
               _mapController = controller;
             },
             onCameraMove: (_) {
-              // Show the location button whenever the user pans/zooms the map,
-              // exactly like Uber does.
               mapOPTController.notifyMapMoved();
             },
           ),
@@ -131,9 +129,9 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                   rideController: rideController,
                   mapOPTController: mapOPTController,
                   onRideCancelled: () => finishRide(),
-                  onRideCancelled: () {
-                    clearRideState();
-                  },
+                  // onRideCancelled: () {
+                  //   clearRideState();
+                  // },
                 ),
               ],
             ),
