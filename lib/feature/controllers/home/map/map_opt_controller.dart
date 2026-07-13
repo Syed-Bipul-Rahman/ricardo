@@ -341,26 +341,40 @@ class MapOPTController extends GetxController {
   }
 
   RxBool isRideCanceledLoader = false.obs;
-  final TextEditingController? selectedReason = TextEditingController();
+  final TextEditingController selectedReason = TextEditingController();
   RxBool isResult = false.obs;
+  String? cancelRideErrorMessage;
+
   Future<bool> cancelRideByDriverHandler(String rideId) async {
+    cancelRideErrorMessage = null;
+
     try {
       isRideCanceledLoader.value = true;
+      isResult.value = false;
+
       final response = await ApiClient.postData(
-          ApiUrls.cancelRideByDriver(rideId),
-          {"cancellationReason": selectedReason?.text});
+        ApiUrls.cancelRideByDriver(rideId),
+        {"cancellationReason": selectedReason.text.trim()},
+      );
+
       if (response.statusCode == 200 || response.statusCode == 201) {
         isResult.value = true;
-      } else {
-        isResult.value = false;
-        showSnackbar('Error', response.body['message']);
+        selectedReason.clear();
+        return true;
       }
+
+      isResult.value = false;
+      if (response.body is Map) {
+        cancelRideErrorMessage = response.body['message']?.toString();
+      }
+      return false;
     } catch (e) {
       debugPrint(e.toString());
+      isResult.value = false;
+      return false;
     } finally {
       isRideCanceledLoader.value = false;
     }
-    return isResult.value;
   }
 
   //  Driver Service Function are here
@@ -605,7 +619,7 @@ class MapOPTController extends GetxController {
   void onClose() {
     stopRideLocationSync();
     provideTips.dispose();
-    selectedReason?.dispose();
+    selectedReason.dispose();
     _rideRequestTimer?.cancel();
     super.onClose();
   }

@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:ricardo/app/helpers/prefs_helper.dart';
+import 'package:ricardo/feature/controllers/user_controller.dart';
 import 'package:ricardo/feature/models/wallet/withdraw_settings_model.dart';
+import 'package:ricardo/feature/view/home/link_export_file.dart';
 import 'package:ricardo/services/api_client.dart';
 import 'package:ricardo/services/api_urls.dart';
 
@@ -23,7 +26,19 @@ class AppSettingsController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    fetchSettings();
+    _initialize();
+  }
+
+  Future<void> _initialize() async {
+    final token = await tokenData();
+
+    if (token != null && token.isNotEmpty) {
+      await fetchSettings();
+    }
+  }
+
+  Future<String?> tokenData() async {
+    return PrefsHelper.getString(AppConstants.bearerToken);
   }
 
   Future<void> fetchSettings() async {
