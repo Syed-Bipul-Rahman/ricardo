@@ -8,13 +8,9 @@ import 'package:ricardo/feature/models/socket/accept_ride_model.dart';
 import 'link_export_file.dart';
 
 part 'map/parts/_bootstrap.part.dart';
-
 part 'map/parts/_markers.part.dart';
-
 part 'map/parts/_routes.part.dart';
-
 part 'map/parts/_sockets.part.dart';
-
 part 'map/parts/_tracking.part.dart';
 
 class MapScreen extends StatefulWidget {
@@ -147,7 +143,6 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
   }
 
   void moveToCurrentLocation() {
-    // Hide the button immediately — it reappears only when the map moves again.
     mapOPTController.hideLocationButton();
 
     _mapController?.animateCamera(
@@ -158,7 +153,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
             mapOPTController.currentLatitudePosition!.value,
             mapOPTController.currentLongitudePosition!.value,
           ),
-          zoom: currentZoom, // restore the default zoom level too
+          zoom: currentZoom,
         ),
       ),
     );
