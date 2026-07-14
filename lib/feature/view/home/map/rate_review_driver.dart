@@ -39,7 +39,7 @@ class RateReviewDriver extends StatelessWidget {
       body: SingleChildScrollView(
         child: Column(
           children: [
-            SizedBox(height: 88.h),
+            SizedBox(height: 54.h),
             Center(
               child: CustomHeadingText(
                 firstText: 'Rate',
@@ -225,6 +225,7 @@ class RateReviewDriver extends StatelessWidget {
                 );
               },
             ),
+            SizedBox(height: 21.h),
           ],
         ),
       ),
