@@ -162,14 +162,27 @@ extension _Sockets on _MapScreenState {
           return;
         }
 
-        // For cancel/complete events we reset immediately without ever
-        // storing the status — storing driverCancel=true would re-hide
-        // the nav bar after clearRideState() already showed it.
+        // Cancels reset straight back to the initial map without ever storing
+        // the status — storing driverCancel=true would re-hide the nav bar
+        // that finishRide() just restored.
         if (rideStatus.driverCancel == true ||
-            rideStatus.passengerCancel == true) {
-          debugPrint('❌ ride-status: Ride cancelled');
-          clearRideState();
-          SocketServices.socket?.off('ride-status');
+            rideStatus.passengerCancel == true ||
+            rideStatus.ride?.status == 'cancelled') {
+          debugPrint('❌ ride-status: Ride cancelled → resetting to initial');
+
+          if (rideStatus.driverCancel == true) {
+            Get.snackbar(
+              'Ride Cancelled',
+              'The driver has cancelled the ride request.',
+              snackPosition: SnackPosition.BOTTOM,
+              backgroundColor: Colors.redAccent,
+              colorText: Colors.white,
+              duration: const Duration(seconds: 4),
+              margin: EdgeInsets.only(bottom: 90.h, left: 10.w, right: 10.w),
+            );
+          }
+
+          await finishRide(rideId: rideId);
           return;
         }
 

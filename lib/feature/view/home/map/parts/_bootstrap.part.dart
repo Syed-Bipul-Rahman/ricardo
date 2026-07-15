@@ -34,26 +34,15 @@ extension _Bootstrap on _MapScreenState {
   Future<void> finishRide({String? rideId}) async {
     final role = userController.userModel.value?.userProfile?.role;
     debugPrint('🧹 finishRide() called | role=$role rideId=$rideId');
-    final resolvedRideId = rideId ?? mapOPTController.activeRideId;
-    if (resolvedRideId != null && resolvedRideId.isNotEmpty) {
-      mapOPTController.markRideFinished(resolvedRideId);
-    }
-    clearRideState();
-    clearRideMapUi();
-    moveToCurrentLocation();
-    await userController.fetchActiveRideStatus();
-    debugPrint('🧹 finishRide() done | role=$role rideStatusData cleared');
-    if (mounted) setState(() {});
-    DriverLocationService().stop();
 
-    // ── controller state ──────────────────────────────────────────────────
+    // ── 1. IMMEDIATE STATE RESET (ensures Nav Bar & Slider show up instantly) ──
     rideController.isRideAccepted.value = false;
     rideController.acceptRideModel.value = null;
     rideController.viewInMap.value = true;
     rideController.viewInMapReturn.value = false;
     rideController.rideCancel.value = false;
-    rideController.drivers.clear();
     rideController.isSwippedButtonShow.value = false;
+    rideController.drivers.clear();
 
     mapOPTController.acceptedRideDriverDataStatus.value = false;
     mapOPTController.acceptedRideDriverData.value = null;
@@ -66,25 +55,30 @@ extension _Bootstrap on _MapScreenState {
     googleSearchLocationController.isModalOn.value = false;
     googleSearchLocationController.cleanField();
 
-    // Force userModel observers to re-evaluate — the nav bar Obx reads
-    // userModel to decide the passenger role, so it must re-run.
-    userController.userModel.refresh();
+    // Force UI rebuild immediately
+    if (mounted) setState(() {});
 
-    // ── map visuals ────────────────────────────────────────────────────────
-    _fullRoutePoints = [];
-    _routeTarget = null;
-    _isReFetchingRoute = false;
-
-    if (mounted) {
-      setState(() {
-        _polylines.clear();
-        markers.removeWhere((m) =>
-            m.markerId.value != 'current_location' &&
-            m.markerId.value != 'my_location');
-      });
+    // ── 2. BACKGROUND CLEANUP ─────────────────────────────────────────────
+    final resolvedRideId = rideId ?? mapOPTController.activeRideId;
+    if (resolvedRideId != null && resolvedRideId.isNotEmpty) {
+      mapOPTController.markRideFinished(resolvedRideId);
     }
 
-    // ── prefs ──────────────────────────────────────────────────────────────
+    clearRideState(); // Redundant clearing of rideStatusData
+    clearRideMapUi();
+    moveToCurrentLocation();
+    
+    // Sync status with server
+    await userController.fetchActiveRideStatus();
+    
+    debugPrint('🧹 finishRide() background sync done');
+    DriverLocationService().stop();
+
+    // ── 3. FINAL REFRESH ──────────────────────────────────────────────────
+    userController.userModel.refresh();
+    if (mounted) setState(() {});
+
+    // ── 4. PERSISTENCE CLEANUP ────────────────────────────────────────────
     PrefsHelper.setString('status', '');
     PrefsHelper.setString('ride-accepted-data', '');
     PrefsHelper.setString('driver-status', '');

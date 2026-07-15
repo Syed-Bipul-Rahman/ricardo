@@ -52,7 +52,6 @@ class CustomButtonNavBar extends GetView<CustomBottomNavBarController> {
         final inMapFullscreen = rideCnt.viewInMap.value == false;
         final rideInProgress =
             rideCnt.isRideAccepted.value == true ||
-            rideCnt.acceptRideModel.value?.isRideAccepted == true ||
             rideStatus?.acceptRide == true ||
             rideStatus?.ongoingRide == true ||
             rideStatus?.arrivingRide == true ||

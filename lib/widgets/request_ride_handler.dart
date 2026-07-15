@@ -221,7 +221,7 @@ class _RequestRideHandlerState extends State<RequestRideHandler> {
                     Get.find<GoogleSearchLocationController>();
 
                     cnt.selectedIndex.value = 0;
-                    Get.offAllNamed(AppRoutes.homeScreen);
+                    Get.offAllNamed(AppRoutes.customBottomNavBar);
                     googleSearchLocationController.isModalOn.value = false;
                     riderController.isSwippedButtonShow.value = true;
                   },
