@@ -1,4 +1,3 @@
-import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
@@ -6,11 +5,10 @@ import 'package:ricardo/app/helpers/prefs_helper.dart';
 import 'package:ricardo/app/utils/app_constants.dart';
 import 'package:ricardo/feature/controllers/user_controller.dart';
 import 'package:ricardo/feature/models/user_model.dart';
+import 'package:ricardo/feature/view/auth/auth_initial_screen.dart';
 import 'package:ricardo/feature/view/splash_screen/on_board_screen.dart';
 import 'package:ricardo/gen/assets.gen.dart';
 import 'package:ricardo/routes/app_routes.dart';
-import 'package:ricardo/services/get_fcm_tocken.dart';
-import 'package:ricardo/services/socket_services.dart';
 import 'package:ricardo/widgets/logo_widget.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -56,28 +54,35 @@ class _SplashScreenState extends State<SplashScreen>
       if (!mounted) return;
 
       final accessToken = await PrefsHelper.getString(AppConstants.bearerToken);
-      final fcmToken = await PrefsHelper.getString(AppConstants.bearerToken);
+      final fcmToken = await PrefsHelper.getString(AppConstants.fcmToken);
+      final hasSeenOnboard = await PrefsHelper.getBool(AppConstants.onBoardKey);
 
       if (accessToken.isEmpty || fcmToken.isEmpty) {
-        await Get.offAll(
-          () => const OnBoardScreen(),
-          transition: Transition.fade,
-          duration: _transitionDuration,
-          curve: Curves.easeInOut,
-        );
+        if (hasSeenOnboard) {
+          await Get.offAll(
+            () => const AuthInitialScreen(),
+            transition: Transition.fade,
+            duration: _transitionDuration,
+            curve: Curves.easeInOut,
+          );
+        } else {
+          await Get.offAll(
+            () => const OnBoardScreen(),
+            transition: Transition.fade,
+            duration: _transitionDuration,
+            curve: Curves.easeInOut,
+          );
+        }
+        return;
       }
+
       if (accessToken.isNotEmpty && fcmToken.isNotEmpty) {
         final UserController userController = Get.find<UserController>();
-        // Hydrate from cache first so we have something to route on even if
-        // the network call below fails (offline launch).
         await userController.loadCachedUser();
         final int? statusCode = await userController.fetchUser();
         final UserModel? user = userController.userModel.value;
 
         if (user == null) {
-          // No live data and no cached profile.
-          // 1 = network failure marker from ApiClient — never bounce a
-          // logged-in user to the sign-in screen just because they're offline.
           if (statusCode == 1) {
             Get.offAllNamed(AppRoutes.customBottomNavBar);
             return;
