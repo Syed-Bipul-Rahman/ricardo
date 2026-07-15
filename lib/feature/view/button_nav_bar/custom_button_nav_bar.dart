@@ -50,12 +50,15 @@ class CustomButtonNavBar extends GetView<CustomBottomNavBarController> {
         final rideStatus = mapOPTController.rideStatusData.value;
         final isModalShowing = googleSLController.isModalOn.value;
         final inMapFullscreen = rideCnt.viewInMap.value == false;
+        // completeRide keeps the bar hidden behind the completion card; the
+        // card's "Back to Home" button is what returns the passenger to it.
         final rideInProgress =
             rideCnt.isRideAccepted.value == true ||
             rideStatus?.acceptRide == true ||
             rideStatus?.ongoingRide == true ||
             rideStatus?.arrivingRide == true ||
-            rideStatus?.startRide == true;
+            rideStatus?.startRide == true ||
+            rideStatus?.completeRide == true;
 
         if (isModalShowing || inMapFullscreen || rideInProgress) {
           showNavBar = false;

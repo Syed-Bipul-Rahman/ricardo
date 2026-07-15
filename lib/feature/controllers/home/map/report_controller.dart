@@ -10,29 +10,59 @@ class ReportController extends GetxController{
 
   RxBool isReportStatus = false.obs;
 
-  Future<bool> reportButtonHandler(String rideId ) async {
-    RxBool result = false.obs;
-    try{
-      if( rideId.isEmpty ) return false;
+  static const int otherReason = 5;
 
+  static const Map<int, String> _reasonLabels = {
+    1: 'Safety Issues',
+    2: 'Behavior Issues',
+    3: 'Trip Issues',
+    4: 'Vehicle Issues',
+  };
+
+  /// The radio label for options 1-4; the typed note for "Other". The text
+  /// field only exists for "Other", so every other option must send its label.
+  String get reportText => radioBtnValue.value == otherReason
+      ? txController.text.trim()
+      : (_reasonLabels[radioBtnValue.value] ?? '');
+
+  Future<bool> reportButtonHandler(String rideId ) async {
+    if( rideId.isEmpty ) return false;
+
+    final String report = reportText;
+    if( report.isEmpty ){
+      showSnackbar(
+        'Error',
+        radioBtnValue.value == otherReason
+            ? 'Please describe your issue'
+            : 'Please select a reason',
+      );
+      return false;
+    }
+
+    try{
       isReportStatus.value = true;
       final response = await ApiClient.postData(ApiUrls.reportRideByPassenger,
           {
             "rideId": rideId,
-            "report": txController.text.trim(),
+            "report": report,
           });
       if( response.statusCode == 200 || response.statusCode == 201 ){
-        result.value = true;
-      }else{
-        showSnackbar('Error', response.body['message']);
-        result.value = false;
+        return true;
       }
+      showSnackbar('Error', response.body['message']);
+      return false;
     }catch(e){
       debugPrint(e.toString());
+      return false;
     }finally{
       isReportStatus.value = false;
     }
-    return result.value;
+  }
+
+  @override
+  void onClose() {
+    txController.dispose();
+    super.onClose();
   }
 
 }
