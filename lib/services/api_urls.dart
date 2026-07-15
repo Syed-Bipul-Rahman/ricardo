@@ -1,5 +1,5 @@
 class ApiUrls {
-  static const String _baseLink = 'https://panel-apollo-ata-frozen.trycloudflare.com';
+  static const String _baseLink = 'https://elevation-reduction-regularly-techno.trycloudflare.com';
   static const String baseUrl = "$_baseLink/api/v1";
   static const String imageBaseUrl = "$_baseLink/images/";
   static const String socketUrl = _baseLink;

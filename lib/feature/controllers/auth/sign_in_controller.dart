@@ -1,9 +1,9 @@
-import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
+import 'package:ricardo/app/helpers/snackbar_helper.dart';
 import 'package:ricardo/feature/controllers/history/history_controller.dart';
 import 'package:ricardo/feature/controllers/wallet/recent_history.dart';
 import 'package:ricardo/feature/view/home/link_export_file.dart';
 import 'package:ricardo/services/api_client.dart';
-import 'package:ricardo/app/helpers/snackbar_helper.dart';
 
 class SignInController extends GetxController {
   final TextEditingController emailTextEditingController =
@@ -83,12 +83,13 @@ class SignInController extends GetxController {
             arguments: {'email': email, 'route': 'sing_up'});
       }
     } else {
+      // Show the exact message from the backend
       final message = response.body is Map
           ? (response.body['message'] ??
               response.statusText ??
               'An error occurred')
           : (response.statusText ?? 'An error occurred');
-      showSnackbar('Error', message);
+      showSnackbar('Error', message.toString());
     }
 
     isLoginStatus.value = false;
@@ -115,7 +116,13 @@ class SignInController extends GetxController {
 
       Get.offAllNamed(AppRoutes.signInScreen);
     } else {
-      showSnackbar('Error', response.body['data']['message']);
+      final message = response.body is Map
+          ? (response.body['message'] ??
+              response.body['data']?['message'] ??
+              response.statusText ??
+              'An error occurred')
+          : (response.statusText ?? 'An error occurred');
+      showSnackbar('Error', message.toString());
     }
   }
 
