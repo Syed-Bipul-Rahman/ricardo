@@ -158,28 +158,21 @@ class _DraggableBottomSheetState extends State<DraggableBottomSheet> {
                               );
                             }),
                             Obx(() {
-                              final startRide =
-                                  controller.rideStatusData.value?.startRide ==
-                                      true;
-                              final distance = controller
-                                      .getRideDriverLocation
-                                      .value
-                                      ?.driverToDestination
-                                      ?.distance
-                                      ?.value ??
-                                  double.infinity;
-                              final showReport =
-                                  startRide && distance < 150;
+                              // Reporting is only offered once the ride is
+                              // finished, not mid-trip.
+                              final showReport = controller
+                                      .rideStatusData.value?.completeRide ==
+                                  true;
 
                               if (!showReport) {
                                 debugPrint(
-                                  '🚨❌ Report hidden | startRide=$startRide distance=$distance',
+                                  '🚨❌ Report hidden | completeRide=${controller.rideStatusData.value?.completeRide}',
                                 );
                                 return const SizedBox();
                               }
 
                               debugPrint(
-                                '🚨✅ Report visible | startRide=$startRide distance=$distance',
+                                '🚨✅ Report visible | completeRide=true',
                               );
 
                               return ElevatedButton(
@@ -226,9 +219,13 @@ class _DraggableBottomSheetState extends State<DraggableBottomSheet> {
 
                   // ───────────────── BODY ─────────────────
                   Padding(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: 12.h,
-                      vertical: 16.h,
+                    padding: EdgeInsets.only(
+                      left: 12.h,
+                      right: 12.h,
+                      top: 16.h,
+                      // Keeps the action buttons clear of the sheet's bottom
+                      // edge and the device's home indicator.
+                      bottom: 32.h + MediaQuery.of(context).padding.bottom,
                     ),
                     child: Column(
                       children: [
@@ -307,9 +304,6 @@ class _DraggableBottomSheetState extends State<DraggableBottomSheet> {
                               children: [
                                 Text(
                                   widget.rideStatus?.driverCar?.carName ?? '',
-                                ),
-                                Text(
-                                  '${widget.rideStatus?.driverCar?.numberOfSeat ?? 0} Seat',
                                 ),
                                 Text(
                                   widget.rideStatus?.driverCar
