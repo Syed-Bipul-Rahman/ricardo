@@ -173,19 +173,20 @@ class _OnBoardScreenState extends State<OnBoardScreen> {
                           shape: BoxShape.circle,
                           child: SvgPicture.asset(Assets.icons.button),
                         ),
-                      if (currentIndex ==
-                          HelperData.onboardingData.length - 1)
+                      if (currentIndex == HelperData.onboardingData.length - 1)
                         CustomButton(
                           width: 170.w,
                           height: 60.h,
                           radius: 100.r,
-                          onPressed: () =>
-                              Get.offAllNamed(AppRoutes.authInitialScreen),
+                          onPressed: () {
+                            PrefsHelper.setBool(AppConstants.onBoardKey, true);
+                            Get.offAllNamed(AppRoutes.authInitialScreen);
+                          },
                           child: Ink(
                             decoration: BoxDecoration(
                               color: Colors.red,
                               borderRadius:
-                              BorderRadius.all(Radius.circular(100.r)),
+                                  BorderRadius.all(Radius.circular(100.r)),
                             ),
                             child: Container(
                               alignment: Alignment.center,
@@ -195,7 +196,9 @@ class _OnBoardScreenState extends State<OnBoardScreen> {
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  SizedBox(width: 10,),
+                                  SizedBox(
+                                    width: 10,
+                                  ),
                                   Text(
                                     'Get Started',
                                     style: TextStyle(
