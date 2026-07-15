@@ -352,13 +352,20 @@ class _DraggableBottomSheetState extends State<DraggableBottomSheet> {
                                     child: CustomPrimaryButton(
                                       title: 'Review',
                                       onHandler: () {
+                                        // ride.driver carries the driver's
+                                        // user _id; driverCar.driverId is
+                                        // often absent, which left Review and
+                                        // Add-to-Favourite with a null id.
                                         Get.toNamed(
                                           AppRoutes.rateReviewDriver,
                                           arguments: {
                                             'name':
                                                 widget.rideStatus?.driver?.name,
                                             'driverId': widget.rideStatus
-                                                ?.driverCar?.driverId,
+                                                    ?.ride?.driver?.id ??
+                                                widget.rideStatus?.driver?.id ??
+                                                widget.rideStatus
+                                                    ?.driverCar?.driverId,
                                             'rideId':
                                                 widget.rideStatus?.ride?.id,
                                           },
@@ -424,13 +431,13 @@ class _DraggableBottomSheetState extends State<DraggableBottomSheet> {
   Future<dynamic> _buildTipsShowDialog(BuildContext context) {
     return showDialog(
       context: context,
-      builder: (BuildContext context) {
+      builder: (BuildContext dialogContext) {
         return Dialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12.r),
-          ),
-          child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 20.h),
+          backgroundColor: Colors.transparent,
+          insetPadding: EdgeInsets.symmetric(horizontal: 24.w),
+          child: GlassBackgroundWidget(
+            borderLeftRightRadius: 24,
+            padding: EdgeInsets.all(20.r),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -438,65 +445,66 @@ class _DraggableBottomSheetState extends State<DraggableBottomSheet> {
                 Align(
                   alignment: Alignment.topRight,
                   child: GestureDetector(
-                    onTap: () => Navigator.of(context).pop(),
-                    child: Icon(
-                      Icons.close,
-                      size: 22.sp,
-                      color: Colors.black,
+                    onTap: () => Navigator.of(dialogContext).pop(),
+                    child: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade200,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.close,
+                        size: 20.sp,
+                        color: AppColors.darkColor,
+                      ),
                     ),
                   ),
                 ),
                 SizedBox(height: 8.h),
-                // Title Text
                 CustomText(
                   text: 'Tips',
-                  fontSize: 16.sp,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.black,
+                  fontSize: 18.sp,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.primaryColor,
                   maxline: 2,
                 ),
-                SizedBox(height: 12.h),
+                SizedBox(height: 8.h),
                 CustomText(
                   text: 'Enjoyed your ride?',
                   fontSize: 16.sp,
                   fontWeight: FontWeight.w600,
-                  color: Colors.black,
+                  color: AppColors.primaryTextColor,
                   maxline: 2,
                 ),
-                SizedBox(height: 24.h),
-                // Buttons
-                Column(
-                  children: [
-                    Text('Enter Amount'),
-                    SizedBox(height: 8.h),
-                    CustomTextField(
-                      controller: controller.provideTips,
-                      labelText: 'Enter Amount',
-                      hintText: 'Enter Amount',
+                SizedBox(height: 20.h),
+                CustomTextField(
+                  controller: controller.provideTips,
+                  labelText: 'Enter Amount',
+                  hintText: 'Enter Amount',
+                  keyboardType: TextInputType.number,
+                ),
+                SizedBox(height: 12.h),
+                Center(
+                  child: Text(
+                    'Tips will go completely to driver',
+                    style: TextStyle(
+                      fontSize: 12.sp,
+                      fontWeight: FontWeight.w500,
+                      fontFamily: FontFamily.poppins,
+                      color: AppColors.secondaryTextColor,
                     ),
-                    SizedBox(height: 26.h),
-                    Center(
-                      child: Text(
-                        'Tips will go completely to driver',
-                        style: TextStyle(
-                          fontSize: 12.sp,
-                          fontWeight: FontWeight.w500,
-                          fontFamily: FontFamily.poppins,
-                          color: AppColors.secondaryTextColor,
-                        ),
-                      ),
-                    ),
-                    CustomButton(
-                      onPressed: () async {
-                        final val = await controller.provideTipsHandler(
-                            controller.rideStatusData.value?.ride?.id ?? '');
-                        if (val == true) {
-                          Navigator.of(context).pop();
-                        }
-                      },
-                      child: Text('Submit'),
-                    ),
-                  ],
+                  ),
+                ),
+                SizedBox(height: 20.h),
+                CustomPrimaryButton(
+                  title: 'Submit',
+                  onHandler: () async {
+                    final val = await controller.provideTipsHandler(
+                        controller.rideStatusData.value?.ride?.id ?? '');
+                    if (val == true && dialogContext.mounted) {
+                      Navigator.of(dialogContext).pop();
+                    }
+                  },
                 ),
               ],
             ),

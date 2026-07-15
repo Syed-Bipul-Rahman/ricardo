@@ -282,6 +282,7 @@ class ImageModel {
 }
 
 class Driver {
+  String? id;
   String? name;
   String? phone;
   String? email;
@@ -292,6 +293,7 @@ class Driver {
   int? totalRatings;
 
   Driver({
+    this.id,
     this.name,
     this.phone,
     this.email,
@@ -304,6 +306,7 @@ class Driver {
 
   factory Driver.fromJson(Map<String, dynamic> json) {
     return Driver(
+      id: json['_id'],
       name: json['name'],
       phone: json['phone'],
       email: json['email'],
