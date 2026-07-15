@@ -159,6 +159,9 @@ extension _Sockets on _MapScreenState {
             rideStatus.driverCancel != true &&
             rideStatus.passengerCancel != true) {
           debugPrint('📡⏭️ ride-status ignored — ride already finished locally');
+          return;
+        }
+
         // For cancel/complete events we reset immediately without ever
         // storing the status — storing driverCancel=true would re-hide
         // the nav bar after clearRideState() already showed it.
@@ -191,23 +194,7 @@ extension _Sockets on _MapScreenState {
           return;
         }
 
-        if (rideStatus.driverCancel == true ||
-            rideStatus.passengerCancel == true) {
-          debugPrint('📡❌ ride-status: Ride cancelled | role=$role');
-          await finishRide(rideId: rideId);
-          SocketServices.socket?.off('ride-status');
-          return;
-        }
-
         debugPrint('📡 ride-status: normal update → saving rideStatusData');
-          debugPrint('✅ ride-status: Ride completed');
-          Future.delayed(const Duration(seconds: 2), () {
-            clearRideState();
-            SocketServices.socket?.off('ride-status');
-          });
-          return;
-        }
-
         mapOPTController.rideStatusData.value = rideStatus;
         mapOPTController.rideStatusData.refresh();
 

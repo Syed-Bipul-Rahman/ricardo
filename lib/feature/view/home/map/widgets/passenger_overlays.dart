@@ -23,8 +23,6 @@ List<Widget> buildPassengerOverlays({
               rideStatus?.ongoingRide == true ||
               rideStatus?.startRide == true ||
               rideStatus?.arrivingRide == true ||
-              rideStatus?.driverCancel == true ||
-              rideStatus?.passengerCancel == true ||
               rideStatus?.completeRide == true);
 
       if (!shouldShow) {
@@ -92,8 +90,6 @@ List<Widget> buildPassengerOverlays({
             rideStatus?.ongoingRide == true ||
             rideStatus?.startRide == true ||
             rideStatus?.arrivingRide == true ||
-            rideStatus?.driverCancel == true ||
-            rideStatus?.passengerCancel == true ||
             rideStatus?.completeRide == true;
 
         if (showRideHeader) {
