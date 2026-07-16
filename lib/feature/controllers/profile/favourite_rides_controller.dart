@@ -15,8 +15,10 @@ class FavouriteRidesController extends GetxController{
       final response = await ApiClient.getData(ApiUrls.favouriteRides);
 
       if( response.statusCode == 200 || response.statusCode == 201 ){
-        final List datas = response.body['data'];
-        favouriteRiderModel.value = datas.map((e)=> FavouritesRiderModel.fromJson(e)).toList();
+        final List data = response.body['data'];
+        print('==================>>>>>>$data');
+
+        favouriteRiderModel.value = data.map((e)=> FavouritesRiderModel.fromJson(e)).toList();
       }else{
         showSnackbar('Error', response.body['data']['message']);
       }

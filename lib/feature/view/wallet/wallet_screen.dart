@@ -354,7 +354,7 @@ class _WalletScreenState extends State<WalletScreen> {
 
   TransactionDisplay getTransactionDisplay(RecentHistory data) {
     final type   = data.type   ?? '';
-    final amount = data.amount?.toStringAsFixed(0) ?? '0';
+    final amount = data.amount?.toString() ?? '0';
     switch (type) {
       case 'add_money':
       case 'ride_earning':

@@ -1,5 +1,6 @@
 import 'dart:ui';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -12,6 +13,7 @@ import 'package:ricardo/gen/fonts.gen.dart';
 import 'package:ricardo/services/api_urls.dart';
 import 'package:ricardo/widgets/custom_scaffold.dart';
 import 'package:ricardo/widgets/glass_morphishm_widget.dart';
+import 'package:shimmer/shimmer.dart';
 
 class FavouritesRideScreen extends StatefulWidget {
   const FavouritesRideScreen({super.key});
@@ -124,13 +126,21 @@ class _FavouritesRideScreenState extends State<FavouritesRideScreen> {
                           children: [
                             ClipRRect(
                               borderRadius: BorderRadius.circular(50),
-                              child: Image.network(
-                                '${ApiUrls.imageBaseUrl}${user.driverProfileImage?.filename}',
+                              child: CachedNetworkImage(
+                                imageUrl: '${ApiUrls.imageBaseUrl}${user.driverProfileImage?.filename}',
                                 height: 85.h,
                                 width: 85.w,
                                 fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) =>
-                                    Image.asset(
+                                placeholder: (context, url) => Shimmer.fromColors(
+                                  baseColor: Colors.grey.shade300,
+                                  highlightColor: Colors.grey.shade100,
+                                  child: Container(
+                                    height: 85.h,
+                                    width: 85.w,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                errorWidget: (context, url, error) => Image.asset(
                                   'assets/images/default_image.jpg',
                                   height: 85.h,
                                   width: 85.w,
@@ -274,12 +284,21 @@ class _FavouritesRideScreenState extends State<FavouritesRideScreen> {
                         ),
                         ClipRRect(
                           borderRadius: BorderRadius.circular(15),
-                          child: Image.network(
-                            '${ApiUrls.imageBaseUrl}${user.vehicleImage?.filename}',
+                          child: CachedNetworkImage(
+                            imageUrl: '${ApiUrls.imageBaseUrl}${user.vehicleImage?.filename}',
                             width: 92.w,
                             height: 92.h,
                             fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) =>
+                            placeholder: (context, url) => Shimmer.fromColors(
+                              baseColor: Colors.grey.shade300,
+                              highlightColor: Colors.grey.shade100,
+                              child: Container(
+                                width: 92.w,
+                                height: 92.h,
+                                color: Colors.white,
+                              ),
+                            ),
+                            errorWidget: (context, url, error) =>
                                 Icon(Icons.directions_car, size: 92.h),
                           ),
                         ),
