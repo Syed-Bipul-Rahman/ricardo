@@ -53,7 +53,7 @@ android {
     defaultConfig {
         applicationId = "com.lyfuber.app"
         minSdk = flutter.minSdkVersion
-        targetSdk = 35
+        targetSdk = 36
         versionCode = flutterVersionCode.toInt()
         versionName = flutterVersionName
     }
