@@ -14,9 +14,11 @@ class CarRegistrationController extends GetxController {
   final GlobalKey<FormState> formKey = GlobalKey<FormState>();
 
   // =================== Text Editing Controllers ===================
-  final TextEditingController carNameController = TextEditingController();
-  final TextEditingController carPlateNoController = TextEditingController();
-  final TextEditingController carRegistrationDateController = TextEditingController();
+  final TextEditingController vehicleNameController = TextEditingController();
+  final TextEditingController vehicleModelController = TextEditingController();
+  final TextEditingController vehiclePlateNoController = TextEditingController();
+  final TextEditingController carRegistrationDateController =
+      TextEditingController();
   final TextEditingController noOfSeatController = TextEditingController();
 
   // =================== Image Observables ===================
@@ -28,7 +30,8 @@ class CarRegistrationController extends GetxController {
   final RxBool isFormValid = false.obs;
   final RxBool isLoading = false.obs;
 
-  final RxString carNameError = RxString('');
+  final RxString vehicleNameError = RxString('');
+  final RxString vehicleModelError = RxString('');
   final RxString carPlateError = RxString('');
   final RxString dateError = RxString('');
   final RxString seatError = RxString('');
@@ -57,8 +60,9 @@ class CarRegistrationController extends GetxController {
   // =================== Setup Methods ===================
   void _setupListeners() {
     // Text field listeners
-    carNameController.addListener(_validateForm);
-    carPlateNoController.addListener(_validateForm);
+    vehicleNameController.addListener(_validateForm);
+    vehicleModelController.addListener(_validateForm);
+    vehiclePlateNoController.addListener(_validateForm);
     carRegistrationDateController.addListener(_validateForm);
     noOfSeatController.addListener(_validateForm);
 
@@ -73,21 +77,27 @@ class CarRegistrationController extends GetxController {
   }
 
   void _disposeControllers() {
-    carNameController.dispose();
-    carPlateNoController.dispose();
+    vehicleNameController.dispose();
+    vehicleModelController.dispose();
+    vehiclePlateNoController.dispose();
     carRegistrationDateController.dispose();
     noOfSeatController.dispose();
   }
 
   // =================== Validation Methods ===================
   void _validateCarName() {
-    final text = carNameController.text.trim();
-    carNameError.value = text.isEmpty ? 'Car name is required' : '';
+    final text = vehicleNameController.text.trim();
+    vehicleNameError.value = text.isEmpty ? 'Vehicle name is required' : '';
+  }
+
+  void _validateModelName() {
+    final text = vehicleModelController.text.trim();
+    vehicleModelError.value = text.isEmpty ? 'Vehicle model is required' : '';
   }
 
   void _validateCarPlate() {
-    final text = carPlateNoController.text.trim();
-    carPlateError.value = text.isEmpty ? 'Plate number is required' : '';
+    final text = vehiclePlateNoController.text.trim();
+    carPlateError.value = text.isEmpty ? 'Vehicle number plate is required' : '';
   }
 
   void _validateRegistrationDate() {
@@ -110,9 +120,14 @@ class CarRegistrationController extends GetxController {
   }
 
   void _validateImages() {
-    carPictureError.value = carPicture.value == null ? 'Car picture is required' : '';
-    registrationCardError.value = registrationCardPicture.value == null ? 'Registration card is required' : '';
-    numberPlateError.value = numberPlatePicture.value == null ? 'Number plate picture is required' : '';
+    carPictureError.value =
+        carPicture.value == null ? 'Car picture is required' : '';
+    registrationCardError.value = registrationCardPicture.value == null
+        ? 'Registration card is required'
+        : '';
+    numberPlateError.value = numberPlatePicture.value == null
+        ? 'Number plate picture is required'
+        : '';
   }
 
   void _validateForm() {
@@ -122,9 +137,11 @@ class CarRegistrationController extends GetxController {
     _validateRegistrationDate();
     _validateSeats();
     _validateImages();
+    _validateModelName();
 
     // Check if form is completely valid
-    final isTextValid = carNameError.value.isEmpty &&
+    final isTextValid = vehicleNameError.value.isEmpty &&
+        vehicleModelError.value.isEmpty &&
         carPlateError.value.isEmpty &&
         dateError.value.isEmpty &&
         seatError.value.isEmpty;
@@ -149,7 +166,8 @@ class CarRegistrationController extends GetxController {
       // Validate file extension
       final String extension = file.path.split('.').last.toLowerCase();
       if (!allowedExtensions.contains(extension)) {
-        _showErrorSnackbar('Invalid file format. Allowed: ${allowedExtensions.join(', ').toUpperCase()}');
+        _showErrorSnackbar(
+            'Invalid file format. Allowed: ${allowedExtensions.join(', ').toUpperCase()}');
         return;
       }
 
@@ -169,7 +187,6 @@ class CarRegistrationController extends GetxController {
       }
 
       _validateForm();
-
     } catch (error) {
       debugPrint('Error selecting image: $error');
       _showErrorSnackbar('Failed to select image');
@@ -204,8 +221,8 @@ class CarRegistrationController extends GetxController {
 
       // Prepare request body
       final Map<String, dynamic> requestBody = {
-        "carName": carNameController.text.trim(),
-        "carPlateNumber": carPlateNoController.text.trim(),
+        "carName": vehicleNameController.text.trim(),
+        "carPlateNumber": vehiclePlateNoController.text.trim(),
         "carRegistrationDate": carRegistrationDateController.text.trim(),
         "numberOfSeat": noOfSeatController.text.trim(),
         // "vehicleType": vehicleType,
@@ -214,7 +231,8 @@ class CarRegistrationController extends GetxController {
       // Prepare multipart images
       final List<MultipartBody> multipartImages = [
         MultipartBody('car', File(carPicture.value!.path)),
-        MultipartBody('registrationCard', File(registrationCardPicture.value!.path)),
+        MultipartBody(
+            'registrationCard', File(registrationCardPicture.value!.path)),
         MultipartBody('numberPlate', File(numberPlatePicture.value!.path)),
       ];
 
@@ -230,7 +248,8 @@ class CarRegistrationController extends GetxController {
         await UserController().fetchUser();
         Get.back();
       } else {
-        final String errorMessage = response.body['data']['message'] ?? 'Registration failed';
+        final String errorMessage =
+            response.body['data']['message'] ?? 'Registration failed';
         _showErrorSnackbar(errorMessage);
       }
     } catch (error) {
@@ -255,8 +274,9 @@ class CarRegistrationController extends GetxController {
 
   void resetForm() {
     // Clear text fields
-    carNameController.clear();
-    carPlateNoController.clear();
+    vehicleNameController.clear();
+    vehicleModelController.clear();
+    vehiclePlateNoController.clear();
     carRegistrationDateController.clear();
     noOfSeatController.clear();
 
@@ -272,7 +292,10 @@ class CarRegistrationController extends GetxController {
   // =================== Public Getters ===================
   bool get isFormValidated => isFormValid.value;
   bool get isSubmitting => isLoading.value;
-  bool get hasAnyError => carNameError.isNotEmpty ||
+
+  bool get hasAnyError =>
+      vehicleNameError.isNotEmpty ||
+      vehicleModelError.isNotEmpty ||
       carPlateError.isNotEmpty ||
       dateError.isNotEmpty ||
       seatError.isNotEmpty ||

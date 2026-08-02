@@ -58,7 +58,7 @@ class DrivingLicenseController extends GetxController {
       isUploadDrivingLicenseController.value = true;
 
       final reqData = {
-        "drivingLicenseNumber": licenseNoTEController.text.toString(),
+        "drivingLicenseNumber": licenseNoTEController.text.trim(),
       };
 
       final data = jsonEncode(reqData);
@@ -68,8 +68,10 @@ class DrivingLicenseController extends GetxController {
       if (selectedDrivingLicenseFront != null &&
           selectedDrivingLicenseBack != null) {
         multipartBody = [
-          MultipartBody('licenseFront', File(selectedDrivingLicenseFront.value!.path)),
-          MultipartBody('licenseBack', File(selectedDrivingLicenseBack.value!.path)),
+          MultipartBody(
+              'licenseFront', File(selectedDrivingLicenseFront.value!.path)),
+          MultipartBody(
+              'licenseBack', File(selectedDrivingLicenseBack.value!.path)),
         ];
       }
 
@@ -78,8 +80,7 @@ class DrivingLicenseController extends GetxController {
           {
             "data": data,
           },
-          multipartBody: multipartBody
-      );
+          multipartBody: multipartBody);
       if (response.statusCode == 200 || response.statusCode == 201) {
         await UserController().fetchUser();
         Get.back();
@@ -110,10 +111,11 @@ class DrivingLicenseController extends GetxController {
   }
 
   void _validateForm() {
-    isFormValid.value = licenseNoTEController.text.length == 16 &&
+    isFormValid.value = licenseNoTEController.text.trim().isNotEmpty  &&
         selectedDrivingLicenseFront.value != null &&
         selectedDrivingLicenseBack.value != null;
   }
+
   @override
   void onClose() {
     super.onClose();
