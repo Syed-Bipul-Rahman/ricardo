@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import 'package:ricardo/app/utils/app_colors.dart';
 import 'package:ricardo/feature/controllers/auth/otp_varify_controller.dart';
 import 'package:ricardo/widgets/custom_heading_text.dart';
+import 'package:ricardo/widgets/custom_loader.dart';
 import 'package:ricardo/widgets/custom_pin_code_text_field.dart';
 import 'package:ricardo/widgets/custom_primary_button.dart';
 import 'package:ricardo/widgets/custom_scaffold.dart';
@@ -102,6 +103,9 @@ class _OtpVarifyState extends State<OtpVarify> {
             children: [
               SizedBox(height: 22.h),
               Obx(() {
+                if (controller.isVarifyEmail.value) {
+                  return const CustomLoader();
+                }
                 final isButtonEnabled = controller.otpText.value.length == 6;
                 return Opacity(
                   opacity: isButtonEnabled ? 1 : 0.6,
@@ -109,8 +113,8 @@ class _OtpVarifyState extends State<OtpVarify> {
                     title: 'Verify',
                     onHandler: isButtonEnabled
                         ? () {
-                      controller.varifyOtp(route, email);
-                    }
+                            controller.varifyOtp(route, email);
+                          }
                         : null,
                   ),
                 );

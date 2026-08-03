@@ -225,6 +225,7 @@ class CarRegistrationController extends GetxController {
         "carPlateNumber": vehiclePlateNoController.text.trim(),
         "carRegistrationDate": carRegistrationDateController.text.trim(),
         "numberOfSeat": noOfSeatController.text.trim(),
+        "vehicleModel": vehicleModelController.text.trim(),
         // "vehicleType": vehicleType,
       };
 
