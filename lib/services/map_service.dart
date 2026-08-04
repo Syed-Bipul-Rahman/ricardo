@@ -1,9 +1,11 @@
 import 'dart:convert';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'package:ricardo/feature/models/home/place_suggestion.dart';
 
 class PlacesService {
-  static final String apiKey = 'AIzaSyAX3YRL9gQ9gCkV5CsTDqUXaWTf6BVFfyA';
+  static final String _apiKey = dotenv.env['MAP_API_KEY'] ?? '';
+  // static final String _apiKey = 'AIzaSyAX3YRL9gQ9gCkV5CsTDqUXaWTf6BVFfyA';
 
   static Future<List<PlaceSuggestion>> getPlaceSuggestions(
     String input, {
@@ -12,7 +14,7 @@ class PlacesService {
     if (input.isEmpty) return [];
 
     final url = Uri.parse(
-        'https://maps.googleapis.com/maps/api/place/autocomplete/json?input=$input&key=$apiKey');
+        'https://maps.googleapis.com/maps/api/place/autocomplete/json?input=$input&key=$_apiKey');
 
     try {
       final response = await http.get(url);
@@ -30,7 +32,7 @@ class PlacesService {
 
   static Future<PlaceDetails?> getPlaceDetails(String placeId) async {
     final url = Uri.parse(
-        'https://maps.googleapis.com/maps/api/place/details/json?place_id=$placeId&key=$apiKey');
+        'https://maps.googleapis.com/maps/api/place/details/json?place_id=$placeId&key=$_apiKey');
 
     try {
       final response = await http.get(url);
