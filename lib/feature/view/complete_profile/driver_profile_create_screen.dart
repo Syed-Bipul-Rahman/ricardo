@@ -23,95 +23,80 @@ class DriverProfileCreateScreen extends GetView<DriverProfileController> {
   @override
   Widget build(BuildContext context) {
     return CustomScaffold(
-      body: LayoutBuilder(
-        builder: (context, containers) {
-          return SingleChildScrollView(
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                minHeight: containers.maxHeight,
+      resizeToAvoidBottomInset: true,
+      body: Form(
+        key: controller.formKey,
+        child: SingleChildScrollView(
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: CustomHeadingText(
+                  firstText: 'Complete Your ',
+                  secondText: 'Profile',
+                  isColumn: true,
+                  isSwipedColor: true,
+                ),
               ),
-              child: IntrinsicHeight(
-                child: Form(
-                  key: controller.formKey,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Center(
-                        child: CustomHeadingText(
-                          firstText: 'Complete Your ',
-                          secondText: 'Profile',
-                          isColumn: true,
-                          isSwipedColor: true,
-                        ),
-                      ),
-                      SizedBox(
-                        height: 10.h,
-                      ),
-                      Center(
-                        child: CustomSecondaryText(
-                            text: 'Fill in your information'),
-                      ),
-                      SizedBox(
-                        height: 16.h,
-                      ),
-                      Center(
-                        child: Stack(
-                          children: [
-                            Obx(() {
-                              final cnt = Get.find<DriverProfileController>();
-                              return cnt.selectedImage.value != null
-                                  ? ClipRRect(
-                                borderRadius: BorderRadius.circular(100),
-                                child: Image.file(
-                                  File(cnt.selectedImage.value!.path),
-                                  height: 122.h,
-                                  width: 122.w,
-                                  fit: BoxFit.cover,
-                                ),
-                              )
-                                  : Image.asset(
-                                Assets.images.vector.path,
+              SizedBox(height: 10.h),
+              Center(
+                child: CustomSecondaryText(text: 'Fill in your information'),
+              ),
+              SizedBox(height: 16.h),
+              Center(
+                child: Stack(
+                  children: [
+                    Obx(() {
+                      return controller.selectedImage.value != null
+                          ? ClipRRect(
+                              borderRadius: BorderRadius.circular(100),
+                              child: Image.file(
+                                File(controller.selectedImage.value!.path),
                                 height: 122.h,
                                 width: 122.w,
-                              );
-                            }),
-                            Positioned(
-                              bottom: 10.h,
-                              right: 15.h,
-                              child: Container(
-                                width: 35.w,
-                                height: 35.h,
-                                decoration: BoxDecoration(
-                                  color: Color(0XffEDEDED),
-                                  borderRadius: BorderRadius.circular(50),
-                                ),
-                                child: GetBuilder<DriverProfileController>(
-                                    builder: (cnt) {
-                                      return GestureDetector(
-                                        child: Image.asset(
-                                            Assets.images.editPencil.path),
-                                        onTap: () {
-                                          ImageHandler.bottomImageSelector(context,
-                                              onImageSelected: (file) {
-                                                cnt.selectedImage.value = file;
-                                                cnt.checkFormValidity();
-                                              });
-                                        },
-                                      );
-                                    }),
+                                fit: BoxFit.cover,
                               ),
-                            ),
-                          ],
+                            )
+                          : Image.asset(
+                              Assets.images.vector.path,
+                              height: 122.h,
+                              width: 122.w,
+                            );
+                    }),
+                    Positioned(
+                      bottom: 10.h,
+                      right: 15.h,
+                      child: Container(
+                        width: 35.w,
+                        height: 35.h,
+                        decoration: BoxDecoration(
+                          color: Color(0XffEDEDED),
+                          borderRadius: BorderRadius.circular(50),
+                        ),
+                        child: GestureDetector(
+                          child: Image.asset(Assets.images.editPencil.path),
+                          onTap: () {
+                            ImageHandler.bottomImageSelector(
+                              context,
+                              onImageSelected: (file) {
+                                controller.selectedImage.value = file;
+                                controller.checkFormValidity();
+                              },
+                            );
+                          },
                         ),
                       ),
-                      SizedBox(
-                        height: 15.h,
-                      ),
-                      Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 16.w),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(height: 15.h),
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16.w),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                             Text(
                               'Phone Number',
                               style: TextStyle(
@@ -519,43 +504,34 @@ class DriverProfileCreateScreen extends GetView<DriverProfileController> {
                                 ),
                               ],
                             ),
-                            SizedBox(
-                              height: 40.h,
-                            ),
+                            SizedBox(height: 40.h),
                             Obx(() {
-                              return IgnorePointer(
-                                ignoring: !controller.canSubmit.value,
-                                child: Opacity(
-                                  opacity: controller.canSubmit.value ? 1 : 0.5,
-                                  child: CustomPrimaryButton(
-                                    title: controller
-                                        .isCreateUserProfileStatus.value
-                                        ? 'Submitting...'
-                                        : 'Continue',
-                                    onHandler: () =>
-                                        _createUserProfile(controller),
-                                  ),
+                              final canSubmit = controller.canSubmit.value;
+                              final isLoading =
+                                  controller.isCreateUserProfileStatus.value;
+                              return Opacity(
+                                opacity: canSubmit && !isLoading ? 1 : 0.5,
+                                child: CustomPrimaryButton(
+                                  title: isLoading ? 'Submitting...' : 'Continue',
+                                  onHandler: canSubmit && !isLoading
+                                      ? () => _createUserProfile(controller)
+                                      : null,
                                 ),
                               );
                             }),
-                            SizedBox(
-                              height: 10.h,
-                            )
+                            SizedBox(height: 24.h),
                           ],
                         ),
-                      )
+                      ),
                     ],
                   ),
                 ),
               ),
-            ),
-          );
-        },
-      ),
     );
   }
 
   void _createUserProfile(DriverProfileController controller) {
+    if (controller.isCreateUserProfileStatus.value) return;
     if (controller.formKey.currentState!.validate() &&
         controller.canSubmit.value) {
       controller.createUserProfile();
