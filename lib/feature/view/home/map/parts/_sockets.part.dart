@@ -107,22 +107,15 @@ extension _Sockets on _MapScreenState {
         final bool isPassenger =
             userController.userModel.value?.userProfile?.role ==
                 AppConstants.passenger;
-        if (isPassenger) {
-          final coords = mapOPTController
-              .getRideDriverLocation.value?.driverLocation?.coordinates;
-          if (coords != null && coords.length >= 2) {
-            final driverLatLng = LatLng(coords[1], coords[0]);
-            if (_fullRoutePoints.isEmpty) {
-              final rideStatus = mapOPTController.rideStatusData.value;
-              if (rideStatus?.startRide == true ||
-                  rideStatus?.completeRide == true) {
-                pickupToDestinationRoute();
-              } else {
-                loadAcceptedRideRoute();
-              }
-            } else {
-              updatePolylineForDriverPosition(driverLatLng);
-            }
+        if (isPassenger &&
+            updatedCoords != null &&
+            updatedCoords.length >= 2 &&
+            _fullRoutePoints.isEmpty) {
+          final rideStatus = mapOPTController.rideStatusData.value;
+          if (rideStatus?.startRide == true) {
+            pickupToDestinationRoute();
+          } else if (rideStatus?.ongoingRide == true) {
+            loadAcceptedRideRoute();
           }
         }
 
@@ -195,6 +188,11 @@ extension _Sockets on _MapScreenState {
 
         if (rideStatus.completeRide == true) {
           debugPrint('🏁✅ ride-status: completeRide=true | role=$role');
+          _routeGeneration++;
+          _polylines = <Polyline>{};
+          _fullRoutePoints = <LatLng>[];
+          _routeTarget = null;
+          _lastAnimatedRouteUpdateAt = null;
           final isDriver = role == AppConstants.driver;
           if (isDriver) {
             debugPrint('🏁🚗 driver → finishRide()');
@@ -240,13 +238,18 @@ extension _Sockets on _MapScreenState {
           }
           loadAcceptedRideRoute();
         } else if (rideStatus.arrivingRide == true) {
+          _routeGeneration++;
           markers.clear();
-          _polylines.clear();
+          _polylines = <Polyline>{};
           _fullRoutePoints = [];
           _routeTarget = null;
+          _lastAnimatedRouteUpdateAt = null;
         } else if (rideStatus.startRide == true) {
+          _routeGeneration++;
+          _polylines = <Polyline>{};
           _fullRoutePoints = [];
           _routeTarget = null;
+          _lastAnimatedRouteUpdateAt = null;
           mapOPTController.prefetchDestinationRouteEstimate();
           final rideId = rideStatus.ride?.id;
           if (rideId != null && rideId.isNotEmpty) {

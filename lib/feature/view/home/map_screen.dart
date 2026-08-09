@@ -38,6 +38,8 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
   List<LatLng> _fullRoutePoints = [];
   LatLng? _routeTarget;
   bool _isReFetchingRoute = false;
+  int _routeGeneration = 0;
+  DateTime? _lastAnimatedRouteUpdateAt;
 
   BitmapDescriptor? customMarker;
   BitmapDescriptor? customCarMarker;
@@ -54,7 +56,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
   StreamSubscription<Position>? _positionStream;
   StreamSubscription<CompassEvent>? _compassStream;
   Position? _lastSentPosition;
-  Position? _lastAcceptedPosition;
+  DateTime? _lastLocationSentAt;
   bool _isTracking = false;
   DateTime? _lastHeadingUpdateAt;
   Timer? _currentMarkerAnimation;

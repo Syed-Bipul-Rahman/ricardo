@@ -161,7 +161,9 @@ extension _Markers on _MapScreenState {
       onFrame: (position, rotation) {
         mapOPTController.animatedCurrentMarkerPosition.value = position;
         mapOPTController.animatedCurrentMarkerHeading.value = rotation;
+        _updateRouteForAnimatedCar(position);
       },
+      onComplete: () => updatePolylineForDriverPosition(target),
     );
   }
 
@@ -191,6 +193,8 @@ extension _Markers on _MapScreenState {
     final remainingDistance = _distanceBetween(start, target);
     mapOPTController.animatedRemoteDriverSpeedMps.value = speed;
     unawaited(_ensureCarTravelVisible(start, target));
+    final isPassenger = userController.userModel.value?.userProfile?.role ==
+        AppConstants.passenger;
 
     _animateMarker(
       from: start,
@@ -204,7 +208,10 @@ extension _Markers on _MapScreenState {
       onFrame: (position, rotation) {
         mapOPTController.animatedRemoteDriverPosition.value = position;
         mapOPTController.animatedRemoteDriverHeading.value = rotation;
+        if (isPassenger) _updateRouteForAnimatedCar(position);
       },
+      onComplete:
+          isPassenger ? () => updatePolylineForDriverPosition(target) : null,
     );
   }
 
@@ -214,6 +221,7 @@ extension _Markers on _MapScreenState {
     required VoidCallback cancelPrevious,
     required void Function(Timer) saveTimer,
     required void Function(LatLng, double) onFrame,
+    VoidCallback? onComplete,
     int? durationMs,
     Curve curve = Curves.easeInOutCubic,
     double startHeading = 0,
@@ -230,6 +238,7 @@ extension _Markers on _MapScreenState {
     );
     if (distance < 0.2) {
       onFrame(to, targetHeading);
+      onComplete?.call();
       return;
     }
 
@@ -258,7 +267,10 @@ extension _Markers on _MapScreenState {
       final rotation = (startHeading + headingDelta * eased + 360) % 360;
 
       onFrame(position, rotation);
-      if (progress >= 1) timer.cancel();
+      if (progress >= 1) {
+        timer.cancel();
+        onComplete?.call();
+      }
     });
     saveTimer(timer);
   }

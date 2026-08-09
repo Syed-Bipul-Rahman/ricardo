@@ -694,7 +694,7 @@ class MapOPTController extends GetxController {
     final now = DateTime.now();
     if (_lastGetDriverLocationEmitAt != null &&
         now.difference(_lastGetDriverLocationEmitAt!) <
-            const Duration(seconds: 3)) {
+            const Duration(seconds: 1)) {
       return;
     }
 
@@ -738,7 +738,7 @@ class MapOPTController extends GetxController {
       DriverLocationService().startEmitting(rideId);
     } else {
       _rideLocationSyncTimer = Timer.periodic(
-        const Duration(seconds: 3),
+        const Duration(seconds: 1),
         (_) => maybeEmitGetDriverLocation(rideId),
       );
     }

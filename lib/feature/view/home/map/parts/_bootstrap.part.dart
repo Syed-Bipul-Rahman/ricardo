@@ -14,6 +14,16 @@ extension _Bootstrap on _MapScreenState {
         if (rideId != null && rideId.isNotEmpty) {
           mapOPTController.startRideLocationSync(rideId);
         }
+        if (rideStatus.ongoingRide == true) {
+          await loadAcceptedRideRoute();
+        } else if (rideStatus.startRide == true) {
+          await pickupToDestinationRoute();
+        } else if (rideStatus.arrivingRide == true) {
+          _routeGeneration++;
+          _polylines = <Polyline>{};
+          _fullRoutePoints = <LatLng>[];
+          _routeTarget = null;
+        }
       }
     }
   }
@@ -23,10 +33,13 @@ extension _Bootstrap on _MapScreenState {
   }
 
   void clearRideMapUi() {
-    _polylines.clear();
-    markers.clear();
-    _fullRoutePoints = [];
+    _routeGeneration++;
+    // Replace the collections so Google Maps detects removals immediately.
+    _polylines = <Polyline>{};
+    markers = <Marker>{};
+    _fullRoutePoints = <LatLng>[];
     _routeTarget = null;
+    _lastAnimatedRouteUpdateAt = null;
     _isReFetchingRoute = false;
     if (mounted) setState(() {});
   }

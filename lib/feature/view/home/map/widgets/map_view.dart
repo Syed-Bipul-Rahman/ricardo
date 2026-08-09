@@ -1,6 +1,105 @@
 import 'package:flutter/material.dart';
 import 'package:ricardo/feature/view/home/link_export_file.dart';
 
+const String _uberInspiredMapStyle = '''
+[
+  {
+    "elementType": "geometry",
+    "stylers": [{"color": "#F4F4F2"}]
+  },
+  {
+    "elementType": "labels.icon",
+    "stylers": [{"visibility": "off"}]
+  },
+  {
+    "elementType": "labels.text.fill",
+    "stylers": [{"color": "#666A70"}]
+  },
+  {
+    "elementType": "labels.text.stroke",
+    "stylers": [{"color": "#F4F4F2"}, {"weight": 3}]
+  },
+  {
+    "featureType": "administrative",
+    "elementType": "geometry.stroke",
+    "stylers": [{"color": "#D7D8D6"}]
+  },
+  {
+    "featureType": "administrative.locality",
+    "elementType": "labels.text.fill",
+    "stylers": [{"color": "#3F4247"}, {"weight": 1}]
+  },
+  {
+    "featureType": "landscape",
+    "elementType": "geometry",
+    "stylers": [{"color": "#F4F4F2"}]
+  },
+  {
+    "featureType": "poi",
+    "stylers": [{"visibility": "off"}]
+  },
+  {
+    "featureType": "road",
+    "elementType": "geometry",
+    "stylers": [{"color": "#FFFFFF"}]
+  },
+  {
+    "featureType": "road",
+    "elementType": "geometry.stroke",
+    "stylers": [{"color": "#E4E5E3"}, {"weight": 0.8}]
+  },
+  {
+    "featureType": "road",
+    "elementType": "labels.text.fill",
+    "stylers": [{"color": "#777B80"}]
+  },
+  {
+    "featureType": "road.local",
+    "elementType": "geometry",
+    "stylers": [{"color": "#ECEDEA"}, {"lightness": 18}]
+  },
+  {
+    "featureType": "road.local",
+    "elementType": "geometry.stroke",
+    "stylers": [{"visibility": "off"}]
+  },
+  {
+    "featureType": "road.local",
+    "elementType": "labels",
+    "stylers": [{"visibility": "simplified"}]
+  },
+  {
+    "featureType": "road.arterial",
+    "elementType": "geometry",
+    "stylers": [{"color": "#FFFFFF"}, {"weight": 1.6}]
+  },
+  {
+    "featureType": "road.highway",
+    "elementType": "geometry",
+    "stylers": [{"color": "#DADDDC"}, {"weight": 2}]
+  },
+  {
+    "featureType": "road.highway",
+    "elementType": "geometry.stroke",
+    "stylers": [{"color": "#C9CCCB"}, {"weight": 1}]
+  },
+  {
+    "featureType": "transit",
+    "stylers": [{"visibility": "off"}]
+  },
+  {
+    "featureType": "water",
+    "elementType": "geometry",
+    "stylers": [{"color": "#C9E2EA"}]
+  },
+  {
+    "featureType": "water",
+    "elementType": "labels.text.fill",
+    "stylers": [{"color": "#66838C"}]
+  }
+]
+''';
+
 class MapView extends StatelessWidget {
   const MapView({
     super.key,
@@ -62,6 +161,9 @@ class MapView extends StatelessWidget {
           trafficEnabled: false,
           zoomGesturesEnabled: true,
           mapType: MapType.normal,
+          style: _uberInspiredMapStyle,
+          buildingsEnabled: false,
+          indoorViewEnabled: false,
           initialCameraPosition: CameraPosition(
             target: LatLng(
               mapOPTController.currentLatitudePosition?.value ??
