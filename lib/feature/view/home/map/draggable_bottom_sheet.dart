@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:ricardo/app/helpers/ride_distance_formatter.dart';
 import 'package:ricardo/app/helpers/ride_eta_resolver.dart';
@@ -29,7 +28,6 @@ class _DraggableBottomSheetState extends State<DraggableBottomSheet> {
       final data = controller.rideStatusData.value;
 
       final isComplete = data?.completeRide == true;
-      final isArriving = data?.arrivingRide == true;
 
       debugPrint(
         '🧳📋 bottom sheet build | completeRide=${data?.completeRide} '
@@ -37,187 +35,21 @@ class _DraggableBottomSheetState extends State<DraggableBottomSheet> {
       );
 
       return DraggableScrollableSheet(
-        initialChildSize: 0.35,
-        minChildSize: 0.10,
-        maxChildSize: (isComplete || isArriving) ? 0.45 : 0.5,
+        initialChildSize: isComplete ? 0.56 : 0.42,
+        minChildSize: 0.12,
+        maxChildSize: isComplete ? 0.78 : 0.62,
         expand: false,
         builder: (context, scrollController) {
+          final rideData = data ?? widget.rideStatus;
           return GlassBackgroundWidget(
-            blurNumber: 16,
+            blurNumber: 20,
             padding: EdgeInsets.zero,
             child: SingleChildScrollView(
               controller: scrollController,
               physics: const AlwaysScrollableScrollPhysics(),
               child: Column(
                 children: [
-                  // ───────────────── HEADER ─────────────────
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      vertical: 11,
-                      horizontal: 18,
-                    ),
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.only(
-                        topLeft: Radius.circular(20),
-                        topRight: Radius.circular(20),
-                      ),
-                    ),
-                    child: Column(
-                      children: [
-                        const SizedBox(height: 10),
-
-                        /// drag handle
-                        Container(
-                          width: 40,
-                          height: 4,
-                          decoration: BoxDecoration(
-                            color: Colors.grey.shade300,
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                        ),
-
-                        const SizedBox(height: 12),
-
-                        /// STATUS TEXT (FULLY REACTIVE)
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Row(
-                              children: [
-                                Container(
-                                  width: 10,
-                                  height: 10,
-                                  decoration: const BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: Colors.green,
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-
-                                /// 🔥 REACTIVE STATUS
-                                Obx(() {
-                                  final d = controller.rideStatusData.value;
-
-                                  if (d == null) {
-                                    return const Text("Loading...");
-                                  }
-
-                                  final text = d.acceptRide == true
-                                      ? 'Rider has accepted your ride'
-                                      : d.ongoingRide == true
-                                          ? 'Rider is on the way to pickup'
-                                          : d.arrivingRide == true
-                                              ? 'Rider arrived'
-                                              : d.completeRide == true
-                                                  ? 'Ride completed'
-                                                  : 'Waiting for driver...';
-
-                                  return Text(
-                                    text,
-                                    style: TextStyle(
-                                      fontSize: 14.sp,
-                                      fontWeight: FontWeight.w600,
-                                      fontFamily: FontFamily.poppins,
-                                      color: AppColors.darkColor,
-                                    ),
-                                  );
-                                }),
-                              ],
-                            ),
-
-                            /// TIME BOX (REACTIVE)
-                            Obx(() {
-                              controller.currentLatitudePosition?.value;
-                              controller.currentLongitudePosition?.value;
-
-                              final metrics = RideEtaResolver.resolve(
-                                controller: controller,
-                                rideStatus: controller.rideStatusData.value,
-                              );
-
-                              final isNear = metrics.distanceMeters > 0 &&
-                                  metrics.distanceMeters <= 500;
-
-                              return Container(
-                                padding: const EdgeInsets.all(6),
-                                decoration: BoxDecoration(
-                                  color: isNear
-                                      ? Colors.green
-                                      : AppColors.darkColor,
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Text(
-                                  RideDistanceFormatter.formatDuration(
-                                    metrics.durationSeconds,
-                                  ),
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                  ),
-                                ),
-                              );
-                            }),
-                            Obx(() {
-                              // Reporting is only offered once the ride is
-                              // finished, not mid-trip.
-                              final showReport = controller
-                                      .rideStatusData.value?.completeRide ==
-                                  true;
-
-                              if (!showReport) {
-                                debugPrint(
-                                  '🚨❌ Report hidden | completeRide=${controller.rideStatusData.value?.completeRide}',
-                                );
-                                return const SizedBox();
-                              }
-
-                              debugPrint(
-                                '🚨✅ Report visible | completeRide=true',
-                              );
-
-                              return ElevatedButton(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppColors.whiteColor,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadiusGeometry.all(Radius.circular(30.r))
-                                  ),
-                                  padding: EdgeInsets.symmetric(
-                                    vertical: 20.h,
-                                    horizontal: 12.h,
-                                  ),
-                                ),
-                                onPressed: () {
-                                  Get.toNamed(AppRoutes.reportScreen,arguments: {'rideId' :  controller.rideStatusData.value?.ride?.id});
-                                },
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(
-                                      Icons.add_alert_sharp,
-                                      color: AppColors.errorColor,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                    SizedBox(width: 10.w),
-                                    Text(
-                                      'Report',
-                                      style: TextStyle(
-                                        fontSize: 16.sp,
-                                        fontWeight: FontWeight.w600,
-                                        fontFamily: FontFamily.poppins,
-                                        color: AppColors.errorColor,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              );
-                            }),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  // ───────────────── BODY ─────────────────
+                  _buildSheetHeader(rideData),
                   Padding(
                     padding: EdgeInsets.only(
                       left: 12.h,
@@ -229,91 +61,9 @@ class _DraggableBottomSheetState extends State<DraggableBottomSheet> {
                     ),
                     child: Column(
                       children: [
-                        /// DRIVER INFO
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Row(
-                              children: [
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(50),
-                                  child: Image.network(
-                                    '${ApiUrls.imageBaseUrl}'
-                                    '${widget.rideStatus?.driver?.image?.filename}',
-                                    height: 62.h,
-                                    width: 62.w,
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (_, __, ___) {
-                                      return Image.asset(
-                                        Assets.images.defaultImage.path,
-                                        height: 62.h,
-                                        width: 62.w,
-                                      );
-                                    },
-                                  ),
-                                ),
-                                SizedBox(width: 12.w),
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      widget.rideStatus?.driver?.name ?? '',
-                                      style: TextStyle(
-                                        fontSize: 16.sp,
-                                        fontWeight: FontWeight.w600,
-                                        color: AppColors.successColor,
-                                      ),
-                                    ),
-                                    Text(
-                                      widget.rideStatus?.driver?.phone ?? '',
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                            GestureDetector(
-                              onTap: () {
-                                launchUrl(Uri.parse(
-                                  "tel:${widget.rideStatus?.driver?.phone}",
-                                ));
-                              },
-                              child: RepaintBoundary(
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    color: AppColors.whiteColor,
-                                    borderRadius: BorderRadius.circular(50),
-                                    border: Border.all(
-                                        color: AppColors.greyColor200),
-                                  ),
-                                  child: SvgPicture.asset(
-                                      Assets.icons.driverCardPhone),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-
-                        SizedBox(height: 20.h),
-
-                        /// CAR INFO
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  widget.rideStatus?.driverCar?.carName ?? '',
-                                ),
-                                Text(
-                                  widget.rideStatus?.driverCar
-                                          ?.carPlateNumber ??
-                                      '',
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
+                        _buildDriverCard(rideData),
+                        SizedBox(height: 12.h),
+                        _buildVehicleCard(rideData),
 
                         const SizedBox(height: 20),
 
@@ -347,61 +97,65 @@ class _DraggableBottomSheetState extends State<DraggableBottomSheet> {
                                       ?.role ==
                                   AppConstants.passenger)
                                 Row(
-                                children: [
-                                  Flexible(
-                                    child: CustomPrimaryButton(
-                                      title: 'Review',
-                                      onHandler: () {
-                                        // ride.driver carries the driver's
-                                        // user _id; driverCar.driverId is
-                                        // often absent, which left Review and
-                                        // Add-to-Favourite with a null id.
-                                        Get.toNamed(
-                                          AppRoutes.rateReviewDriver,
-                                          arguments: {
-                                            'name':
-                                                widget.rideStatus?.driver?.name,
-                                            'driverId': widget.rideStatus
-                                                    ?.ride?.driver?.id ??
-                                                widget.rideStatus?.driver?.id ??
-                                                widget.rideStatus
-                                                    ?.driverCar?.driverId,
-                                            'rideId':
-                                                widget.rideStatus?.ride?.id,
-                                          },
-                                        );
-                                      },
+                                  children: [
+                                    Flexible(
+                                      child: CustomPrimaryButton(
+                                        title: 'Review',
+                                        onHandler: () {
+                                          // ride.driver carries the driver's
+                                          // user _id; driverCar.driverId is
+                                          // often absent, which left Review and
+                                          // Add-to-Favourite with a null id.
+                                          Get.toNamed(
+                                            AppRoutes.rateReviewDriver,
+                                            arguments: {
+                                              'name': widget
+                                                  .rideStatus?.driver?.name,
+                                              'driverId': widget.rideStatus
+                                                      ?.ride?.driver?.id ??
+                                                  widget
+                                                      .rideStatus?.driver?.id ??
+                                                  widget.rideStatus?.driverCar
+                                                      ?.driverId,
+                                              'rideId':
+                                                  widget.rideStatus?.ride?.id,
+                                            },
+                                          );
+                                        },
+                                      ),
                                     ),
-                                  ),
-                                  SizedBox(
-                                    width: 8.w,
-                                  ),
-                                  Flexible(
-                                    child: CustomPrimaryButton(
-                                      title: 'Tips',
-                                      onHandler: () {
-                                        _buildTipsShowDialog(context);
-                                      },
+                                    SizedBox(
+                                      width: 8.w,
                                     ),
-                                  )
-                                ],
-                              ),
+                                    Flexible(
+                                      child: CustomPrimaryButton(
+                                        title: 'Tips',
+                                        onHandler: () {
+                                          _buildTipsShowDialog(context);
+                                        },
+                                      ),
+                                    )
+                                  ],
+                                ),
                               SizedBox(
                                 height: 16.h,
                               ),
                               CustomPrimaryButton(
                                 title: 'Back to Home',
                                 onHandler: () async {
-                                  debugPrint('🏠👆 passenger tapped Back to Home');
+                                  debugPrint(
+                                      '🏠👆 passenger tapped Back to Home');
                                   final rideId =
                                       controller.rideStatusData.value?.ride?.id;
                                   if (rideId != null && rideId.isNotEmpty) {
                                     controller.markRideFinished(rideId);
                                   }
                                   controller.clearRideSession();
-                                  final rideController = Get.find<RideController>();
+                                  final rideController =
+                                      Get.find<RideController>();
                                   rideController.returnToNormalView();
-                                  rideController.isSwippedButtonShow.value = false;
+                                  rideController.isSwippedButtonShow.value =
+                                      false;
                                   Get.find<GoogleSearchLocationController>()
                                       .isModalOn
                                       .value = false;
@@ -410,7 +164,8 @@ class _DraggableBottomSheetState extends State<DraggableBottomSheet> {
                                   Get.offAllNamed(AppRoutes.customBottomNavBar);
                                   Get.find<CustomBottomNavBarController>()
                                       .onChange(0);
-                                  debugPrint('🏠✅ Back to Home done → navbar home');
+                                  debugPrint(
+                                      '🏠✅ Back to Home done → navbar home');
                                 },
                               )
                             ],
@@ -426,6 +181,395 @@ class _DraggableBottomSheetState extends State<DraggableBottomSheet> {
         },
       );
     });
+  }
+
+  Widget _buildSheetHeader(RideStatusModel? data) {
+    controller.currentLatitudePosition?.value;
+    controller.currentLongitudePosition?.value;
+    final metrics = RideEtaResolver.resolve(
+      controller: controller,
+      rideStatus: data,
+    );
+    final isComplete = data?.completeRide == true;
+    final isNear = metrics.distanceMeters > 0 && metrics.distanceMeters <= 500;
+
+    final String statusText;
+    final IconData statusIcon;
+    final Color statusColor;
+    if (data == null) {
+      statusText = 'Updating your ride';
+      statusIcon = Icons.sync_rounded;
+      statusColor = AppColors.darkColor;
+    } else if (data.completeRide == true) {
+      statusText = 'Ride completed';
+      statusIcon = Icons.check_circle_rounded;
+      statusColor = AppColors.successColor;
+    } else if (data.arrivingRide == true) {
+      statusText = 'Your driver has arrived';
+      statusIcon = Icons.location_on_rounded;
+      statusColor = AppColors.successColor;
+    } else if (data.startRide == true) {
+      statusText = 'Heading to your destination';
+      statusIcon = Icons.route_rounded;
+      statusColor = AppColors.primaryColor;
+    } else if (data.ongoingRide == true) {
+      statusText = 'Driver is heading to pickup';
+      statusIcon = Icons.local_taxi_rounded;
+      statusColor = AppColors.primaryColor;
+    } else {
+      statusText = 'Driver accepted your ride';
+      statusIcon = Icons.thumb_up_alt_rounded;
+      statusColor = AppColors.primaryColor;
+    }
+
+    return Container(
+      padding: EdgeInsets.fromLTRB(18.w, 10.h, 18.w, 16.h),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
+        border: Border(
+          bottom: BorderSide(color: Colors.black.withValues(alpha: 0.06)),
+        ),
+      ),
+      child: Column(
+        children: [
+          Container(
+            width: 44.w,
+            height: 5.h,
+            decoration: BoxDecoration(
+              color: const Color(0xFFD7D9DE),
+              borderRadius: BorderRadius.circular(20.r),
+            ),
+          ),
+          SizedBox(height: 16.h),
+          Row(
+            children: [
+              Container(
+                width: 38.r,
+                height: 38.r,
+                decoration: BoxDecoration(
+                  color: statusColor.withValues(alpha: 0.10),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(statusIcon, color: statusColor, size: 21.r),
+              ),
+              SizedBox(width: 11.w),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      statusText,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 15.sp,
+                        fontWeight: FontWeight.w700,
+                        fontFamily: FontFamily.poppins,
+                        color: AppColors.darkColor,
+                      ),
+                    ),
+                    SizedBox(height: 2.h),
+                    Text(
+                      isComplete
+                          ? 'Thank you for riding with us'
+                          : 'Live trip status',
+                      style: TextStyle(
+                        fontSize: 11.sp,
+                        color: AppColors.secondaryTextColor,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (!isComplete) ...[
+                SizedBox(width: 10.w),
+                Container(
+                  padding:
+                      EdgeInsets.symmetric(horizontal: 11.w, vertical: 7.h),
+                  decoration: BoxDecoration(
+                    color: isNear
+                        ? AppColors.successColor.withValues(alpha: 0.10)
+                        : const Color(0xFFF2F3F5),
+                    borderRadius: BorderRadius.circular(30.r),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.schedule_rounded,
+                        size: 15.r,
+                        color: isNear
+                            ? AppColors.successColor
+                            : AppColors.darkColor,
+                      ),
+                      SizedBox(width: 5.w),
+                      Text(
+                        RideDistanceFormatter.formatDuration(
+                          metrics.durationSeconds,
+                        ),
+                        style: TextStyle(
+                          fontSize: 12.sp,
+                          fontWeight: FontWeight.w700,
+                          color: isNear
+                              ? AppColors.successColor
+                              : AppColors.darkColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+              if (isComplete)
+                IconButton(
+                  tooltip: 'Report this ride',
+                  onPressed: () {
+                    Get.toNamed(
+                      AppRoutes.reportScreen,
+                      arguments: {'rideId': data?.ride?.id},
+                    );
+                  },
+                  icon: Icon(
+                    Icons.outlined_flag_rounded,
+                    color: AppColors.errorColor,
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDriverCard(RideStatusModel? data) {
+    final driver = data?.driver;
+    final imageName = driver?.image?.filename;
+    final imageUrl = imageName != null && imageName.isNotEmpty
+        ? '${ApiUrls.imageBaseUrl}$imageName'
+        : null;
+    final phone = driver?.phone ?? '';
+    final rating = driver?.averageRating ?? 0;
+
+    return Container(
+      padding: EdgeInsets.all(14.r),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20.r),
+        border: Border.all(color: const Color(0xFFEDEEF1)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 18,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(2),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: AppColors.primaryColor.withValues(alpha: 0.25),
+                    width: 2,
+                  ),
+                ),
+                child: ClipOval(
+                  child: imageUrl == null
+                      ? Image.asset(
+                          Assets.images.defaultImage.path,
+                          height: 62.r,
+                          width: 62.r,
+                          fit: BoxFit.cover,
+                        )
+                      : Image.network(
+                          imageUrl,
+                          height: 62.r,
+                          width: 62.r,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Image.asset(
+                            Assets.images.defaultImage.path,
+                            height: 62.r,
+                            width: 62.r,
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                ),
+              ),
+              Positioned(
+                right: 1,
+                bottom: 1,
+                child: Container(
+                  width: 14.r,
+                  height: 14.r,
+                  decoration: BoxDecoration(
+                    color: AppColors.successColor,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 2),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          SizedBox(width: 13.w),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  driver?.name?.isNotEmpty == true
+                      ? driver!.name!
+                      : 'Your driver',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 17.sp,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.darkColor,
+                    fontFamily: FontFamily.poppins,
+                  ),
+                ),
+                SizedBox(height: 4.h),
+                Row(
+                  children: [
+                    Icon(Icons.star_rounded,
+                        size: 17.r, color: const Color(0xFFFFB020)),
+                    SizedBox(width: 3.w),
+                    Text(
+                      rating > 0 ? rating.toStringAsFixed(1) : 'New',
+                      style: TextStyle(
+                        fontSize: 12.sp,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.secondaryTextColor,
+                      ),
+                    ),
+                    if (phone.isNotEmpty) ...[
+                      Container(
+                        width: 3.r,
+                        height: 3.r,
+                        margin: EdgeInsets.symmetric(horizontal: 8.w),
+                        decoration: const BoxDecoration(
+                          color: Color(0xFFB1B4BB),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      Flexible(
+                        child: Text(
+                          phone,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 12.sp,
+                            color: AppColors.secondaryTextColor,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ],
+            ),
+          ),
+          SizedBox(width: 8.w),
+          Material(
+            color: AppColors.primaryColor,
+            shape: const CircleBorder(),
+            child: InkWell(
+              customBorder: const CircleBorder(),
+              onTap: phone.isEmpty
+                  ? null
+                  : () => launchUrl(Uri.parse('tel:$phone')),
+              child: Padding(
+                padding: EdgeInsets.all(12.r),
+                child: Icon(
+                  Icons.call_rounded,
+                  size: 22.r,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildVehicleCard(RideStatusModel? data) {
+    final carName = data?.driverCar?.carName;
+    final plateNumber = data?.driverCar?.carPlateNumber;
+
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 15.w, vertical: 13.h),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF5F6F8),
+        borderRadius: BorderRadius.circular(18.r),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 44.r,
+            height: 44.r,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(13.r),
+            ),
+            child: Icon(
+              Icons.directions_car_filled_rounded,
+              color: AppColors.darkColor,
+              size: 25.r,
+            ),
+          ),
+          SizedBox(width: 12.w),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  carName?.isNotEmpty == true ? carName! : 'Driver vehicle',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 14.sp,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.darkColor,
+                  ),
+                ),
+                SizedBox(height: 3.h),
+                Text(
+                  'Confirm the plate before entering',
+                  style: TextStyle(
+                    fontSize: 10.5.sp,
+                    color: AppColors.secondaryTextColor,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (plateNumber?.isNotEmpty == true)
+            Container(
+              padding: EdgeInsets.symmetric(horizontal: 11.w, vertical: 7.h),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8.r),
+                border: Border.all(color: const Color(0xFFD8DADE)),
+              ),
+              child: Text(
+                plateNumber!.toUpperCase(),
+                style: TextStyle(
+                  fontSize: 12.sp,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.7,
+                  color: AppColors.darkColor,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
   }
 
   Future<dynamic> _buildTipsShowDialog(BuildContext context) {

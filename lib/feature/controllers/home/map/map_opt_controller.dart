@@ -15,6 +15,13 @@ import 'package:ricardo/services/direction_services.dart';
 import 'package:ricardo/services/api_client.dart';
 
 class MapOPTController extends GetxController {
+  static const int freeWaitingPeriodSeconds = 120;
+  static const String _waitingRideIdKey = 'driver_waiting_ride_id';
+  static const String _arrivalAtKeyPrefix = 'driver_arrival_at_';
+  static const String _waitingStartedAtKeyPrefix = 'driver_waiting_started_at_';
+  static const String _waitingFinalSecondsKeyPrefix =
+      'driver_waiting_final_seconds_';
+
   // Controller are here
   RxBool isCurrentMarkerShowOrNot = true.obs;
 
@@ -71,8 +78,12 @@ class MapOPTController extends GetxController {
 
   @override
   void onInit() {
-    getLocation();
     super.onInit();
+    _waitingStatusWorker = ever<RideStatusModel?>(
+      rideStatusData,
+      (status) => unawaited(_syncWaitingState(status)),
+    );
+    getLocation();
   }
 
   Timer? _rideRequestTimer;
@@ -202,6 +213,18 @@ class MapOPTController extends GetxController {
   Rx<RideStatusModel?> rideStatusData =
       Rx<RideStatusModel?>(null); // ride-status socket data
 
+  final RxInt freeWaitingSeconds = freeWaitingPeriodSeconds.obs;
+  final RxInt waitingFineSeconds = 0.obs;
+  final RxBool isWaitingFineAvailable = false.obs;
+  final RxBool isWaitingFineRunning = false.obs;
+  final RxBool wasWaitingFineStarted = false.obs;
+  Timer? _waitingClock;
+  Worker? _waitingStatusWorker;
+  String? _waitingRideId;
+  int? _arrivalAtMilliseconds;
+  int? _waitingStartedAtMilliseconds;
+  int? _finalWaitingSeconds;
+
   //***************************************************
 // *** Socket  Driver Model  Response ****
 // ***************************************************
@@ -328,10 +351,184 @@ class MapOPTController extends GetxController {
     }
   }
 
+  Future<void> _syncWaitingState(RideStatusModel? status) async {
+    if (status == null) return;
+    if (userController.userModel.value?.userProfile?.role !=
+        AppConstants.driver) {
+      return;
+    }
+
+    final rideId = status.ride?.id;
+    if (rideId == null || rideId.isEmpty) return;
+
+    if (status.completeRide == true ||
+        status.driverCancel == true ||
+        status.passengerCancel == true ||
+        status.ride?.status == 'cancelled') {
+      await clearWaitingTimerState(rideId: rideId);
+      return;
+    }
+
+    if (status.arrivingRide == true) {
+      await _restoreWaitingState(rideId, createArrivalIfMissing: true);
+      _updateWaitingClock();
+      _startWaitingClock();
+      return;
+    }
+
+    if (status.startRide == true) {
+      await _restoreWaitingState(rideId);
+      _updateWaitingClock();
+      _waitingClock?.cancel();
+      isWaitingFineRunning.value = false;
+    }
+  }
+
+  Future<void> _restoreWaitingState(
+    String rideId, {
+    bool createArrivalIfMissing = false,
+  }) async {
+    final storedRideId = await PrefsHelper.getString(_waitingRideIdKey);
+    if (storedRideId.isNotEmpty && storedRideId != rideId) {
+      await _removeWaitingKeys(storedRideId);
+    }
+
+    _waitingRideId = rideId;
+    await PrefsHelper.setString(_waitingRideIdKey, rideId);
+
+    var arrivalAt = await PrefsHelper.getInt('$_arrivalAtKeyPrefix$rideId');
+    if (arrivalAt < 0 && createArrivalIfMissing) {
+      arrivalAt = DateTime.now().millisecondsSinceEpoch;
+      await PrefsHelper.setInt('$_arrivalAtKeyPrefix$rideId', arrivalAt);
+    }
+
+    final waitingStartedAt =
+        await PrefsHelper.getInt('$_waitingStartedAtKeyPrefix$rideId');
+    final finalWaitingSeconds =
+        await PrefsHelper.getInt('$_waitingFinalSecondsKeyPrefix$rideId');
+
+    _arrivalAtMilliseconds = arrivalAt >= 0 ? arrivalAt : null;
+    _waitingStartedAtMilliseconds =
+        waitingStartedAt >= 0 ? waitingStartedAt : null;
+    _finalWaitingSeconds =
+        finalWaitingSeconds >= 0 ? finalWaitingSeconds : null;
+    wasWaitingFineStarted.value = _waitingStartedAtMilliseconds != null;
+  }
+
+  void _startWaitingClock() {
+    _waitingClock?.cancel();
+    _waitingClock = Timer.periodic(
+      const Duration(seconds: 1),
+      (_) => _updateWaitingClock(),
+    );
+  }
+
+  void _updateWaitingClock() {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final arrivalAt = _arrivalAtMilliseconds;
+    if (arrivalAt != null) {
+      final elapsed = ((now - arrivalAt) / 1000).floor().clamp(0, 1 << 30);
+      freeWaitingSeconds.value = (freeWaitingPeriodSeconds - elapsed)
+          .clamp(0, freeWaitingPeriodSeconds);
+    } else {
+      freeWaitingSeconds.value = freeWaitingPeriodSeconds;
+    }
+
+    final waitingStartedAt = _waitingStartedAtMilliseconds;
+    if (_finalWaitingSeconds != null) {
+      waitingFineSeconds.value = _finalWaitingSeconds!;
+    } else if (waitingStartedAt != null) {
+      waitingFineSeconds.value =
+          ((now - waitingStartedAt) / 1000).floor().clamp(0, 1 << 30);
+    } else {
+      waitingFineSeconds.value = 0;
+    }
+
+    isWaitingFineRunning.value =
+        waitingStartedAt != null && _finalWaitingSeconds == null;
+    isWaitingFineAvailable.value = freeWaitingSeconds.value == 0 &&
+        waitingStartedAt == null &&
+        rideStatusData.value?.arrivingRide == true;
+  }
+
+  Future<void> startWaitingFine() async {
+    final rideId = activeRideId;
+    if (rideId == null ||
+        !isWaitingFineAvailable.value ||
+        rideStatusData.value?.arrivingRide != true) {
+      return;
+    }
+
+    final startedAt = DateTime.now().millisecondsSinceEpoch;
+    _waitingRideId = rideId;
+    _waitingStartedAtMilliseconds = startedAt;
+    _finalWaitingSeconds = null;
+    wasWaitingFineStarted.value = true;
+    isWaitingFineAvailable.value = false;
+    isWaitingFineRunning.value = true;
+    await PrefsHelper.setString(_waitingRideIdKey, rideId);
+    await PrefsHelper.setInt('$_waitingStartedAtKeyPrefix$rideId', startedAt);
+    await PrefsHelper.remove('$_waitingFinalSecondsKeyPrefix$rideId');
+    _updateWaitingClock();
+    _startWaitingClock();
+  }
+
+  Future<int?> finalizeWaitingFine() async {
+    final rideId = _waitingRideId ?? activeRideId;
+    if (rideId == null || _waitingStartedAtMilliseconds == null) return null;
+
+    _updateWaitingClock();
+    _finalWaitingSeconds = waitingFineSeconds.value;
+    isWaitingFineRunning.value = false;
+    _waitingClock?.cancel();
+    await PrefsHelper.setInt(
+      '$_waitingFinalSecondsKeyPrefix$rideId',
+      _finalWaitingSeconds!,
+    );
+    return _finalWaitingSeconds! > 0 ? _finalWaitingSeconds : null;
+  }
+
+  int? get waitingTimeForCompletion {
+    if (!wasWaitingFineStarted.value || waitingFineSeconds.value <= 0) {
+      return null;
+    }
+    return waitingFineSeconds.value;
+  }
+
+  Future<void> clearWaitingTimerState({String? rideId}) async {
+    final storedRideId = await PrefsHelper.getString(_waitingRideIdKey);
+    final id = rideId ??
+        _waitingRideId ??
+        (storedRideId.isNotEmpty ? storedRideId : null);
+    _waitingClock?.cancel();
+    _waitingClock = null;
+    if (id != null && id.isNotEmpty) {
+      await _removeWaitingKeys(id);
+    }
+    if (id == null || storedRideId == id) {
+      await PrefsHelper.remove(_waitingRideIdKey);
+    }
+    _waitingRideId = null;
+    _arrivalAtMilliseconds = null;
+    _waitingStartedAtMilliseconds = null;
+    _finalWaitingSeconds = null;
+    freeWaitingSeconds.value = freeWaitingPeriodSeconds;
+    waitingFineSeconds.value = 0;
+    isWaitingFineAvailable.value = false;
+    isWaitingFineRunning.value = false;
+    wasWaitingFineStarted.value = false;
+  }
+
+  Future<void> _removeWaitingKeys(String rideId) async {
+    await PrefsHelper.remove('$_arrivalAtKeyPrefix$rideId');
+    await PrefsHelper.remove('$_waitingStartedAtKeyPrefix$rideId');
+    await PrefsHelper.remove('$_waitingFinalSecondsKeyPrefix$rideId');
+  }
+
   // Ride Status change are here
   RxBool isRideStatusChangeLoading = false.obs;
 
-  Future<void> rideStatusChange(String rideId, String status) async {
+  Future<bool> rideStatusChange(String rideId, String status) async {
     try {
       isRideStatusChangeLoading.value = true;
 
@@ -339,11 +536,14 @@ class MapOPTController extends GetxController {
           ApiUrls.rideChangeRideStatus(rideId), {"status": status});
       if (response.statusCode == 200 || response.statusCode == 201) {
         debugPrint('===================>>>>>>>>>>>>>> Maruf ${response.body}');
+        return true;
       } else {
         showSnackbar('error', response.body['message']);
+        return false;
       }
     } catch (e) {
       debugPrint(e.toString());
+      return false;
     } finally {
       isRideStatusChangeLoading.value = false;
     }
@@ -445,6 +645,7 @@ class MapOPTController extends GetxController {
 
   void clearRideSession() {
     stopRideLocationSync();
+    unawaited(clearWaitingTimerState(rideId: activeRideId));
     final rideController = Get.find<RideController>();
     rideController.isRideAccepted.value = false;
     rideController.acceptRideModel.value = null;
@@ -608,16 +809,26 @@ class MapOPTController extends GetxController {
 
   //  Complete Related work are here
   RxBool isCompleteRideLoading = false.obs;
-  Future<bool> completeRideHandler(String rideId, int waitingTime) async {
+  Future<bool> completeRideHandler(
+    String rideId, {
+    int? waitingTime,
+  }) async {
     try {
       isCompleteRideLoading.value = true;
       debugPrint('🚗🏁 driver complete API start | rideId=$rideId');
+      final body = <String, dynamic>{};
+      if (waitingTime != null && waitingTime > 0) {
+        body['waitingTime'] = waitingTime;
+      }
       final response = await ApiClient.postData(
-          ApiUrls.completeRideByDriver(rideId), {"waitingTime": waitingTime});
+        ApiUrls.completeRideByDriver(rideId),
+        body,
+      );
       if (response.statusCode == 200 || response.statusCode == 201) {
         debugPrint('🚗✅ driver complete API success | body=${response.body}');
         markRideFinished(rideId);
         stopRideLocationSync();
+        await clearWaitingTimerState(rideId: rideId);
         return true;
       } else {
         debugPrint(
@@ -640,6 +851,8 @@ class MapOPTController extends GetxController {
   @override
   void onClose() {
     stopRideLocationSync();
+    _waitingClock?.cancel();
+    _waitingStatusWorker?.dispose();
     provideTips.dispose();
     selectedReason.dispose();
     _rideRequestTimer?.cancel();

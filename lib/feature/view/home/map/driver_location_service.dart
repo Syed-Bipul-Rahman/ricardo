@@ -5,7 +5,7 @@ import 'package:ricardo/services/socket_services.dart';
 
 class DriverLocationService with WidgetsBindingObserver {
   static final DriverLocationService _instance =
-  DriverLocationService._internal();
+      DriverLocationService._internal();
 
   factory DriverLocationService() => _instance;
 
@@ -14,6 +14,8 @@ class DriverLocationService with WidgetsBindingObserver {
   }
 
   StreamSubscription<Position>? _positionSubscription;
+  Position? _lastEmittedPosition;
+  DateTime? _lastEmittedAt;
 
   String? _rideId;
 
@@ -28,15 +30,19 @@ class DriverLocationService with WidgetsBindingObserver {
     _positionSubscription = Geolocator.getPositionStream(
       locationSettings: const LocationSettings(
         accuracy: LocationAccuracy.high,
-        distanceFilter: 1,
+        distanceFilter: 5,
       ),
     ).listen(
-          (Position position) {
+      (Position position) {
         if (SocketServices.socket?.connected != true) {
           debugPrint('❌ Socket disconnected');
           return;
         }
-        print('Get-Driver-location-emit are here');
+
+        if (!_shouldEmit(position)) return;
+        _lastEmittedPosition = position;
+        _lastEmittedAt = DateTime.now();
+
         SocketServices.socket?.emit(
           'get-driver-location',
           {
@@ -46,7 +52,7 @@ class DriverLocationService with WidgetsBindingObserver {
 
         debugPrint(
           '📡 Driver moved → emitted location '
-              '(${position.latitude}, ${position.longitude})',
+          '(${position.latitude}, ${position.longitude})',
         );
       },
       onError: (e) {
@@ -57,10 +63,35 @@ class DriverLocationService with WidgetsBindingObserver {
     debugPrint('✅ Started location stream for rideId: $rideId');
   }
 
+  bool _shouldEmit(Position position) {
+    if (position.accuracy > 75) return false;
+
+    final previous = _lastEmittedPosition;
+    final emittedAt = _lastEmittedAt;
+    if (previous == null || emittedAt == null) return true;
+    if (DateTime.now().difference(emittedAt) < const Duration(seconds: 2)) {
+      return false;
+    }
+
+    final distance = Geolocator.distanceBetween(
+      previous.latitude,
+      previous.longitude,
+      position.latitude,
+      position.longitude,
+    );
+    final minimumMovement =
+        position.speed >= 0 && position.speed < 0.5 ? 8.0 : 5.0;
+    if (distance < minimumMovement) return false;
+    if (position.accuracy > 35 && distance < 12) return false;
+    return true;
+  }
+
   /// Stop service
   void stop() {
     _positionSubscription?.cancel();
     _positionSubscription = null;
+    _lastEmittedPosition = null;
+    _lastEmittedAt = null;
 
     debugPrint('🛑 Stopped location stream for rideId: $_rideId');
 
@@ -83,7 +114,6 @@ class DriverLocationService with WidgetsBindingObserver {
         break;
     }
   }
-
 
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);

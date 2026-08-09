@@ -5,6 +5,13 @@ import 'package:ricardo/feature/view/home/link_export_file.dart';
 import 'package:ricardo/feature/view/home/map/dialogs/cancel_reason_sheet.dart';
 import 'package:ricardo/widgets/custom_loader.dart';
 
+String _formatWaitingDuration(int totalSeconds) {
+  final minutes = totalSeconds ~/ 60;
+  final seconds = totalSeconds % 60;
+  return '${minutes.toString().padLeft(2, '0')}:'
+      '${seconds.toString().padLeft(2, '0')}';
+}
+
 class DriverActiveRidePanel extends StatelessWidget {
   const DriverActiveRidePanel({
     super.key,
@@ -20,15 +27,6 @@ class DriverActiveRidePanel extends StatelessWidget {
     return GlassBackgroundWidget(
       child: Obx(() {
         final rideStatus = mapOPTController.rideStatusData.value;
-
-        final bool isOnTheWay =
-            rideStatus == null || rideStatus.acceptRide == true;
-
-        final bool isStartRide = rideStatus?.startRide == true;
-
-        final bool isArriving = rideStatus?.arrivingRide == true;
-
-        final bool isOngoing = rideStatus?.ongoingRide == true;
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -115,8 +113,7 @@ class DriverActiveRidePanel extends StatelessWidget {
                 );
               }
 
-              final filename =
-                  rideStatus.ride?.passenger?.image?.filename;
+              final filename = rideStatus.ride?.passenger?.image?.filename;
               final hasImage = filename != null && filename.isNotEmpty;
               final imageUrl =
                   hasImage ? '${ApiUrls.imageBaseUrl}$filename' : null;
@@ -134,8 +131,7 @@ class DriverActiveRidePanel extends StatelessWidget {
                                 height: 50,
                                 width: 50,
                                 fit: BoxFit.cover,
-                                errorBuilder:
-                                    (context, error, stackTrace) {
+                                errorBuilder: (context, error, stackTrace) {
                                   return Image.asset(
                                     'assets/images/default_image.jpg',
                                     height: 50,
@@ -196,8 +192,7 @@ class DriverActiveRidePanel extends StatelessWidget {
                           borderRadius: BorderRadius.circular(50),
                           border: Border.all(color: AppColors.greyColor200),
                         ),
-                        child: SvgPicture.asset(
-                            Assets.icons.driverCardPhone),
+                        child: SvgPicture.asset(Assets.icons.driverCardPhone),
                       ),
                     ),
                   ),
@@ -212,8 +207,9 @@ class DriverActiveRidePanel extends StatelessWidget {
               );
               final rideStatus = mapOPTController.rideStatusData.value;
 
-              final bool enableArriveInPlace = (rideStatus?.ongoingRide == true) &&
-                  metrics.distanceMeters <= 200;
+              final bool enableArriveInPlace =
+                  (rideStatus?.ongoingRide == true) &&
+                      metrics.distanceMeters <= 200;
 
               final bool enableComplete = (rideStatus?.startRide == true) &&
                   metrics.distanceMeters <= 200;
@@ -228,7 +224,6 @@ class DriverActiveRidePanel extends StatelessWidget {
               }
 
               bool isButtonEnabled() {
-                print('Culprit');
                 if (rideStatus == null) return false;
                 if (rideStatus.acceptRide == true) return true;
                 if (rideStatus.ongoingRide == true) {
@@ -239,49 +234,95 @@ class DriverActiveRidePanel extends StatelessWidget {
                 return false;
               }
 
-              return mapOPTController.isRideStatusChangeLoading.value ==
-                          true ||
-                      mapOPTController.isCompleteRideLoading.value == true
-                  ? CustomLoader()
-                  : CustomPrimaryButton(
-                      title: getButtonTitle(),
-                      onHandler: isButtonEnabled()
-                          ? () async {
-                              final rideId = rideStatus?.ride?.id;
+              if (mapOPTController.isRideStatusChangeLoading.value == true ||
+                  mapOPTController.isCompleteRideLoading.value == true) {
+                return CustomLoader();
+              }
 
-                              print('RIIIIIIIIII $rideId');
+              return Column(
+                children: [
+                  CustomPrimaryButton(
+                    title: getButtonTitle(),
+                    onHandler: isButtonEnabled()
+                        ? () async {
+                            final rideId = rideStatus?.ride?.id;
+                            if (rideId == null) return;
 
-                              if (rideId == null) return;
-
-                              if (rideStatus?.acceptRide == true) {
-                                debugPrint('🚕 accepted → ongoing');
-                                mapOPTController.rideStatusChange(
-                                    rideId, 'ongoing');
-                              } else if (rideStatus?.ongoingRide == true) {
-                                debugPrint('🚕 ongoing → arriving');
-                                mapOPTController.rideStatusChange(
-                                    rideId, 'arriving');
-                              } else if (rideStatus?.arrivingRide == true) {
-                                debugPrint('🚕 arriving → start_ride');
-                                mapOPTController.rideStatusChange(
-                                    rideId, 'start_ride');
-                              } else if (rideStatus?.startRide == true) {
-                                debugPrint('🚕 start_ride → complete');
-                                mapOPTController.isPassengerRequest.value =
-                                    false;
-                                final completed = await mapOPTController
-                                    .completeRideHandler(rideId, 0);
+                            if (rideStatus?.acceptRide == true) {
+                              debugPrint('🚕 accepted → ongoing');
+                              await mapOPTController.rideStatusChange(
+                                  rideId, 'ongoing');
+                            } else if (rideStatus?.ongoingRide == true) {
+                              debugPrint('🚕 ongoing → arriving');
+                              await mapOPTController.rideStatusChange(
+                                  rideId, 'arriving');
+                            } else if (rideStatus?.arrivingRide == true) {
+                              debugPrint('🚕 arriving → start_ride');
+                              final started =
+                                  await mapOPTController.rideStatusChange(
+                                rideId,
+                                'start_ride',
+                              );
+                              if (started) {
+                                await mapOPTController.finalizeWaitingFine();
+                              }
+                            } else if (rideStatus?.startRide == true) {
+                              debugPrint('🚕 start_ride → complete');
+                              mapOPTController.isPassengerRequest.value = false;
+                              final completed =
+                                  await mapOPTController.completeRideHandler(
+                                rideId,
+                                waitingTime:
+                                    mapOPTController.waitingTimeForCompletion,
+                              );
+                              debugPrint(
+                                '🚗🏁 driver Complete tapped | apiSuccess=$completed',
+                              );
+                              if (completed) {
                                 debugPrint(
-                                  '🚗🏁 driver Complete tapped | apiSuccess=$completed',
-                                );
-                                if (completed) {
-                                  debugPrint('🚗🧹 driver → onRideCancelled/finishRide');
-                                  await onRideCancelled();
-                                }
+                                    '🚗🧹 driver → onRideCancelled/finishRide');
+                                await onRideCancelled();
                               }
                             }
-                          : null,
-                    );
+                          }
+                        : null,
+                  ),
+                  if (rideStatus?.arrivingRide == true) ...[
+                    const SizedBox(height: 12),
+                    if (mapOPTController.isWaitingFineRunning.value)
+                      Text(
+                        'Waiting time: ${_formatWaitingDuration(mapOPTController.waitingFineSeconds.value)}',
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.red,
+                        ),
+                      )
+                    else if (mapOPTController.isWaitingFineAvailable.value)
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton(
+                          onPressed: mapOPTController.startWaitingFine,
+                          child: const Text(
+                            'Start Waiting Fine',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w400,
+                            ),
+                          ),
+                        ),
+                      )
+                    else
+                      Text(
+                        'Free waiting time: ${_formatWaitingDuration(mapOPTController.freeWaitingSeconds.value)}',
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                  ],
+                ],
+              );
             }),
             const SizedBox(height: 80),
           ],

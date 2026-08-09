@@ -119,7 +119,7 @@ class Ride {
           ? Location.fromJson(json['destinationLocation'])
           : null,
       destinationMeters: _toInt(json['destinationMeters']),
-      fare: (json['fare'] as num?)?.toDouble(),
+      fare: _toDouble(json['fare']),
       note: json['note'],
       status: json['status'],
       waitingTime: _toInt(json['waitingTime']),
@@ -128,7 +128,7 @@ class Ride {
       cancellationReason: json['cancellationReason'],
       cancellationFine: _toInt(json['cancellationFine']),
       reviewId: json['reviewId'],
-      totalPayAmount: (json['totalPayAmount'] as num?)?.toDouble(),
+      totalPayAmount: _toDouble(json['totalPayAmount']),
       acceptedAt: json['acceptedAt'],
       completeAt: json['completeAt'],
       cancelledAt: json['cancelledAt'],
@@ -160,6 +160,12 @@ int? _toInt(dynamic value) {
   if (value is int) return value;
   if (value is num) return value.toInt();
   return int.tryParse(value.toString());
+}
+
+double? _toDouble(dynamic value) {
+  if (value == null) return null;
+  if (value is num) return value.toDouble();
+  return double.tryParse(value.toString());
 }
 
 Passenger? _passengerFromDynamic(dynamic value) {
@@ -235,14 +241,14 @@ class Passenger {
   factory Passenger.fromJson(Map<String, dynamic> json) {
     return Passenger(
       location:
-      json['location'] != null ? Location.fromJson(json['location']) : null,
+          json['location'] != null ? Location.fromJson(json['location']) : null,
       id: json['_id'],
       name: json['name'],
       email: json['email'],
       password: json['password'],
       gender: json['gender'],
       phone: json['phone'],
-      wallet: (json['wallet'] as num?)?.toDouble(),
+      wallet: _toDouble(json['wallet']),
       address: json['address'],
       isProfileCompleted: json['isProfileCompleted'],
       isActive: json['isActive'],
@@ -312,10 +318,10 @@ class Driver {
       email: json['email'],
       image: json['image'] != null ? ImageModel.fromJson(json['image']) : null,
       location:
-      json['location'] != null ? Location.fromJson(json['location']) : null,
-      averageRating: json['averageRating'],
-      totalCompletedRides: json['totalCompletedRides'],
-      totalRatings: json['totalRatings'],
+          json['location'] != null ? Location.fromJson(json['location']) : null,
+      averageRating: _toDouble(json['averageRating']) ?? 0.0,
+      totalCompletedRides: _toInt(json['totalCompletedRides']),
+      totalRatings: _toInt(json['totalRatings']),
     );
   }
 }

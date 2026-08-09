@@ -54,6 +54,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
   StreamSubscription<Position>? _positionStream;
   StreamSubscription<CompassEvent>? _compassStream;
   Position? _lastSentPosition;
+  Position? _lastAcceptedPosition;
   bool _isTracking = false;
   DateTime? _lastHeadingUpdateAt;
   Timer? _currentMarkerAnimation;
