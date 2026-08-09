@@ -94,8 +94,14 @@ extension _Sockets on _MapScreenState {
         } else {
           return;
         }
-        mapOPTController.getRideDriverLocation.value =
-            GetRideDriverLocation.fromJson(jsonData);
+        final updatedDriverLocation = GetRideDriverLocation.fromJson(jsonData);
+        final updatedCoords = updatedDriverLocation.driverLocation?.coordinates;
+        if (updatedCoords != null && updatedCoords.length >= 2) {
+          _animateRemoteDriverTo(
+            LatLng(updatedCoords[1], updatedCoords[0]),
+          );
+        }
+        mapOPTController.getRideDriverLocation.value = updatedDriverLocation;
         mapOPTController.getRideDriverLocation.refresh();
         mapOPTController.markDriverLocationSocketReceived();
         final bool isPassenger =
@@ -158,7 +164,8 @@ extension _Sockets on _MapScreenState {
             rideStatus.completeRide != true &&
             rideStatus.driverCancel != true &&
             rideStatus.passengerCancel != true) {
-          debugPrint('📡⏭️ ride-status ignored — ride already finished locally');
+          debugPrint(
+              '📡⏭️ ride-status ignored — ride already finished locally');
           return;
         }
 
@@ -217,9 +224,8 @@ extension _Sockets on _MapScreenState {
           mapOPTController.isPassengerRequest.value = false;
           mapOPTController.cancelRideRequestTimer();
 
-          final isDriver =
-              userController.userModel.value?.userProfile?.role ==
-                  AppConstants.driver;
+          final isDriver = userController.userModel.value?.userProfile?.role ==
+              AppConstants.driver;
           final rideId = rideStatus.ride?.id;
           if (rideId != null && rideId.isNotEmpty) {
             mapOPTController.startRideLocationSync(rideId);
@@ -248,7 +254,6 @@ extension _Sockets on _MapScreenState {
           }
           pickupToDestinationRoute();
         }
-
       } catch (e, stackTrace) {
         debugPrint('📡❌ ride-status ERROR: $e');
         debugPrint('📡❌ STACK: $stackTrace');

@@ -67,10 +67,10 @@ extension _Bootstrap on _MapScreenState {
     clearRideState(); // Redundant clearing of rideStatusData
     clearRideMapUi();
     moveToCurrentLocation();
-    
+
     // Sync status with server
     await userController.fetchActiveRideStatus();
-    
+
     debugPrint('🧹 finishRide() background sync done');
     DriverLocationService().stop();
 
@@ -120,10 +120,8 @@ extension _Bootstrap on _MapScreenState {
   }
 
   Future<bool> _seedFromCachedLocation() async {
-    final cachedLat =
-        double.tryParse(await PrefsHelper.getString('last_lat'));
-    final cachedLng =
-        double.tryParse(await PrefsHelper.getString('last_lng'));
+    final cachedLat = double.tryParse(await PrefsHelper.getString('last_lat'));
+    final cachedLng = double.tryParse(await PrefsHelper.getString('last_lng'));
     if (cachedLat == null || cachedLng == null) return false;
 
     mapOPTController.currentLatitudePosition?.value = cachedLat;
@@ -191,6 +189,8 @@ extension _Bootstrap on _MapScreenState {
           CameraPosition(
             target: LatLng(position.latitude, position.longitude),
             zoom: currentZoom,
+            bearing: 0,
+            tilt: 0,
           ),
         ),
       );

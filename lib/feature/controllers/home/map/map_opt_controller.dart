@@ -24,6 +24,13 @@ class MapOPTController extends GetxController {
   RxBool showCancelReasonDialog = false.obs;
   final Rx<GetRideDriverLocation?> getRideDriverLocation =
       Rx<GetRideDriverLocation?>(null);
+  final Rxn<LatLng> animatedCurrentMarkerPosition = Rxn<LatLng>();
+  final Rxn<LatLng> animatedRemoteDriverPosition = Rxn<LatLng>();
+  final RxDouble animatedCurrentMarkerSpeedMps = 0.0.obs;
+  final RxDouble animatedRemoteDriverSpeedMps = 0.0.obs;
+  final RxDouble animatedCurrentMarkerHeading = 0.0.obs;
+  final RxDouble animatedRemoteDriverHeading = 0.0.obs;
+  final RxInt markerAssetsRevision = 0.obs;
   final prefetchedPickupDistance = 0.obs;
   final prefetchedPickupDuration = 0.obs;
   final prefetchedDestinationDistance = 0.obs;
@@ -178,7 +185,8 @@ class MapOPTController extends GetxController {
       // Revert on failure.
       user?.driverProfile?.isOnline = previousIsOnline;
       userController.userModel.refresh();
-      showSnackbar('Error', response.body?['message'] ?? 'Failed to update status');
+      showSnackbar(
+          'Error', response.body?['message'] ?? 'Failed to update status');
     }
   }
 
@@ -240,7 +248,7 @@ class MapOPTController extends GetxController {
   RxBool isTipsSuccess = false.obs;
 
   Future<bool> provideTipsHandler(String rideId) async {
-    if( rideId.isEmpty ) return false;
+    if (rideId.isEmpty) return false;
 
     if (provideTips.text.trim().isEmpty) {
       isTipsSuccess.value = false;
@@ -263,7 +271,8 @@ class MapOPTController extends GetxController {
         provideTips.clear();
         return true;
       } else {
-        showSnackbar('Error', response.body['message'],snackPosition: SnackPosition.BOTTOM);
+        showSnackbar('Error', response.body['message'],
+            snackPosition: SnackPosition.BOTTOM);
         provideTips.clear();
         isTipsSuccess.value = false;
         return false;
@@ -448,6 +457,10 @@ class MapOPTController extends GetxController {
     rideRequestReceivedAt.value = null;
     rideDetailsData.value = null;
     getRideDriverLocation.value = null;
+    animatedRemoteDriverPosition.value = null;
+    animatedRemoteDriverSpeedMps.value = 0;
+    animatedRemoteDriverHeading.value = 0;
+    lastDriverLocationSocketAt.value = null;
     showCancelReasonDialog.value = false;
     clearPrefetchedRouteEstimates();
     userController.activeRideStatus.value = '';
@@ -510,7 +523,9 @@ class MapOPTController extends GetxController {
         AppConstants.driver;
 
     if (_syncingRideId == rideId &&
-        (isDriver ? DriverLocationService().isRunning : _rideLocationSyncTimer != null)) {
+        (isDriver
+            ? DriverLocationService().isRunning
+            : _rideLocationSyncTimer != null)) {
       maybeEmitGetDriverLocation(rideId);
       return;
     }
@@ -538,13 +553,17 @@ class MapOPTController extends GetxController {
   }
 
   Future<void> prefetchPickupRouteEstimate() async {
-    final pickupCoords = rideStatusData.value?.ride?.pickupLocation?.coordinates ??
-        acceptedRideDriverData.value?.ride?.pickupLocation?.coordinates;
+    final pickupCoords =
+        rideStatusData.value?.ride?.pickupLocation?.coordinates ??
+            acceptedRideDriverData.value?.ride?.pickupLocation?.coordinates;
     if (pickupCoords == null || pickupCoords.length < 2) return;
 
     final driverLat = currentLatitudePosition?.value;
     final driverLng = currentLongitudePosition?.value;
-    if (driverLat == null || driverLng == null || driverLat == 0 || driverLng == 0) {
+    if (driverLat == null ||
+        driverLng == null ||
+        driverLat == 0 ||
+        driverLng == 0) {
       return;
     }
 
@@ -559,14 +578,17 @@ class MapOPTController extends GetxController {
   }
 
   Future<void> prefetchDestinationRouteEstimate() async {
-    final destinationCoords =
-        rideStatusData.value?.ride?.destinationLocation?.coordinates ??
-            acceptedRideDriverData.value?.ride?.destinationLocation?.coordinates;
+    final destinationCoords = rideStatusData
+            .value?.ride?.destinationLocation?.coordinates ??
+        acceptedRideDriverData.value?.ride?.destinationLocation?.coordinates;
     if (destinationCoords == null || destinationCoords.length < 2) return;
 
     final driverLat = currentLatitudePosition?.value;
     final driverLng = currentLongitudePosition?.value;
-    if (driverLat == null || driverLng == null || driverLat == 0 || driverLng == 0) {
+    if (driverLat == null ||
+        driverLng == null ||
+        driverLat == 0 ||
+        driverLng == 0) {
       return;
     }
 

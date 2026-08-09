@@ -1,9 +1,11 @@
 library map_screen;
 
 import 'dart:convert';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_compass/flutter_compass.dart';
-import 'package:ricardo/feature/models/home/ride_status_model.dart' as RideModel;
+import 'package:ricardo/feature/models/home/ride_status_model.dart'
+    as RideModel;
 import 'package:ricardo/feature/models/socket/accept_ride_model.dart';
 import 'link_export_file.dart';
 
@@ -53,6 +55,10 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
   StreamSubscription<CompassEvent>? _compassStream;
   Position? _lastSentPosition;
   bool _isTracking = false;
+  DateTime? _lastHeadingUpdateAt;
+  Timer? _currentMarkerAnimation;
+  Timer? _remoteDriverAnimation;
+  bool _isKeepingCarVisible = false;
 
   @override
   void initState() {
@@ -154,13 +160,75 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
             mapOPTController.currentLongitudePosition!.value,
           ),
           zoom: currentZoom,
+          bearing: 0,
+          tilt: 0,
         ),
       ),
     );
   }
 
+  Future<void> _ensureCarTravelVisible(
+    LatLng currentPosition,
+    LatLng targetPosition,
+  ) async {
+    final controller = _mapController;
+    if (controller == null || _isKeepingCarVisible || !mounted) return;
+
+    _isKeepingCarVisible = true;
+    try {
+      final bounds = await controller.getVisibleRegion();
+      final latitudeMargin =
+          (bounds.northeast.latitude - bounds.southwest.latitude).abs() * 0.2;
+      final longitudeMargin =
+          (bounds.northeast.longitude - bounds.southwest.longitude).abs() *
+              0.15;
+      final insideSafeArea = targetPosition.latitude >=
+              bounds.southwest.latitude + latitudeMargin &&
+          targetPosition.latitude <=
+              bounds.northeast.latitude - latitudeMargin &&
+          targetPosition.longitude >=
+              bounds.southwest.longitude + longitudeMargin &&
+          targetPosition.longitude <=
+              bounds.northeast.longitude - longitudeMargin;
+
+      if (!insideSafeArea) {
+        var minLatitude =
+            math.min(currentPosition.latitude, targetPosition.latitude);
+        var maxLatitude =
+            math.max(currentPosition.latitude, targetPosition.latitude);
+        var minLongitude =
+            math.min(currentPosition.longitude, targetPosition.longitude);
+        var maxLongitude =
+            math.max(currentPosition.longitude, targetPosition.longitude);
+        if ((maxLatitude - minLatitude).abs() < 0.00001) {
+          minLatitude -= 0.00001;
+          maxLatitude += 0.00001;
+        }
+        if ((maxLongitude - minLongitude).abs() < 0.00001) {
+          minLongitude -= 0.00001;
+          maxLongitude += 0.00001;
+        }
+
+        mapOPTController.hideLocationButton();
+        await controller.animateCamera(
+          CameraUpdate.newLatLngBounds(
+            LatLngBounds(
+              southwest: LatLng(minLatitude, minLongitude),
+              northeast: LatLng(maxLatitude, maxLongitude),
+            ),
+            48,
+          ),
+        );
+      }
+    } finally {
+      _isKeepingCarVisible = false;
+    }
+  }
+
   @override
   void dispose() {
+    _currentMarkerAnimation?.cancel();
+    _remoteDriverAnimation?.cancel();
     _mapController?.dispose();
     WidgetsBinding.instance.removeObserver(this);
     positionStream?.cancel();

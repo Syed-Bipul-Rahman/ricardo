@@ -89,7 +89,7 @@ extension _Routes on _MapScreenState {
 
       final bounds = boundsFromLatLng(activeRoutePoints);
       _mapController?.animateCamera(
-        CameraUpdate.newLatLngBounds(bounds, 80),
+        CameraUpdate.newLatLngBounds(bounds, 48),
       );
     } catch (e) {
       debugPrint('_loadAcceptedRideRoute error: $e');
@@ -186,7 +186,7 @@ extension _Routes on _MapScreenState {
 
       final bounds = boundsFromLatLng(activeRoutePoints);
       _mapController?.animateCamera(
-        CameraUpdate.newLatLngBounds(bounds, 80),
+        CameraUpdate.newLatLngBounds(bounds, 48),
       );
     } catch (e) {
       debugPrint('_loadAcceptedRideRoute error: $e');
@@ -225,6 +225,7 @@ extension _Routes on _MapScreenState {
     setState(() {
       _polylines.removeWhere((p) =>
           p.polylineId.value == 'driver_to_pickup' ||
+          p.polylineId.value == 'driver_to_destination' ||
           p.polylineId.value == 'pickup_to_destination');
 
       final rideStatus = mapOPTController.rideStatusData.value;

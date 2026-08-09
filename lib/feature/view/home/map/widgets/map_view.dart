@@ -23,44 +23,75 @@ class MapView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final screenHeight = MediaQuery.sizeOf(context).height;
+    final mapPadding = EdgeInsets.fromLTRB(
+      16,
+      (screenHeight * 0.14).clamp(90.0, 140.0),
+      16,
+      (screenHeight * 0.28).clamp(180.0, 280.0),
+    );
+
     return Obx(
-      () => GoogleMap(
-        mapToolbarEnabled: false,
-        scrollGesturesEnabled: true,
-        rotateGesturesEnabled: true,
-        trafficEnabled: false,
-        zoomGesturesEnabled: true,
-        mapType: MapType.normal,
-        initialCameraPosition: CameraPosition(
-          target: LatLng(
-            mapOPTController.currentLatitudePosition?.value ??
-                defaultLocation.latitude,
-            mapOPTController.currentLongitudePosition?.value ??
-                defaultLocation.longitude,
-          ),
-          zoom: currentZoom,
-        ),
-        markers: markersBuilder(),
-        polylines: polylines,
-        onMapCreated: onMapCreated,
-        onCameraMove: onCameraMove,
-        myLocationButtonEnabled: true,
-        zoomControlsEnabled: false,
-        compassEnabled: false,
-        circles: {
-          Circle(
-            circleId: const CircleId('currentDriver'),
-            center: LatLng(
-              mapOPTController.currentLatitudePosition?.value ?? 0.0,
-              mapOPTController.currentLongitudePosition?.value ?? 0.0,
+      () {
+        final currentLatitude =
+            mapOPTController.currentLatitudePosition?.value ?? 0.0;
+        final currentLongitude =
+            mapOPTController.currentLongitudePosition?.value ?? 0.0;
+        final animatedPosition =
+            mapOPTController.animatedCurrentMarkerPosition.value;
+        final isPassenger = mapOPTController
+                .userController.userModel.value?.userProfile?.role ==
+            AppConstants.passenger;
+        final remoteCoordinates = mapOPTController
+            .getRideDriverLocation.value?.driverLocation?.coordinates;
+        final remoteDriverPosition =
+            mapOPTController.animatedRemoteDriverPosition.value ??
+                (remoteCoordinates != null && remoteCoordinates.length >= 2
+                    ? LatLng(remoteCoordinates[1], remoteCoordinates[0])
+                    : null);
+        final circlePosition = isPassenger && remoteDriverPosition != null
+            ? remoteDriverPosition
+            : (animatedPosition ?? LatLng(currentLatitude, currentLongitude));
+
+        return GoogleMap(
+          mapToolbarEnabled: false,
+          padding: mapPadding,
+          scrollGesturesEnabled: true,
+          rotateGesturesEnabled: false,
+          tiltGesturesEnabled: false,
+          trafficEnabled: false,
+          zoomGesturesEnabled: true,
+          mapType: MapType.normal,
+          initialCameraPosition: CameraPosition(
+            target: LatLng(
+              mapOPTController.currentLatitudePosition?.value ??
+                  defaultLocation.latitude,
+              mapOPTController.currentLongitudePosition?.value ??
+                  defaultLocation.longitude,
             ),
-            radius: 30,
-            strokeColor: Colors.white,
-            strokeWidth: 2,
-            fillColor: const Color(0xFF006491).withOpacity(0.2),
+            zoom: currentZoom,
+            bearing: 0,
+            tilt: 0,
           ),
-        },
-      ),
+          markers: markersBuilder(),
+          polylines: polylines,
+          onMapCreated: onMapCreated,
+          onCameraMove: onCameraMove,
+          myLocationButtonEnabled: false,
+          zoomControlsEnabled: false,
+          compassEnabled: false,
+          circles: {
+            Circle(
+              circleId: const CircleId('currentDriver'),
+              center: circlePosition,
+              radius: 30,
+              strokeColor: Colors.white,
+              strokeWidth: 2,
+              fillColor: const Color(0xFF006491).withOpacity(0.2),
+            ),
+          },
+        );
+      },
     );
   }
 }

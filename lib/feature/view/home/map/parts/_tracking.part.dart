@@ -9,6 +9,16 @@ extension _Tracking on _MapScreenState {
       final double? h = event.heading;
       if (h == null || h.isNaN) return;
       final double normalized = (h % 360 + 360) % 360;
+      final now = DateTime.now();
+      final previous = mapOPTController.headingDegrees.value;
+      final headingDelta = ((normalized - previous + 540) % 360) - 180;
+      if (_lastHeadingUpdateAt != null &&
+          now.difference(_lastHeadingUpdateAt!) <
+              const Duration(milliseconds: 100)) {
+        return;
+      }
+      if (headingDelta.abs() < 1.5) return;
+      _lastHeadingUpdateAt = now;
       mapOPTController.headingDegrees.value = normalized;
     });
 
@@ -43,6 +53,18 @@ extension _Tracking on _MapScreenState {
   }
 
   void _updateLocalMarker(Position position) {
+    final target = LatLng(position.latitude, position.longitude);
+    final isDriver = userController.userModel.value?.userProfile?.role ==
+        AppConstants.driver;
+    if (isDriver) {
+      _animateCurrentMarkerTo(
+        target,
+        reportedSpeedMps: position.speed,
+      );
+    } else {
+      _currentMarkerAnimation?.cancel();
+      mapOPTController.animatedCurrentMarkerPosition.value = target;
+    }
     mapOPTController.currentLatitudePosition?.value = position.latitude;
     mapOPTController.currentLongitudePosition?.value = position.longitude;
 
@@ -87,7 +109,12 @@ extension _Tracking on _MapScreenState {
     if (_mapController != null && mounted) {
       _mapController?.animateCamera(
         CameraUpdate.newCameraPosition(
-          CameraPosition(target: newLocation, zoom: currentZoom),
+          CameraPosition(
+            target: newLocation,
+            zoom: currentZoom,
+            bearing: 0,
+            tilt: 0,
+          ),
         ),
       );
     }
