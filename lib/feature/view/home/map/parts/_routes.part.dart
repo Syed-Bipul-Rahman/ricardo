@@ -174,7 +174,7 @@ extension _Routes on _MapScreenState {
     final now = DateTime.now();
     if (_lastAnimatedRouteUpdateAt != null &&
         now.difference(_lastAnimatedRouteUpdateAt!) <
-            const Duration(milliseconds: 200)) {
+            const Duration(milliseconds: 100)) {
       return;
     }
     _lastAnimatedRouteUpdateAt = now;
@@ -187,20 +187,8 @@ extension _Routes on _MapScreenState {
   }) {
     if (_fullRoutePoints.isEmpty || _routeTarget == null) return;
 
-    int closestIndex = 0;
-    double closestDist = double.infinity;
-    for (int i = 0; i < _fullRoutePoints.length; i++) {
-      final d = Geolocator.distanceBetween(
-        driverPos.latitude,
-        driverPos.longitude,
-        _fullRoutePoints[i].latitude,
-        _fullRoutePoints[i].longitude,
-      );
-      if (d < closestDist) {
-        closestDist = d;
-        closestIndex = i;
-      }
-    }
+    final projection = _nearestPointOnRoute(driverPos, _fullRoutePoints);
+    final closestDist = projection.distanceMeters;
 
     if (closestDist > 50 && !allowReroute) return;
     if (closestDist > 50 && !_isReFetchingRoute) {
@@ -209,9 +197,12 @@ extension _Routes on _MapScreenState {
       return;
     }
 
-    final trimmed = _fullRoutePoints.sublist(closestIndex);
-    final updatedPoints = [driverPos, ...trimmed];
-    _fullRoutePoints = trimmed;
+    final remaining = _fullRoutePoints.sublist(projection.nextPointIndex);
+    final routeFromProjection = [projection.point, ...remaining];
+    final updatedPoints = closestDist < 0.3
+        ? [driverPos, ...remaining]
+        : [driverPos, projection.point, ...remaining];
+    _fullRoutePoints = routeFromProjection;
 
     if (!mounted) return;
     setState(() {
@@ -226,6 +217,72 @@ extension _Routes on _MapScreenState {
         ),
       };
     });
+  }
+
+  ({
+    LatLng point,
+    int nextPointIndex,
+    double distanceMeters,
+  }) _nearestPointOnRoute(LatLng position, List<LatLng> route) {
+    if (route.length == 1) {
+      return (
+        point: route.first,
+        nextPointIndex: 1,
+        distanceMeters: Geolocator.distanceBetween(
+          position.latitude,
+          position.longitude,
+          route.first.latitude,
+          route.first.longitude,
+        ),
+      );
+    }
+
+    var bestPoint = route.first;
+    var bestNextIndex = 1;
+    var bestDistance = double.infinity;
+    final longitudeScale =
+        math.cos(position.latitude * math.pi / 180).abs().clamp(0.01, 1.0);
+    final positionX = position.longitude * longitudeScale;
+    final positionY = position.latitude;
+
+    for (var i = 0; i < route.length - 1; i++) {
+      final start = route[i];
+      final end = route[i + 1];
+      final startX = start.longitude * longitudeScale;
+      final startY = start.latitude;
+      final endX = end.longitude * longitudeScale;
+      final endY = end.latitude;
+      final deltaX = endX - startX;
+      final deltaY = endY - startY;
+      final segmentLengthSquared = deltaX * deltaX + deltaY * deltaY;
+      final rawProgress = segmentLengthSquared == 0
+          ? 0.0
+          : ((positionX - startX) * deltaX + (positionY - startY) * deltaY) /
+              segmentLengthSquared;
+      final progress = rawProgress.clamp(0.0, 1.0);
+      final projected = LatLng(
+        startY + deltaY * progress,
+        (startX + deltaX * progress) / longitudeScale,
+      );
+      final distance = Geolocator.distanceBetween(
+        position.latitude,
+        position.longitude,
+        projected.latitude,
+        projected.longitude,
+      );
+
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        bestPoint = projected;
+        bestNextIndex = i + 1;
+      }
+    }
+
+    return (
+      point: bestPoint,
+      nextPointIndex: bestNextIndex,
+      distanceMeters: bestDistance,
+    );
   }
 
   Future<void> reFetchRouteFromDriver(LatLng driverPos) async {

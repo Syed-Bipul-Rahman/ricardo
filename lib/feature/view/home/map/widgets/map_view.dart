@@ -5,7 +5,7 @@ const String _uberInspiredMapStyle = '''
 [
   {
     "elementType": "geometry",
-    "stylers": [{"color": "#F4F4F2"}]
+    "stylers": [{"color": "#E9ECEF"}]
   },
   {
     "elementType": "labels.icon",
@@ -13,16 +13,16 @@ const String _uberInspiredMapStyle = '''
   },
   {
     "elementType": "labels.text.fill",
-    "stylers": [{"color": "#666A70"}]
+    "stylers": [{"color": "#555B62"}]
   },
   {
     "elementType": "labels.text.stroke",
-    "stylers": [{"color": "#F4F4F2"}, {"weight": 3}]
+    "stylers": [{"color": "#F5F6F7"}, {"weight": 3}]
   },
   {
     "featureType": "administrative",
     "elementType": "geometry.stroke",
-    "stylers": [{"color": "#D7D8D6"}]
+    "stylers": [{"color": "#C5C9CD"}]
   },
   {
     "featureType": "administrative.locality",
@@ -32,11 +32,16 @@ const String _uberInspiredMapStyle = '''
   {
     "featureType": "landscape",
     "elementType": "geometry",
-    "stylers": [{"color": "#F4F4F2"}]
+    "stylers": [{"color": "#ECEFF1"}]
   },
   {
     "featureType": "poi",
     "stylers": [{"visibility": "off"}]
+  },
+  {
+    "featureType": "poi.park",
+    "elementType": "geometry",
+    "stylers": [{"visibility": "on"}, {"color": "#DCE9DD"}]
   },
   {
     "featureType": "road",
@@ -46,22 +51,22 @@ const String _uberInspiredMapStyle = '''
   {
     "featureType": "road",
     "elementType": "geometry.stroke",
-    "stylers": [{"color": "#E4E5E3"}, {"weight": 0.8}]
+    "stylers": [{"color": "#CCD1D5"}, {"weight": 1.1}]
   },
   {
     "featureType": "road",
     "elementType": "labels.text.fill",
-    "stylers": [{"color": "#777B80"}]
+    "stylers": [{"color": "#5D636A"}]
   },
   {
     "featureType": "road.local",
     "elementType": "geometry",
-    "stylers": [{"color": "#ECEDEA"}, {"lightness": 18}]
+    "stylers": [{"color": "#FFFFFF"}, {"weight": 1}]
   },
   {
     "featureType": "road.local",
     "elementType": "geometry.stroke",
-    "stylers": [{"visibility": "off"}]
+    "stylers": [{"visibility": "on"}, {"color": "#D8DCE0"}, {"weight": 0.7}]
   },
   {
     "featureType": "road.local",
@@ -71,17 +76,22 @@ const String _uberInspiredMapStyle = '''
   {
     "featureType": "road.arterial",
     "elementType": "geometry",
-    "stylers": [{"color": "#FFFFFF"}, {"weight": 1.6}]
+    "stylers": [{"color": "#FFFFFF"}, {"weight": 2}]
+  },
+  {
+    "featureType": "road.arterial",
+    "elementType": "geometry.stroke",
+    "stylers": [{"color": "#BEC4CA"}, {"weight": 1}]
   },
   {
     "featureType": "road.highway",
     "elementType": "geometry",
-    "stylers": [{"color": "#DADDDC"}, {"weight": 2}]
+    "stylers": [{"color": "#F8F9FA"}, {"weight": 2.5}]
   },
   {
     "featureType": "road.highway",
     "elementType": "geometry.stroke",
-    "stylers": [{"color": "#C9CCCB"}, {"weight": 1}]
+    "stylers": [{"color": "#AEB5BC"}, {"weight": 1.4}]
   },
   {
     "featureType": "transit",
@@ -90,7 +100,7 @@ const String _uberInspiredMapStyle = '''
   {
     "featureType": "water",
     "elementType": "geometry",
-    "stylers": [{"color": "#C9E2EA"}]
+    "stylers": [{"color": "#BFDDE8"}]
   },
   {
     "featureType": "water",
@@ -162,7 +172,7 @@ class MapView extends StatelessWidget {
           zoomGesturesEnabled: true,
           mapType: MapType.normal,
           style: _uberInspiredMapStyle,
-          buildingsEnabled: false,
+          buildingsEnabled: true,
           indoorViewEnabled: false,
           initialCameraPosition: CameraPosition(
             target: LatLng(
@@ -186,7 +196,7 @@ class MapView extends StatelessWidget {
             Circle(
               circleId: const CircleId('currentDriver'),
               center: circlePosition,
-              radius: 30,
+              radius: 20,
               strokeColor: Colors.white,
               strokeWidth: 2,
               fillColor: const Color(0xFF006491).withOpacity(0.2),

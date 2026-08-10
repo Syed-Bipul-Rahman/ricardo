@@ -159,9 +159,9 @@ extension _Markers on _MapScreenState {
       cancelPrevious: () => _currentMarkerAnimation?.cancel(),
       saveTimer: (timer) => _currentMarkerAnimation = timer,
       onFrame: (position, rotation) {
+        _updateRouteForAnimatedCar(position);
         mapOPTController.animatedCurrentMarkerPosition.value = position;
         mapOPTController.animatedCurrentMarkerHeading.value = rotation;
-        _updateRouteForAnimatedCar(position);
       },
       onComplete: () => updatePolylineForDriverPosition(target),
     );
@@ -206,9 +206,9 @@ extension _Markers on _MapScreenState {
       cancelPrevious: () => _remoteDriverAnimation?.cancel(),
       saveTimer: (timer) => _remoteDriverAnimation = timer,
       onFrame: (position, rotation) {
+        if (isPassenger) _updateRouteForAnimatedCar(position);
         mapOPTController.animatedRemoteDriverPosition.value = position;
         mapOPTController.animatedRemoteDriverHeading.value = rotation;
-        if (isPassenger) _updateRouteForAnimatedCar(position);
       },
       onComplete:
           isPassenger ? () => updatePolylineForDriverPosition(target) : null,
