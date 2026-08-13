@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:get/get.dart';
+import 'package:ricardo/app/helpers/custom_location_helper.dart';
 import 'package:ricardo/feature/controllers/app_settings_controller.dart';
 import 'package:ricardo/feature/controllers/home/map/ride_controller.dart';
 import 'package:ricardo/feature/controllers/user_controller.dart';
@@ -39,6 +40,11 @@ class GoogleSearchLocationController extends GetxController {
   final selectedPickup = Rxn<PlaceDetails>();
   final selectedDrop = Rxn<PlaceDetails>();
 
+  // User's current location for search biasing
+  // This ensures location search results are restricted to the user's city area (50km radius)
+  double? userLatitude;
+  double? userLongitude;
+
   // Fare calculation results
   final distance = ''.obs;
   final duration = ''.obs;
@@ -72,8 +78,21 @@ class GoogleSearchLocationController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    _getUserCurrentLocation();
     pickupController.addListener(_pickupListener);
     dropController.addListener(_dropListener);
+  }
+
+  Future<void> _getUserCurrentLocation() async {
+    try {
+      final position = await CustomLocationHelper.getCurrentLocation();
+      userLatitude = position.latitude;
+      userLongitude = position.longitude;
+      debugPrint('User location for search: $userLatitude, $userLongitude');
+    } catch (e) {
+      debugPrint('Failed to get user location for search: $e');
+      // Continue without location bias if location fetch fails
+    }
   }
 
   void _pickupListener() {
@@ -127,7 +146,12 @@ class GoogleSearchLocationController extends GetxController {
 
     isLoadingPickup.value = true;
     try {
-      final results = await PlacesService.getPlaceSuggestions(query);
+      final results = await PlacesService.getPlaceSuggestions(
+        query,
+        latitude: userLatitude,
+        longitude: userLongitude,
+        radiusInMeters: 50000, // 50km radius
+      );
       if (gen != _pickupGen) return; // stale result, discard
       pickupPlaces.value = results;
       showPickupSuggestions.value = results.isNotEmpty;
@@ -148,7 +172,12 @@ class GoogleSearchLocationController extends GetxController {
 
     isLoadingDrop.value = true;
     try {
-      final results = await PlacesService.getPlaceSuggestions(query);
+      final results = await PlacesService.getPlaceSuggestions(
+        query,
+        latitude: userLatitude,
+        longitude: userLongitude,
+        radiusInMeters: 50000, // 50km radius
+      );
       if (gen != _dropGen) return; // stale result, discard
       dropPlaces.value = results;
       showDropSuggestions.value = results.isNotEmpty;
