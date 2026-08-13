@@ -1,20 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:flutter_svg/flutter_svg.dart';
-import 'package:get/get.dart';
-import 'package:ricardo/app/utils/app_colors.dart';
-import 'package:ricardo/feature/controllers/home/google_search_location_controller.dart';
-import 'package:ricardo/feature/controllers/home/map/map_opt_controller.dart';
-import 'package:ricardo/feature/controllers/home/map/ride_controller.dart';
 import 'package:ricardo/feature/simmer/ride_sharing_shimmer.dart';
 import 'package:ricardo/feature/view/home/link_export_file.dart';
-import 'package:ricardo/gen/assets.gen.dart';
-import 'package:ricardo/gen/fonts.gen.dart';
-import 'package:ricardo/routes/app_routes.dart';
-import 'package:ricardo/services/api_urls.dart';
 import 'package:ricardo/widgets/glass_background_widget.dart' as Glass;
-import 'package:ricardo/widgets/request_ride_handler.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 class RideRequestBottomSheet extends StatefulWidget {
   final String pickupLocation;

@@ -5,8 +5,6 @@ import 'package:ricardo/feature/models/home/place_suggestion.dart';
 
 class PlacesService {
   static final String _apiKey = dotenv.env['MAP_API_KEY'] ?? '';
-  // static final String _apiKey = 'AIzaSyAX3YRL9gQ9gCkV5CsTDqUXaWTf6BVFfyA';
-
   static Future<List<PlaceSuggestion>> getPlaceSuggestions(
     String input, {
     String countryCode = 'us',

@@ -1,14 +1,10 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
-import 'package:get/get.dart';
 import 'package:ricardo/feature/controllers/home/map/rate_review_controller.dart';
 import 'package:ricardo/feature/view/home/link_export_file.dart';
 import 'package:ricardo/widgets/custom_heading_text.dart';
-import 'package:ricardo/widgets/custom_primary_button.dart';
 import 'package:ricardo/widgets/custom_scaffold.dart';
 import 'package:ricardo/widgets/custom_text_field.dart';
-import 'package:ricardo/widgets/glass_background_widget.dart';
 import 'package:ricardo/app/helpers/snackbar_helper.dart';
 
 class RateReviewDriver extends StatelessWidget {

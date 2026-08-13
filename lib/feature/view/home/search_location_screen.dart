@@ -1,18 +1,10 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:flutter_svg/flutter_svg.dart';
-import 'package:get/get.dart';
-import 'package:ricardo/app/utils/app_colors.dart';
 import 'package:ricardo/feature/controllers/app_settings_controller.dart';
-import 'package:ricardo/feature/controllers/home/google_search_location_controller.dart';
 import 'package:ricardo/feature/models/home/place_suggestion.dart';
 import 'package:ricardo/feature/view/home/link_export_file.dart';
-import 'package:ricardo/gen/assets.gen.dart';
-import 'package:ricardo/services/location_permission_service.dart';
 import 'package:ricardo/widgets/custom_loader.dart';
-import 'package:ricardo/widgets/custom_primary_button.dart';
 import 'package:ricardo/widgets/custom_scaffold.dart';
 import 'package:ricardo/widgets/custom_text_field.dart';
 import 'package:ricardo/app/helpers/snackbar_helper.dart';

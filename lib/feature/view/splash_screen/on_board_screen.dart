@@ -1,12 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:flutter_svg/flutter_svg.dart';
-import 'package:get/get.dart';
 import 'package:ricardo/app/helpers/helper_data.dart';
-import 'package:ricardo/app/utils/app_colors.dart';
 import 'package:ricardo/feature/view/home/link_export_file.dart';
-import 'package:ricardo/gen/assets.gen.dart';
-import 'package:ricardo/routes/app_routes.dart';
 import 'package:ricardo/widgets/custom_button.dart';
 import 'package:ricardo/widgets/custom_container.dart';
 import 'package:ricardo/widgets/custom_scaffold.dart';

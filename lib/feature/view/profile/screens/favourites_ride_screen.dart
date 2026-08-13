@@ -12,7 +12,6 @@ import 'package:ricardo/gen/assets.gen.dart';
 import 'package:ricardo/gen/fonts.gen.dart';
 import 'package:ricardo/services/api_urls.dart';
 import 'package:ricardo/widgets/custom_scaffold.dart';
-import 'package:ricardo/widgets/glass_morphishm_widget.dart';
 import 'package:shimmer/shimmer.dart';
 
 class FavouritesRideScreen extends StatefulWidget {

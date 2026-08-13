@@ -11,7 +11,6 @@ import 'package:ricardo/feature/models/history/complete_ride_history.dart';
 import 'package:ricardo/gen/assets.gen.dart';
 import 'package:ricardo/gen/fonts.gen.dart';
 import 'package:ricardo/routes/app_routes.dart';
-import 'package:ricardo/widgets/custom_primary_button.dart';
 import 'package:ricardo/widgets/custom_scaffold.dart';
 
 class HistoryScreen extends StatefulWidget {
