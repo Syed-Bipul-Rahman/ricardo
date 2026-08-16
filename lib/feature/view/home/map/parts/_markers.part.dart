@@ -175,23 +175,27 @@ extension _Markers on _MapScreenState {
         : target;
     final start =
         mapOPTController.animatedRemoteDriverPosition.value ?? fallback;
-    final heading = _bearingBetween(start, target);
-    final lastUpdate = mapOPTController.lastDriverLocationSocketAt.value;
-    final sampleDistance = _distanceBetween(fallback, target);
-    final intervalSeconds = lastUpdate == null
-        ? 3.0
-        : DateTime.now()
-                .difference(lastUpdate)
-                .inMilliseconds
-                .clamp(250, 30000) /
-            1000;
-    final measuredSpeed = sampleDistance / intervalSeconds;
-    final previousSpeed = mapOPTController.animatedRemoteDriverSpeedMps.value;
-    final speed = measuredSpeed > 0.5
-        ? measuredSpeed.clamp(0.5, 55.0).toDouble()
-        : (previousSpeed > 0.5 ? previousSpeed : 8.33);
-    final remainingDistance = _distanceBetween(start, target);
+    final distance = _distanceBetween(start, target);
+
+    // Same as the driver GPS marker: ignore sub-meter jitter, and do not
+    // restart an in-flight animation toward the same point (socket polls
+    // often repeat the last coordinate).
+    final sameTarget = _remoteDriverTarget != null &&
+        _distanceBetween(_remoteDriverTarget!, target) < 0.5;
+    if (distance < 0.5 ||
+        (sameTarget && _remoteDriverAnimation?.isActive == true)) {
+      if (mapOPTController.animatedRemoteDriverPosition.value == null) {
+        mapOPTController.animatedRemoteDriverPosition.value = target;
+      }
+      return;
+    }
+
+    final speed = _remoteDriverSpeedMps(fallback, target);
+    final heading = distance >= 0.2
+        ? _bearingBetween(start, target)
+        : mapOPTController.animatedRemoteDriverHeading.value;
     mapOPTController.animatedRemoteDriverSpeedMps.value = speed;
+    _remoteDriverTarget = target;
     unawaited(_ensureCarTravelVisible(start, target));
     final isPassenger = userController.userModel.value?.userProfile?.role ==
         AppConstants.passenger;
@@ -199,7 +203,7 @@ extension _Markers on _MapScreenState {
     _animateMarker(
       from: start,
       to: target,
-      durationMs: _travelDurationMs(remainingDistance, speed),
+      durationMs: _travelDurationMs(distance, speed),
       curve: Curves.linear,
       startHeading: mapOPTController.animatedRemoteDriverHeading.value,
       targetHeading: heading,
@@ -213,6 +217,29 @@ extension _Markers on _MapScreenState {
       onComplete:
           isPassenger ? () => updatePolylineForDriverPosition(target) : null,
     );
+  }
+
+  /// Derive a GPS-like speed so the passenger car interpolates the same way
+  /// the driver car does from `Position.speed`. Burst/duplicate socket
+  /// samples are ignored so the marker does not teleport.
+  double _remoteDriverSpeedMps(LatLng previousSocket, LatLng target) {
+    final previousSpeed = mapOPTController.animatedRemoteDriverSpeedMps.value;
+    final lastUpdate = mapOPTController.lastDriverLocationSocketAt.value;
+    final intervalMs = lastUpdate == null
+        ? 1000
+        : DateTime.now().difference(lastUpdate).inMilliseconds;
+    final sampleDistance = _distanceBetween(previousSocket, target);
+    final hasCleanSample = intervalMs >= 800 && sampleDistance >= 3;
+    if (hasCleanSample) {
+      final measured =
+          (sampleDistance / (intervalMs / 1000)).clamp(0.5, 55.0).toDouble();
+      if (previousSpeed > 0.5) {
+        return previousSpeed * 0.6 + measured * 0.4;
+      }
+      return measured;
+    }
+    if (previousSpeed > 0.5) return previousSpeed;
+    return 8.33;
   }
 
   void _animateMarker({

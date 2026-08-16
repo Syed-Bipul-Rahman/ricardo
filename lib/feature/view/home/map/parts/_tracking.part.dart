@@ -104,7 +104,13 @@ extension _Tracking on _MapScreenState {
       });
     }
 
-    if (_mapController != null && mounted) {
+    final isPassenger = userController.userModel.value?.userProfile?.role ==
+        AppConstants.passenger;
+    // During an active ride the passenger watches the driver car, not their
+    // own GPS. Following the passenger pin here fights that animation.
+    if (_mapController != null &&
+        mounted &&
+        !(isPassenger && mapOPTController.isInActiveRide)) {
       _mapController?.animateCamera(
         CameraUpdate.newCameraPosition(
           CameraPosition(

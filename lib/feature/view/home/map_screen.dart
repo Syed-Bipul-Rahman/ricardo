@@ -61,6 +61,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
   DateTime? _lastHeadingUpdateAt;
   Timer? _currentMarkerAnimation;
   Timer? _remoteDriverAnimation;
+  LatLng? _remoteDriverTarget;
   bool _isKeepingCarVisible = false;
 
   @override

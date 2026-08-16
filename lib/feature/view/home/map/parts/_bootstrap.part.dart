@@ -39,6 +39,7 @@ extension _Bootstrap on _MapScreenState {
     markers = <Marker>{};
     _fullRoutePoints = <LatLng>[];
     _routeTarget = null;
+    _remoteDriverTarget = null;
     _lastAnimatedRouteUpdateAt = null;
     _isReFetchingRoute = false;
     if (mounted) setState(() {});
