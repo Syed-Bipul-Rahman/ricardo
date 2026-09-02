@@ -198,11 +198,10 @@ extension _Routes on _MapScreenState {
     }
 
     final remaining = _fullRoutePoints.sublist(projection.nextPointIndex);
-    final routeFromProjection = [projection.point, ...remaining];
-    final updatedPoints = closestDist < 0.3
-        ? [driverPos, ...remaining]
-        : [driverPos, projection.point, ...remaining];
-    _fullRoutePoints = routeFromProjection;
+    // Keep the visible polyline on the road — never prepend raw GPS which can
+    // sit on the sidewalk after a turn.
+    final updatedPoints = [projection.point, ...remaining];
+    _fullRoutePoints = updatedPoints;
 
     if (!mounted) return;
     setState(() {
@@ -282,6 +281,125 @@ extension _Routes on _MapScreenState {
       point: bestPoint,
       nextPointIndex: bestNextIndex,
       distanceMeters: bestDistance,
+    );
+  }
+
+  /// Hard snap onto the drivable route. Returns null when no route is loaded
+  /// or the position is too far for a safe snap (reroute territory).
+  LatLng? _snapToRoute(LatLng position) {
+    if (_fullRoutePoints.length < 2) return null;
+    final projection = _nearestPointOnRoute(position, _fullRoutePoints);
+    if (projection.distanceMeters > 50) return null;
+    return projection.point;
+  }
+
+  /// Builds a polyline path between [from] and [to] using ONLY road-projected
+  /// coordinates. Raw GPS is never used as a path endpoint — GPS often drifts
+  /// onto the sidewalk at turns, which would pull the marker off the road.
+  List<LatLng>? _routeAnimationPath(LatLng from, LatLng to) {
+    if (_fullRoutePoints.length < 2) return null;
+
+    final fromProj = _nearestPointOnRoute(from, _fullRoutePoints);
+    final toProj = _nearestPointOnRoute(to, _fullRoutePoints);
+
+    if (fromProj.distanceMeters > 50 || toProj.distanceMeters > 50) {
+      return null;
+    }
+    if (toProj.nextPointIndex < fromProj.nextPointIndex) {
+      // GPS noise can briefly reverse along the route index. Still keep the
+      // marker on the road by snapping to the target projection only.
+      if (Geolocator.distanceBetween(
+            fromProj.point.latitude,
+            fromProj.point.longitude,
+            toProj.point.latitude,
+            toProj.point.longitude,
+          ) <
+          0.2) {
+        return [toProj.point];
+      }
+      return [fromProj.point, toProj.point];
+    }
+
+    // Road points only — never raw GPS (sidewalk drift).
+    final path = <LatLng>[fromProj.point];
+    if (fromProj.nextPointIndex < toProj.nextPointIndex) {
+      path.addAll(
+        _fullRoutePoints.sublist(
+          fromProj.nextPointIndex,
+          toProj.nextPointIndex,
+        ),
+      );
+    }
+    if (Geolocator.distanceBetween(
+          path.last.latitude,
+          path.last.longitude,
+          toProj.point.latitude,
+          toProj.point.longitude,
+        ) >
+        0.01) {
+      path.add(toProj.point);
+    }
+
+    return path.isEmpty ? null : path;
+  }
+
+  /// Position and road bearing at [progress] along a route path (0..1).
+  ({LatLng position, double bearing}) _positionAlongRoutePath(
+    List<LatLng> path,
+    double progress,
+  ) {
+    if (path.length == 1) {
+      return (position: path.first, bearing: 0);
+    }
+
+    final segmentLengths = <double>[];
+    var totalLength = 0.0;
+    for (var i = 0; i < path.length - 1; i++) {
+      final length = Geolocator.distanceBetween(
+        path[i].latitude,
+        path[i].longitude,
+        path[i + 1].latitude,
+        path[i + 1].longitude,
+      );
+      segmentLengths.add(length);
+      totalLength += length;
+    }
+
+    if (totalLength < 0.01) {
+      return (
+        position: path.last,
+        bearing: _bearingBetween(path[path.length - 2], path.last),
+      );
+    }
+
+    final targetDistance = progress.clamp(0.0, 1.0) * totalLength;
+    var covered = 0.0;
+
+    for (var i = 0; i < segmentLengths.length; i++) {
+      final segmentLength = segmentLengths[i];
+      if (covered + segmentLength >= targetDistance) {
+        final segmentProgress = segmentLength < 0.001
+            ? 0.0
+            : (targetDistance - covered) / segmentLength;
+        final start = path[i];
+        final end = path[i + 1];
+        return (
+          position: LatLng(
+            start.latitude + (end.latitude - start.latitude) * segmentProgress,
+            start.longitude +
+                (end.longitude - start.longitude) * segmentProgress,
+          ),
+          bearing: _bearingBetween(start, end),
+        );
+      }
+      covered += segmentLength;
+    }
+
+    final lastStart = path[path.length - 2];
+    final lastEnd = path.last;
+    return (
+      position: lastEnd,
+      bearing: _bearingBetween(lastStart, lastEnd),
     );
   }
 

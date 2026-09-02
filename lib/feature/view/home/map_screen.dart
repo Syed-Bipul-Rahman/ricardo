@@ -47,11 +47,13 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
   BitmapDescriptor? destinationMarker;
 
   double currentZoom = 18.5;
+  // Start true so the first frame is lightweight (no GoogleMap). That lets
+  // splash → home navigation finish; we flip this false right after first frame.
   bool _isLoading = true;
-  bool _hasLocation = false;
+  bool _hasLocation = true;
   String _errorMessage = '';
 
-  static const LatLng _defaultLocation = LatLng(37.7749, -122.4194);
+  final LatLng _defaultLocation = const LatLng(37.7749, -122.4194);
 
   StreamSubscription<Position>? _positionStream;
   StreamSubscription<CompassEvent>? _compassStream;
@@ -69,8 +71,20 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     initMarkers();
+    // Seed default camera so the map can appear without waiting on GPS.
+    mapOPTController.currentLatitudePosition?.value = _defaultLocation.latitude;
+    mapOPTController.currentLongitudePosition?.value =
+        _defaultLocation.longitude;
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
+      // Reveal map immediately after the first (non-GoogleMap) frame so splash
+      // is not stuck waiting on the Maps platform view / GPS / permissions.
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _hasLocation = true;
+        });
+      }
       await initializeMap();
       await loadStatus();
     });
@@ -79,7 +93,9 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Scaffold(body: MapLoadingView());
+      // Intentionally blank — avoids a stuck "Loading map..." screen and keeps
+      // the first frame cheap so splash navigation can complete.
+      return const Scaffold(body: SizedBox.expand());
     }
 
     if (!_hasLocation) {

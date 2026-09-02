@@ -79,14 +79,14 @@ class _SplashScreenState extends State<SplashScreen>
       if (accessToken.isNotEmpty && fcmToken.isNotEmpty) {
         final UserController userController = Get.find<UserController>();
         await userController.loadCachedUser();
-        final int? statusCode = await userController.fetchUser();
+        try {
+          await userController.fetchUser().timeout(const Duration(seconds: 12));
+        } catch (e) {
+          debugPrint('Splash fetchUser skipped: $e');
+        }
         final UserModel? user = userController.userModel.value;
 
         if (user == null) {
-          if (statusCode == 1) {
-            Get.offAllNamed(AppRoutes.customBottomNavBar);
-            return;
-          }
           Get.offAllNamed(AppRoutes.signInScreen);
           return;
         }
@@ -106,6 +106,12 @@ class _SplashScreenState extends State<SplashScreen>
       }
     } catch (e) {
       debugPrint('Splash navigation error: $e');
+      if (!mounted) return;
+      Get.offAll(
+        () => const AuthInitialScreen(),
+        transition: Transition.fade,
+        duration: _transitionDuration,
+      );
     }
   }
 

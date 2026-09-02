@@ -104,9 +104,18 @@ extension _Bootstrap on _MapScreenState {
 
     final bool hasCached = await _seedFromCachedLocation();
 
+    // First launch has no cache — seed a default camera and show the map
+    // immediately so GPS / permission never leave a blank "Loading map..." screen.
+    if (!hasCached) {
+      mapOPTController.currentLatitudePosition?.value =
+          _defaultLocation.latitude;
+      mapOPTController.currentLongitudePosition?.value =
+          _defaultLocation.longitude;
+    }
     if (!mounted) return;
     setState(() {
-      _isLoading = !hasCached;
+      _isLoading = false;
+      _hasLocation = true;
       _errorMessage = '';
     });
 
@@ -114,8 +123,8 @@ extension _Bootstrap on _MapScreenState {
     if (!hasPermission) {
       if (!mounted) return;
       setState(() {
-        _isLoading = false;
         if (!hasCached) {
+          _hasLocation = false;
           _errorMessage = 'Location permission is required to use this app';
         }
       });
@@ -126,11 +135,6 @@ extension _Bootstrap on _MapScreenState {
     await connectSocket();
     await userController.fetchUser();
     await loadAcceptedRideRoute();
-
-    if (!mounted) return;
-    setState(() {
-      _isLoading = false;
-    });
   }
 
   Future<bool> _seedFromCachedLocation() async {

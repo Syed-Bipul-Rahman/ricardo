@@ -185,7 +185,8 @@ extension _Markers on _MapScreenState {
     if (distance < 0.5 ||
         (sameTarget && _remoteDriverAnimation?.isActive == true)) {
       if (mapOPTController.animatedRemoteDriverPosition.value == null) {
-        mapOPTController.animatedRemoteDriverPosition.value = target;
+        mapOPTController.animatedRemoteDriverPosition.value =
+            _snapToRoute(target) ?? target;
       }
       return;
     }
@@ -255,23 +256,67 @@ extension _Markers on _MapScreenState {
     double targetHeading = 0,
   }) {
     cancelPrevious();
-    onFrame(from, startHeading);
 
-    final distance = Geolocator.distanceBetween(
+    // Prefer the road geometry between the two GPS samples. Path endpoints are
+    // route-snapped so sidewalk GPS drift cannot pull the marker off the road.
+    final routePath = _routeAnimationPath(from, to);
+    final LatLng animFrom;
+    final LatLng animTo;
+    if (routePath != null && routePath.isNotEmpty) {
+      animFrom = routePath.first;
+      animTo = routePath.last;
+    } else {
+      // No usable route segment — still snap onto the road when possible so
+      // the marker never intentionally sits on a sidewalk GPS sample.
+      animFrom = _snapToRoute(from) ?? from;
+      animTo = _snapToRoute(to) ?? to;
+    }
+
+    onFrame(
+      animFrom,
+      routePath != null && routePath.length >= 2
+          ? _bearingBetween(routePath.first, routePath[1])
+          : startHeading,
+    );
+
+    final chordDistance = Geolocator.distanceBetween(
+      animFrom.latitude,
+      animFrom.longitude,
+      animTo.latitude,
+      animTo.longitude,
+    );
+    if (chordDistance < 0.2) {
+      onFrame(animTo, targetHeading);
+      onComplete?.call();
+      return;
+    }
+
+    // Preserve caller wall-clock timing on straight roads. Around turns the
+    // road arc is longer than the GPS chord — scale duration so the marker
+    // keeps the same speed instead of racing the short sidewalk chord.
+    final roadDistance = routePath != null && routePath.length >= 2
+        ? _routePathLengthMeters(routePath)
+        : chordDistance;
+    final rawChord = Geolocator.distanceBetween(
       from.latitude,
       from.longitude,
       to.latitude,
       to.longitude,
     );
-    if (distance < 0.2) {
-      onFrame(to, targetHeading);
-      onComplete?.call();
-      return;
+    final int resolvedDurationMs;
+    if (durationMs != null) {
+      if (routePath != null &&
+          roadDistance > 0.2 &&
+          rawChord > 0.2 &&
+          roadDistance > rawChord * 1.05) {
+        resolvedDurationMs =
+            (durationMs * (roadDistance / rawChord)).clamp(250, 30000).round();
+      } else {
+        resolvedDurationMs = durationMs;
+      }
+    } else {
+      resolvedDurationMs = _travelDurationMs(roadDistance, 8.33);
     }
-
-    // Duration is supplied from distance / speed. This fallback is only used
-    // when a caller has no reliable speed measurement.
-    final resolvedDurationMs = durationMs ?? _travelDurationMs(distance, 8.33);
     final startedAt = DateTime.now();
     final headingDelta = ((targetHeading - startHeading + 540) % 360) - 180;
 
@@ -287,11 +332,28 @@ extension _Markers on _MapScreenState {
       final elapsed = DateTime.now().difference(startedAt).inMilliseconds;
       final progress = (elapsed / resolvedDurationMs).clamp(0.0, 1.0);
       final eased = curve.transform(progress);
-      final position = LatLng(
-        from.latitude + (to.latitude - from.latitude) * eased,
-        from.longitude + (to.longitude - from.longitude) * eased,
-      );
-      final rotation = (startHeading + headingDelta * eased + 360) % 360;
+
+      LatLng position;
+      double rotation;
+      if (routePath != null && routePath.length >= 2) {
+        final alongRoute = _positionAlongRoutePath(routePath, eased);
+        position = alongRoute.position;
+        rotation = alongRoute.bearing;
+      } else if (routePath != null && routePath.length == 1) {
+        position = routePath.first;
+        rotation = targetHeading;
+      } else {
+        position = LatLng(
+          animFrom.latitude + (animTo.latitude - animFrom.latitude) * eased,
+          animFrom.longitude +
+              (animTo.longitude - animFrom.longitude) * eased,
+        );
+        rotation = (startHeading + headingDelta * eased + 360) % 360;
+      }
+
+      // Explicit road lock: never emit a sidewalk/off-road coordinate while a
+      // route is active. Turns must stay on the drivable path.
+      position = _snapToRoute(position) ?? position;
 
       onFrame(position, rotation);
       if (progress >= 1) {
@@ -300,6 +362,19 @@ extension _Markers on _MapScreenState {
       }
     });
     saveTimer(timer);
+  }
+
+  double _routePathLengthMeters(List<LatLng> path) {
+    var total = 0.0;
+    for (var i = 0; i < path.length - 1; i++) {
+      total += Geolocator.distanceBetween(
+        path[i].latitude,
+        path[i].longitude,
+        path[i + 1].latitude,
+        path[i + 1].longitude,
+      );
+    }
+    return total;
   }
 
   int _travelDurationMs(double distanceMeters, double speedMps) {
