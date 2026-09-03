@@ -618,7 +618,7 @@ class _DraggableBottomSheetState extends State<DraggableBottomSheet> {
   }
 
   Future<dynamic> _buildTipsShowDialog(BuildContext context) {
-    const presets = ['10', '20', '50', '100'];
+    const presets = ['5', '10', '15', '20'];
     controller.provideTips.clear();
     final selectedPreset = Rxn<String>();
 
