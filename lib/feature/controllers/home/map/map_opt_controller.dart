@@ -69,6 +69,16 @@ class MapOPTController extends GetxController {
     isLocationButtonVisible.value = true;
   }
 
+  /// Suppress location-button flashes while we programmatically pan/follow.
+  void beginProgrammaticCamera({
+    Duration hold = const Duration(milliseconds: 500),
+  }) {
+    _isCenteringCamera = true;
+    Future.delayed(hold, () {
+      _isCenteringCamera = false;
+    });
+  }
+
   void hideLocationButton() {
     _isCenteringCamera = true;
     isLocationButtonVisible.value = false;

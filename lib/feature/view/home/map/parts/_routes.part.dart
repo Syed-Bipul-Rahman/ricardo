@@ -326,7 +326,19 @@ extension _Routes on _MapScreenState {
   /// or the position is too far for a safe snap (reroute territory).
   LatLng? _snapToRoute(LatLng position, {bool advanceCursor = false}) {
     if (_fullRoutePoints.length < 2) return null;
-    final projection = _nearestPointOnRoute(position, _fullRoutePoints);
+    var projection = _nearestPointOnRoute(position, _fullRoutePoints);
+    // At sharp turns sidewalk GPS can sit closer to a parallel segment —
+    // widen search once before giving up.
+    if (projection.distanceMeters > 35) {
+      final relaxed = _nearestPointOnRoute(
+        position,
+        _fullRoutePoints,
+        relaxForwardBias: true,
+      );
+      if (relaxed.distanceMeters + 5 < projection.distanceMeters) {
+        projection = relaxed;
+      }
+    }
     // Allow lateral snap at turns (sidewalk / lane offset).
     if (projection.distanceMeters > 80) return null;
     if (advanceCursor) {

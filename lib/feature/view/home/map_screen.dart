@@ -170,17 +170,24 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
     );
   }
 
+  /// Keep the live car on-screen without zoom jumps.
+  ///
+  /// Uber/Pathao passenger style: **north always up** (`bearing: 0`). The car
+  /// icon rotates on the road; the map does not spin. Fitting a tiny
+  /// start→target LatLngBounds used to zoom wildly and make the marker look
+  /// like it was flying across the screen — we only pan at a stable zoom.
   Future<void> _ensureCarTravelVisible(
     LatLng currentPosition,
     LatLng targetPosition,
   ) async {
     final controller = _mapController;
     if (controller == null || _isKeepingCarVisible || !mounted) return;
+    if (!mapOPTController.isInActiveRide) return;
 
-    // Cap camera reframes so Maps tile requests cannot flood (Logcat REQUEST_TIMEOUT).
     final now = DateTime.now();
     final last = _lastCarTravelCameraAt;
-    if (last != null && now.difference(last) < const Duration(seconds: 2)) {
+    // Throttle tile churn; still responsive enough to follow turns.
+    if (last != null && now.difference(last) < const Duration(milliseconds: 750)) {
       return;
     }
 
@@ -188,10 +195,10 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
     try {
       final bounds = await controller.getVisibleRegion();
       final latitudeMargin =
-          (bounds.northeast.latitude - bounds.southwest.latitude).abs() * 0.2;
+          (bounds.northeast.latitude - bounds.southwest.latitude).abs() * 0.28;
       final longitudeMargin =
           (bounds.northeast.longitude - bounds.southwest.longitude).abs() *
-              0.15;
+              0.28;
       final insideSafeArea = targetPosition.latitude >=
               bounds.southwest.latitude + latitudeMargin &&
           targetPosition.latitude <=
@@ -203,37 +210,51 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
 
       if (!insideSafeArea) {
         _lastCarTravelCameraAt = now;
-        var minLatitude =
-            math.min(currentPosition.latitude, targetPosition.latitude);
-        var maxLatitude =
-            math.max(currentPosition.latitude, targetPosition.latitude);
-        var minLongitude =
-            math.min(currentPosition.longitude, targetPosition.longitude);
-        var maxLongitude =
-            math.max(currentPosition.longitude, targetPosition.longitude);
-        if ((maxLatitude - minLatitude).abs() < 0.00001) {
-          minLatitude -= 0.00001;
-          maxLatitude += 0.00001;
-        }
-        if ((maxLongitude - minLongitude).abs() < 0.00001) {
-          minLongitude -= 0.00001;
-          maxLongitude += 0.00001;
-        }
-
         mapOPTController.hideLocationButton();
+        // Pan only — same zoom, north-up. Never bounds-fit two GPS points.
         await controller.animateCamera(
-          CameraUpdate.newLatLngBounds(
-            LatLngBounds(
-              southwest: LatLng(minLatitude, minLongitude),
-              northeast: LatLng(maxLatitude, maxLongitude),
+          CameraUpdate.newCameraPosition(
+            CameraPosition(
+              target: targetPosition,
+              zoom: currentZoom,
+              bearing: 0,
+              tilt: 0,
             ),
-            48,
           ),
         );
       }
     } finally {
       _isKeepingCarVisible = false;
     }
+  }
+
+  /// Soft recenter while the car is animating along the road (north-up).
+  /// Pauses when the user has panned the map (location button visible).
+  void _softFollowCar(LatLng carPosition) {
+    if (!mapOPTController.isInActiveRide) return;
+    if (mapOPTController.isLocationButtonVisible.value) return;
+    final controller = _mapController;
+    if (controller == null || !mounted) return;
+
+    final now = DateTime.now();
+    final last = _lastCarTravelCameraAt;
+    if (last != null &&
+        now.difference(last) < const Duration(milliseconds: 900)) {
+      return;
+    }
+    _lastCarTravelCameraAt = now;
+    mapOPTController.beginProgrammaticCamera();
+    // moveCamera avoids stacked animateCamera tile floods.
+    controller.moveCamera(
+      CameraUpdate.newCameraPosition(
+        CameraPosition(
+          target: carPosition,
+          zoom: currentZoom,
+          bearing: 0,
+          tilt: 0,
+        ),
+      ),
+    );
   }
 
   @override
