@@ -8,9 +8,14 @@ import 'package:ricardo/widgets/custom_text_field.dart';
 import 'package:ricardo/app/helpers/snackbar_helper.dart';
 
 class RateReviewDriver extends StatelessWidget {
-  RateReviewDriver({super.key});
+  RateReviewDriver({super.key}) {
+    if (Get.isRegistered<RateAndReviewController>()) {
+      Get.delete<RateAndReviewController>();
+    }
+  }
 
-  final controller = Get.put(RateAndReviewController());
+  late final RateAndReviewController controller =
+      Get.put(RateAndReviewController());
   final cnt = Get.find<MapOPTController>();
 
   final String? name = Get.arguments?['name'];
@@ -55,18 +60,40 @@ class RateReviewDriver extends StatelessWidget {
               ),
             ),
             SizedBox(height: 78.h),
-            _buildRattingField(),
+            Obx(() {
+              final locked = controller.alreadyReviewed.value;
+              return IgnorePointer(
+                ignoring: locked,
+                child: Opacity(
+                  opacity: locked ? 0.55 : 1,
+                  child: _buildRattingField(),
+                ),
+              );
+            }),
             SizedBox(height: 48.h),
-            CustomTextField(
-              controller: controller.feedBackTEController,
-              labelText: 'Write your feedback (optional)',
-              hintText: 'Add Note',
-              minLines: 5,
-            ),
+            Obx(() {
+              final locked = controller.alreadyReviewed.value;
+              return IgnorePointer(
+                ignoring: locked,
+                child: Opacity(
+                  opacity: locked ? 0.55 : 1,
+                  child: CustomTextField(
+                    controller: controller.feedBackTEController,
+                    labelText: 'Write your feedback (optional)',
+                    hintText: 'Add Note',
+                    minLines: 5,
+                  ),
+                ),
+              );
+            }),
             SizedBox(height: 110.h),
             Obx(() {
+              final loading = cnt.isAddedFavouriteRiderStatus.value;
+              final already = cnt.addedFavourite.value;
+              final disabled = loading || already;
+
               return GestureDetector(
-                onTap: cnt.isAddedFavouriteRiderStatus.value
+                onTap: disabled
                     ? null
                     : () async {
                         if (driverId == null) {
@@ -74,7 +101,8 @@ class RateReviewDriver extends StatelessWidget {
                           return;
                         }
 
-                        final success = await cnt.addedFavouriteRide(driverId!);
+                        final success =
+                            await cnt.addedFavouriteRide(driverId!);
 
                         if (success) {
                           Get.dialog(
@@ -110,7 +138,8 @@ class RateReviewDriver extends StatelessWidget {
                                         ),
                                         children: [
                                           TextSpan(
-                                            text: 'is now your favorite rider!',
+                                            text:
+                                                'is now your favorite rider!',
                                             style: TextStyle(
                                               color: AppColors.primaryTextColor,
                                               fontSize: 16.sp,
@@ -124,7 +153,7 @@ class RateReviewDriver extends StatelessWidget {
                                     CustomPrimaryButton(
                                       title: 'Okay',
                                       onHandler: () {
-                                        Get.back(); // closes the dialog
+                                        Get.back();
                                       },
                                     )
                                   ],
@@ -135,24 +164,57 @@ class RateReviewDriver extends StatelessWidget {
                         }
                       },
                 child: AnimatedContainer(
-                  duration: Duration(milliseconds: 200),
+                  duration: const Duration(milliseconds: 200),
                   alignment: Alignment.center,
                   width: double.maxFinite,
                   height: 56.h,
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(50.r),
-                    border: Border.all(color: Colors.green, width: 1),
+                    color: already
+                        ? const Color(0xFFF0F2F4)
+                        : Colors.transparent,
+                    border: Border.all(
+                      color: already
+                          ? const Color(0xFFB8BCC3)
+                          : Colors.green,
+                      width: 1,
+                    ),
                   ),
-                  child: cnt.isAddedFavouriteRiderStatus.value
-                      ? CircularProgressIndicator(
-                          color: Colors.green,
-                        )
-                      : Text(
-                          'Add to Favourite',
-                          style: TextStyle(
+                  child: loading
+                      ? SizedBox(
+                          width: 24.r,
+                          height: 24.r,
+                          child: const CircularProgressIndicator(
+                            strokeWidth: 2.6,
                             color: Colors.green,
-                            fontSize: 16.sp,
                           ),
+                        )
+                      : Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              already
+                                  ? Icons.favorite_rounded
+                                  : Icons.favorite_border_rounded,
+                              size: 18.r,
+                              color: already
+                                  ? AppColors.secondaryTextColor
+                                  : Colors.green,
+                            ),
+                            SizedBox(width: 8.w),
+                            Text(
+                              already
+                                  ? 'Already Favourite'
+                                  : 'Add to Favourite',
+                              style: TextStyle(
+                                color: already
+                                    ? AppColors.secondaryTextColor
+                                    : Colors.green,
+                                fontSize: 16.sp,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
                         ),
                 ),
               );
@@ -160,64 +222,69 @@ class RateReviewDriver extends StatelessWidget {
             SizedBox(height: 21.h),
             Obx(
               () {
-                if (controller.isRattingLoading.value) {
-                  return CircularProgressIndicator();
-                }
+                final loading = controller.isRattingLoading.value;
+                final already = controller.alreadyReviewed.value;
                 return CustomPrimaryButton(
-                  title: 'Submit Review',
-                  onHandler: () async {
-                    final role = Get.find<UserController>()
-                        .userModel
-                        .value
-                        ?.userProfile
-                        ?.role;
-                    if (role != AppConstants.passenger) {
-                      ScaffoldMessenger.of(context)
-                        ..hideCurrentSnackBar()
-                        ..showSnackBar(
-                          SnackBar(
-                            content: const Text(
-                              'Only passengers can submit a review',
-                            ),
-                            backgroundColor: AppColors.errorColor,
-                          ),
-                        );
-                      return;
-                    }
+                  title: already ? 'Review Submitted' : 'Submit Review',
+                  isLoading: loading,
+                  onHandler: (already || loading)
+                      ? null
+                      : () async {
+                          final role = Get.find<UserController>()
+                              .userModel
+                              .value
+                              ?.userProfile
+                              ?.role;
+                          if (role != AppConstants.passenger) {
+                            ScaffoldMessenger.of(context)
+                              ..hideCurrentSnackBar()
+                              ..showSnackBar(
+                                SnackBar(
+                                  content: const Text(
+                                    'Only passengers can submit a review',
+                                  ),
+                                  backgroundColor: AppColors.errorColor,
+                                ),
+                              );
+                            return;
+                          }
 
-                    if (rideId == null || driverId == null) {
-                      ScaffoldMessenger.of(context)
-                        ..hideCurrentSnackBar()
-                        ..showSnackBar(
-                          SnackBar(
-                            content: const Text('Ride or driver information missing'),
-                            backgroundColor: AppColors.errorColor,
-                          ),
-                        );
-                      return;
-                    }
+                          if (rideId == null || driverId == null) {
+                            ScaffoldMessenger.of(context)
+                              ..hideCurrentSnackBar()
+                              ..showSnackBar(
+                                SnackBar(
+                                  content: const Text(
+                                    'Ride or driver information missing',
+                                  ),
+                                  backgroundColor: AppColors.errorColor,
+                                ),
+                              );
+                            return;
+                          }
 
-                    final value = await controller.rateAndReviewDriverHandler(
-                      rideId!,
-                      driverId!,
-                    );
-                    if (value) {
-                      Get.back();
-                      return;
-                    }
+                          final value =
+                              await controller.rateAndReviewDriverHandler(
+                            rideId!,
+                            driverId!,
+                          );
+                          if (value) {
+                            Get.back();
+                            return;
+                          }
 
-                    final message = controller.errorMessage.value;
-                    if (message.isNotEmpty) {
-                      ScaffoldMessenger.of(context)
-                        ..hideCurrentSnackBar()
-                        ..showSnackBar(
-                          SnackBar(
-                            content: Text(message),
-                            backgroundColor: AppColors.errorColor,
-                          ),
-                        );
-                    }
-                  },
+                          final message = controller.errorMessage.value;
+                          if (message.isNotEmpty) {
+                            ScaffoldMessenger.of(context)
+                              ..hideCurrentSnackBar()
+                              ..showSnackBar(
+                                SnackBar(
+                                  content: Text(message),
+                                  backgroundColor: AppColors.errorColor,
+                                ),
+                              );
+                          }
+                        },
                 );
               },
             ),
@@ -239,7 +306,7 @@ class RateReviewDriver extends StatelessWidget {
             itemCount: 5,
             initialRating: controller.driverRating.value,
             itemBuilder: (context, index) {
-              return Icon(Icons.star, color: Colors.amber);
+              return const Icon(Icons.star, color: Colors.amber);
             },
             onRatingUpdate: (double value) {
               controller.driverRating.value = value;

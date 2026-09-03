@@ -11,6 +11,7 @@ import 'package:ricardo/feature/models/socket/get_ride_driver_location.dart';
 import 'package:ricardo/feature/view/home/link_export_file.dart';
 import 'package:ricardo/feature/view/home/map/driver_location_service.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:ricardo/feature/controllers/profile/favourite_rides_controller.dart';
 import 'package:ricardo/services/direction_services.dart';
 import 'package:ricardo/services/api_client.dart';
 
@@ -282,12 +283,24 @@ class MapOPTController extends GetxController {
   final TextEditingController provideTips = TextEditingController();
   RxBool isLoading = false.obs;
   RxBool isTipsSuccess = false.obs;
+  /// Ride ids the passenger already tipped in this session (no API flag).
+  final RxSet<String> tippedRideIds = <String>{}.obs;
+
+  bool hasTippedRide(String? rideId) {
+    if (rideId == null || rideId.isEmpty) return false;
+    return tippedRideIds.contains(rideId);
+  }
 
   Future<bool> provideTipsHandler(String rideId) async {
     if (rideId.isEmpty) return false;
 
     if (provideTips.text.trim().isEmpty) {
       isTipsSuccess.value = false;
+      showSnackbar(
+        'Tips',
+        'Please enter or select a tip amount',
+        snackPosition: SnackPosition.BOTTOM,
+      );
       return false;
     }
 
@@ -304,12 +317,13 @@ class MapOPTController extends GetxController {
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         isTipsSuccess.value = true;
+        tippedRideIds.add(rideId);
+        tippedRideIds.refresh();
         provideTips.clear();
         return true;
       } else {
         showSnackbar('Error', response.body['message'],
             snackPosition: SnackPosition.BOTTOM);
-        provideTips.clear();
         isTipsSuccess.value = false;
         return false;
       }
@@ -328,9 +342,31 @@ class MapOPTController extends GetxController {
   final isAddedFavouriteRiderStatus = false.obs;
   final addedFavourite = false.obs;
 
-  Future<bool> addedFavouriteRide(String driverId) async {
+  /// Prefetch whether [driverId] is already in favourites (disables the button).
+  Future<void> prepareFavouriteForDriver(String? driverId) async {
+    addedFavourite.value = false;
+    if (driverId == null || driverId.isEmpty) return;
+
     try {
-      isAddedFavouriteRiderStatus.value = true; // ✅ start loading
+      final favController = Get.isRegistered<FavouriteRidesController>()
+          ? Get.find<FavouriteRidesController>()
+          : Get.put(FavouriteRidesController());
+      if (favController.favouriteRiderModel.isEmpty) {
+        await favController.fetchFavouriteRides();
+      }
+      addedFavourite.value = favController.favouriteRiderModel.any(
+        (e) => e.driverId == driverId,
+      );
+    } catch (e) {
+      debugPrint('prepareFavouriteForDriver: $e');
+    }
+  }
+
+  Future<bool> addedFavouriteRide(String driverId) async {
+    if (addedFavourite.value) return false;
+
+    try {
+      isAddedFavouriteRiderStatus.value = true;
 
       final response = await ApiClient.postData(
         ApiUrls.favoriteRider,
@@ -340,27 +376,33 @@ class MapOPTController extends GetxController {
       if (response.statusCode == 200 || response.statusCode == 201) {
         addedFavourite.value = true;
         return true;
-      } else if (response.statusCode == 400 &&
-          response.body['message'] == 'Driver already added to favorites') {
-        showSnackbar("Info", "Already added to favorites");
-        addedFavourite.value = false;
-        return true;
-      } else {
-        addedFavourite.value = false;
-        final message = response.body is Map
-            ? response.body['message'] ?? 'Something went wrong'
-            : 'Something went wrong';
+      }
 
-        showSnackbar('Error', message);
+      final message = response.body is Map
+          ? response.body['message']?.toString() ?? ''
+          : '';
+      final alreadyFavorite = response.statusCode == 400 &&
+          message.toLowerCase().contains('already');
+
+      if (alreadyFavorite) {
+        showSnackbar("Info", "Already added to favorites");
+        addedFavourite.value = true;
         return false;
       }
+
+      addedFavourite.value = false;
+      showSnackbar(
+        'Error',
+        message.isNotEmpty ? message : 'Something went wrong',
+      );
+      return false;
     } catch (e) {
       addedFavourite.value = false;
       showSnackbar('Error', e.toString());
       debugPrint(e.toString());
-      return false; // ✅ FIXED
+      return false;
     } finally {
-      isAddedFavouriteRiderStatus.value = false; // ✅ stop loading
+      isAddedFavouriteRiderStatus.value = false;
     }
   }
 
@@ -677,6 +719,9 @@ class MapOPTController extends GetxController {
     lastDriverLocationSocketAt.value = null;
     showCancelReasonDialog.value = false;
     clearPrefetchedRouteEstimates();
+    addedFavourite.value = false;
+    isTipsSuccess.value = false;
+    provideTips.clear();
     userController.activeRideStatus.value = '';
     PrefsHelper.setString('status', '');
     PrefsHelper.setString('ride-accepted-data', '');

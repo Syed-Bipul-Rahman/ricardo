@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:get/get.dart';
 import 'package:ricardo/app/utils/app_constants.dart';
 import 'package:ricardo/feature/controllers/history/history_controller.dart';
+import 'package:ricardo/feature/controllers/home/map/map_opt_controller.dart';
 import 'package:ricardo/feature/controllers/user_controller.dart';
 import 'package:ricardo/services/api_client.dart';
 import 'package:ricardo/services/api_urls.dart';
@@ -11,8 +12,18 @@ class RateAndReviewController extends GetxController {
   RxDouble driverRating = 0.0.obs;
   RxString errorMessage = ''.obs;
   RxBool isRattingLoading = false.obs;
+  RxBool alreadyReviewed = false.obs;
+
+  @override
+  void onInit() {
+    super.onInit();
+    final args = Get.arguments;
+    alreadyReviewed.value = args is Map && args['alreadyReviewed'] == true;
+  }
 
   Future<bool> rateAndReviewDriverHandler(String rideId, String driverId) async {
+    if (alreadyReviewed.value) return false;
+
     final role = Get.find<UserController>().userModel.value?.userProfile?.role;
     if (role != AppConstants.passenger) {
       errorMessage.value = 'Only passengers can submit a review';
@@ -43,6 +54,8 @@ class RateAndReviewController extends GetxController {
           );
         }
 
+        markCurrentRideReviewed(rideId, reviewId: reviewId);
+        alreadyReviewed.value = true;
         clearForm();
         return true;
       }
@@ -64,6 +77,16 @@ class RateAndReviewController extends GetxController {
     feedBackTEController.clear();
     driverRating.value = 0.0;
     errorMessage.value = '';
+  }
+
+  void markCurrentRideReviewed(String rideId, {String? reviewId}) {
+    if (!Get.isRegistered<MapOPTController>()) return;
+    final map = Get.find<MapOPTController>();
+    final status = map.rideStatusData.value;
+    final ride = status?.ride;
+    if (ride == null || ride.id != rideId) return;
+    ride.reviewId = reviewId ?? 'submitted';
+    map.rideStatusData.refresh();
   }
 
   @override

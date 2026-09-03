@@ -85,10 +85,16 @@ class _ReportScreenState extends State<ReportScreen> {
             SizedBox(
               height: 110.h,
             ),
-            CustomPrimaryButton(
-              title: 'Submit Report',
-              onHandler: () => _reportButtonHandler(rideId),
-            ),
+            Obx(() {
+              final loading = controller.isReportStatus.value;
+              return CustomPrimaryButton(
+                title: 'Submit Report',
+                isLoading: loading,
+                onHandler: loading
+                    ? null
+                    : () => _reportButtonHandler(rideId),
+              );
+            }),
           ],
         ),
       ),

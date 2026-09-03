@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:ricardo/app/helpers/ride_distance_formatter.dart';
 import 'package:ricardo/app/helpers/ride_eta_resolver.dart';
+import 'package:ricardo/app/helpers/snackbar_helper.dart';
 import 'package:ricardo/feature/models/home/ride_status_model.dart';
 import 'package:ricardo/feature/view/home/link_export_file.dart';
 import 'package:ricardo/widgets/widgets.dart';
@@ -96,47 +97,65 @@ class _DraggableBottomSheetState extends State<DraggableBottomSheet> {
                                       ?.userProfile
                                       ?.role ==
                                   AppConstants.passenger)
-                                Row(
-                                  children: [
-                                    Flexible(
-                                      child: CustomPrimaryButton(
-                                        title: 'Review',
-                                        onHandler: () {
-                                          // ride.driver carries the driver's
-                                          // user _id; driverCar.driverId is
-                                          // often absent, which left Review and
-                                          // Add-to-Favourite with a null id.
-                                          Get.toNamed(
-                                            AppRoutes.rateReviewDriver,
-                                            arguments: {
-                                              'name': widget
-                                                  .rideStatus?.driver?.name,
-                                              'driverId': widget.rideStatus
-                                                      ?.ride?.driver?.id ??
-                                                  widget
-                                                      .rideStatus?.driver?.id ??
-                                                  widget.rideStatus?.driverCar
-                                                      ?.driverId,
-                                              'rideId':
-                                                  widget.rideStatus?.ride?.id,
-                                            },
-                                          );
-                                        },
+                                Obx(() {
+                                  final liveRide =
+                                      controller.rideStatusData.value;
+                                  final reviewId = liveRide?.ride?.reviewId;
+                                  final alreadyReviewed = reviewId != null &&
+                                      reviewId.toString().isNotEmpty;
+                                  final rideId = liveRide?.ride?.id;
+                                  // Touch the set so Obx rebuilds after tip success.
+                                  final tippedIds = controller.tippedRideIds;
+                                  final alreadyTipped = rideId != null &&
+                                      tippedIds.contains(rideId);
+                                  final driverId = liveRide?.ride?.driver?.id ??
+                                      liveRide?.driver?.id ??
+                                      liveRide?.driverCar?.driverId;
+
+                                  return Row(
+                                    children: [
+                                      Flexible(
+                                        child: CustomPrimaryButton(
+                                          title: alreadyReviewed
+                                              ? 'Reviewed'
+                                              : 'Review',
+                                          onHandler: alreadyReviewed
+                                              ? null
+                                              : () {
+                                                  controller
+                                                      .prepareFavouriteForDriver(
+                                                    driverId,
+                                                  );
+                                                  Get.toNamed(
+                                                    AppRoutes.rateReviewDriver,
+                                                    arguments: {
+                                                      'name':
+                                                          liveRide?.driver?.name,
+                                                      'driverId': driverId,
+                                                      'rideId': rideId,
+                                                      'alreadyReviewed':
+                                                          alreadyReviewed,
+                                                    },
+                                                  );
+                                                },
+                                        ),
                                       ),
-                                    ),
-                                    SizedBox(
-                                      width: 8.w,
-                                    ),
-                                    Flexible(
-                                      child: CustomPrimaryButton(
-                                        title: 'Tips',
-                                        onHandler: () {
-                                          _buildTipsShowDialog(context);
-                                        },
-                                      ),
-                                    )
-                                  ],
-                                ),
+                                      SizedBox(width: 8.w),
+                                      Flexible(
+                                        child: CustomPrimaryButton(
+                                          title: alreadyTipped
+                                              ? 'Tipped'
+                                              : 'Tips',
+                                          onHandler: alreadyTipped
+                                              ? null
+                                              : () {
+                                                  _buildTipsShowDialog(context);
+                                                },
+                                        ),
+                                      )
+                                    ],
+                                  );
+                                }),
                               SizedBox(
                                 height: 16.h,
                               ),
@@ -321,17 +340,43 @@ class _DraggableBottomSheetState extends State<DraggableBottomSheet> {
                 ),
               ],
               if (isComplete)
-                IconButton(
-                  tooltip: 'Report this ride',
-                  onPressed: () {
-                    Get.toNamed(
-                      AppRoutes.reportScreen,
-                      arguments: {'rideId': data?.ride?.id},
-                    );
-                  },
-                  icon: Icon(
-                    Icons.outlined_flag_rounded,
-                    color: AppColors.errorColor,
+                Material(
+                  color: AppColors.errorColor.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(22.r),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(22.r),
+                    onTap: () {
+                      Get.toNamed(
+                        AppRoutes.reportScreen,
+                        arguments: {'rideId': data?.ride?.id},
+                      );
+                    },
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 12.w,
+                        vertical: 8.h,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.outlined_flag_rounded,
+                            size: 16.r,
+                            color: AppColors.errorColor,
+                          ),
+                          SizedBox(width: 5.w),
+                          Text(
+                            'Report',
+                            style: TextStyle(
+                              fontSize: 12.sp,
+                              fontWeight: FontWeight.w700,
+                              fontFamily: FontFamily.poppins,
+                              color: AppColors.errorColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
             ],
@@ -573,84 +618,182 @@ class _DraggableBottomSheetState extends State<DraggableBottomSheet> {
   }
 
   Future<dynamic> _buildTipsShowDialog(BuildContext context) {
+    const presets = ['10', '20', '50', '100'];
+    controller.provideTips.clear();
+    final selectedPreset = Rxn<String>();
+
     return showDialog(
       context: context,
+      barrierDismissible: true,
       builder: (BuildContext dialogContext) {
         return Dialog(
           backgroundColor: Colors.transparent,
-          insetPadding: EdgeInsets.symmetric(horizontal: 24.w),
-          child: GlassBackgroundWidget(
-            borderLeftRightRadius: 24,
-            padding: EdgeInsets.all(20.r),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Close Button
-                Align(
-                  alignment: Alignment.topRight,
-                  child: GestureDetector(
-                    onTap: () => Navigator.of(dialogContext).pop(),
-                    child: Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade200,
-                        shape: BoxShape.circle,
+          insetPadding: EdgeInsets.symmetric(horizontal: 22.w),
+          child: Material(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24.r),
+            clipBehavior: Clip.antiAlias,
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(20.w, 16.h, 20.w, 20.h),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 40.r,
+                        height: 40.r,
+                        decoration: BoxDecoration(
+                          color: AppColors.primaryColor.withValues(alpha: 0.10),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons.volunteer_activism_rounded,
+                          color: AppColors.primaryColor,
+                          size: 22.r,
+                        ),
                       ),
-                      child: Icon(
-                        Icons.close,
-                        size: 20.sp,
-                        color: AppColors.darkColor,
+                      SizedBox(width: 10.w),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Say thanks with a tip',
+                              style: TextStyle(
+                                fontSize: 16.sp,
+                                fontWeight: FontWeight.w700,
+                                fontFamily: FontFamily.poppins,
+                                color: AppColors.darkColor,
+                              ),
+                            ),
+                            SizedBox(height: 2.h),
+                            Text(
+                              '100% goes to your driver',
+                              style: TextStyle(
+                                fontSize: 11.5.sp,
+                                color: AppColors.secondaryTextColor,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        visualDensity: VisualDensity.compact,
+                        onPressed: () {
+                          if (controller.isLoading.value) return;
+                          Navigator.of(dialogContext).pop();
+                        },
+                        icon: Icon(
+                          Icons.close_rounded,
+                          color: AppColors.secondaryTextColor,
+                          size: 22.r,
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 18.h),
+                  Obx(() {
+                    final selected = selectedPreset.value;
+                    return Wrap(
+                      spacing: 8.w,
+                      runSpacing: 8.h,
+                      children: presets.map((amount) {
+                        final isSelected = selected == amount;
+                        return InkWell(
+                          borderRadius: BorderRadius.circular(30.r),
+                          onTap: controller.isLoading.value
+                              ? null
+                              : () {
+                                  selectedPreset.value = amount;
+                                  controller.provideTips.text = amount;
+                                },
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 180),
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 16.w,
+                              vertical: 10.h,
+                            ),
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? AppColors.primaryColor
+                                  : const Color(0xFFF3F5F7),
+                              borderRadius: BorderRadius.circular(30.r),
+                              border: Border.all(
+                                color: isSelected
+                                    ? AppColors.primaryColor
+                                    : const Color(0xFFE2E5EA),
+                              ),
+                            ),
+                            child: Text(
+                              amount,
+                              style: TextStyle(
+                                fontSize: 14.sp,
+                                fontWeight: FontWeight.w700,
+                                color: isSelected
+                                    ? Colors.white
+                                    : AppColors.darkColor,
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    );
+                  }),
+                  SizedBox(height: 16.h),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Or enter a custom amount',
+                      style: TextStyle(
+                        fontSize: 12.sp,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.secondaryTextColor,
                       ),
                     ),
                   ),
-                ),
-                SizedBox(height: 8.h),
-                CustomText(
-                  text: 'Tips',
-                  fontSize: 18.sp,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.primaryColor,
-                  maxline: 2,
-                ),
-                SizedBox(height: 8.h),
-                CustomText(
-                  text: 'Enjoyed your ride?',
-                  fontSize: 16.sp,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.primaryTextColor,
-                  maxline: 2,
-                ),
-                SizedBox(height: 20.h),
-                CustomTextField(
-                  controller: controller.provideTips,
-                  labelText: 'Enter Amount',
-                  hintText: 'Enter Amount',
-                  keyboardType: TextInputType.number,
-                ),
-                SizedBox(height: 12.h),
-                Center(
-                  child: Text(
-                    'Tips will go completely to driver',
-                    style: TextStyle(
-                      fontSize: 12.sp,
-                      fontWeight: FontWeight.w500,
-                      fontFamily: FontFamily.poppins,
-                      color: AppColors.secondaryTextColor,
-                    ),
+                  SizedBox(height: 8.h),
+                  CustomTextField(
+                    controller: controller.provideTips,
+                    labelText: 'Amount',
+                    hintText: 'e.g. 25',
+                    keyboardType: TextInputType.number,
+                    onChanged: (_) {
+                      final typed = controller.provideTips.text.trim();
+                      if (!presets.contains(typed)) {
+                        selectedPreset.value = null;
+                      } else {
+                        selectedPreset.value = typed;
+                      }
+                    },
                   ),
-                ),
-                SizedBox(height: 20.h),
-                CustomPrimaryButton(
-                  title: 'Submit',
-                  onHandler: () async {
-                    final val = await controller.provideTipsHandler(
-                        controller.rideStatusData.value?.ride?.id ?? '');
-                    if (val == true && dialogContext.mounted) {
-                      Navigator.of(dialogContext).pop();
-                    }
-                  },
-                ),
-              ],
+                  SizedBox(height: 20.h),
+                  Obx(() {
+                    final loading = controller.isLoading.value;
+                    return CustomPrimaryButton(
+                      title: 'Send Tip',
+                      isLoading: loading,
+                      onHandler: loading
+                          ? null
+                          : () async {
+                              final rideId =
+                                  controller.rideStatusData.value?.ride?.id ??
+                                      '';
+                              final ok =
+                                  await controller.provideTipsHandler(rideId);
+                              if (ok && dialogContext.mounted) {
+                                Navigator.of(dialogContext).pop();
+                                showSnackbar(
+                                  'Thank you',
+                                  'Your tip was sent to the driver',
+                                  snackPosition: SnackPosition.BOTTOM,
+                                );
+                              }
+                            },
+                    );
+                  }),
+                ],
+              ),
             ),
           ),
         );
