@@ -21,8 +21,7 @@ extension _Bootstrap on _MapScreenState {
         } else if (rideStatus.arrivingRide == true) {
           _routeGeneration++;
           _polylines = <Polyline>{};
-          _fullRoutePoints = <LatLng>[];
-          _routeTarget = null;
+          _clearRoadRoute();
         }
       }
     }
@@ -37,10 +36,11 @@ extension _Bootstrap on _MapScreenState {
     // Replace the collections so Google Maps detects removals immediately.
     _polylines = <Polyline>{};
     markers = <Marker>{};
-    _fullRoutePoints = <LatLng>[];
-    _routeTarget = null;
+    _clearRoadRoute();
     _remoteDriverTarget = null;
-    _lastAnimatedRouteUpdateAt = null;
+    _remoteDriverAnimation?.cancel();
+    _currentMarkerAnimation?.cancel();
+    _liveDriverTracker.reset();
     _isReFetchingRoute = false;
     if (mounted) setState(() {});
   }

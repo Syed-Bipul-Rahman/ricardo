@@ -83,6 +83,7 @@ extension _Sockets on _MapScreenState {
 
     SocketServices.socket?.off('get-ride-driver-location');
     SocketServices.socket?.on('get-ride-driver-location', (data) {
+      final socketReceiveAt = DateTime.now();
       try {
         Map<String, dynamic> jsonData;
         if (data is List) {
@@ -95,12 +96,71 @@ extension _Sockets on _MapScreenState {
           return;
         }
         final updatedDriverLocation = GetRideDriverLocation.fromJson(jsonData);
-        final updatedCoords = updatedDriverLocation.driverLocation?.coordinates;
-        if (updatedCoords != null && updatedCoords.length >= 2) {
-          _animateRemoteDriverTo(
-            LatLng(updatedCoords[1], updatedCoords[0]),
-          );
+        final driverLoc = updatedDriverLocation.driverLocation;
+        final updatedCoords = driverLoc?.coordinates;
+
+        // Prefer nested driverLocation extras; fall back to top-level fields
+        // if the backend forwards telemetry beside the GeoJSON point.
+        double? speed = driverLoc?.speed;
+        double? heading = driverLoc?.heading;
+        double? accuracy = driverLoc?.accuracy;
+        DateTime? gpsTimestamp = driverLoc?.updatedAt;
+        if (speed == null) {
+          final raw = jsonData['speed'] ?? jsonData['speedMps'];
+          if (raw is num) speed = raw.toDouble();
         }
+        if (heading == null) {
+          final raw =
+              jsonData['heading'] ?? jsonData['bearing'] ?? jsonData['headingDegrees'];
+          if (raw is num) heading = raw.toDouble();
+        }
+        if (accuracy == null) {
+          final raw = jsonData['accuracy'] ?? jsonData['accuracyMeters'];
+          if (raw is num) accuracy = raw.toDouble();
+        }
+        if (gpsTimestamp == null) {
+          final raw = jsonData['updatedAt'] ??
+              jsonData['timestamp'] ??
+              jsonData['locationUpdatedAt'];
+          if (raw is String) {
+            gpsTimestamp = DateTime.tryParse(raw);
+          } else if (raw is num) {
+            final value = raw.toInt();
+            gpsTimestamp = DateTime.fromMillisecondsSinceEpoch(
+              value < 1000000000000 ? value * 1000 : value,
+              isUtc: true,
+            ).toLocal();
+          }
+        }
+
+        if (updatedCoords != null && updatedCoords.length >= 2) {
+          final sample = _liveDriverTracker.accept(
+            latitude: updatedCoords[1],
+            longitude: updatedCoords[0],
+            gpsTimestamp: gpsTimestamp,
+            speedMps: speed,
+            headingDegrees: heading,
+            accuracyMeters: accuracy,
+            receivedAt: socketReceiveAt,
+          );
+
+          if (_liveLocationDiag) {
+            debugPrint(
+              '📍 SOCKET get-ride-driver-location '
+              'recv=${socketReceiveAt.toIso8601String()} '
+              'lat=${updatedCoords[1]} lng=${updatedCoords[0]} '
+              'speed=$speed heading=$heading '
+              'accuracy=$accuracy '
+              'gpsTs=$gpsTimestamp '
+              'accepted=${sample != null} seq=${sample?.sequence}',
+            );
+          }
+
+          if (sample != null) {
+            _applyLiveDriverSample(sample);
+          }
+        }
+
         mapOPTController.getRideDriverLocation.value = updatedDriverLocation;
         mapOPTController.getRideDriverLocation.refresh();
         mapOPTController.markDriverLocationSocketReceived();
@@ -118,8 +178,6 @@ extension _Sockets on _MapScreenState {
             loadAcceptedRideRoute();
           }
         }
-
-        debugPrint('📍 Driver location updated');
       } catch (e) {
         debugPrint('get-ride-driver-location error: $e');
       }
@@ -190,9 +248,7 @@ extension _Sockets on _MapScreenState {
           debugPrint('🏁✅ ride-status: completeRide=true | role=$role');
           _routeGeneration++;
           _polylines = <Polyline>{};
-          _fullRoutePoints = <LatLng>[];
-          _routeTarget = null;
-          _lastAnimatedRouteUpdateAt = null;
+          _clearRoadRoute();
           final isDriver = role == AppConstants.driver;
           if (isDriver) {
             debugPrint('🏁🚗 driver → finishRide()');
@@ -241,15 +297,11 @@ extension _Sockets on _MapScreenState {
           _routeGeneration++;
           markers.clear();
           _polylines = <Polyline>{};
-          _fullRoutePoints = [];
-          _routeTarget = null;
-          _lastAnimatedRouteUpdateAt = null;
+          _clearRoadRoute();
         } else if (rideStatus.startRide == true) {
           _routeGeneration++;
           _polylines = <Polyline>{};
-          _fullRoutePoints = [];
-          _routeTarget = null;
-          _lastAnimatedRouteUpdateAt = null;
+          _clearRoadRoute();
           mapOPTController.prefetchDestinationRouteEstimate();
           final rideId = rideStatus.ride?.id;
           if (rideId != null && rideId.isNotEmpty) {

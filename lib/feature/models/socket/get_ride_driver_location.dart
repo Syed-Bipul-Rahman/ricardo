@@ -62,18 +62,58 @@ class GetRideDriverLocation {
 class DriverLocation {
   String? type;
   List<double>? coordinates;
+  /// Optional extras — present only if the backend forwards them.
+  double? speed;
+  double? heading;
+  double? accuracy;
+  DateTime? updatedAt;
 
-  DriverLocation({this.type, this.coordinates});
+  DriverLocation({
+    this.type,
+    this.coordinates,
+    this.speed,
+    this.heading,
+    this.accuracy,
+    this.updatedAt,
+  });
 
   DriverLocation.fromJson(Map<String, dynamic> json) {
     type = json['type'];
-    coordinates = json['coordinates'].cast<double>();
+    final rawCoords = json['coordinates'];
+    if (rawCoords is List) {
+      coordinates = rawCoords
+          .map((e) => (e is num) ? e.toDouble() : double.tryParse('$e') ?? 0.0)
+          .toList();
+    }
+    final rawSpeed = json['speed'] ?? json['speedMps'];
+    if (rawSpeed is num) speed = rawSpeed.toDouble();
+    final rawHeading = json['heading'] ?? json['bearing'] ?? json['headingDegrees'];
+    if (rawHeading is num) heading = rawHeading.toDouble();
+    final rawAccuracy = json['accuracy'] ?? json['accuracyMeters'];
+    if (rawAccuracy is num) accuracy = rawAccuracy.toDouble();
+    final rawUpdated = json['updatedAt'] ??
+        json['timestamp'] ??
+        json['locationUpdatedAt'] ??
+        json['gpsTimestamp'];
+    if (rawUpdated is String) {
+      updatedAt = DateTime.tryParse(rawUpdated);
+    } else if (rawUpdated is num) {
+      final value = rawUpdated.toInt();
+      updatedAt = DateTime.fromMillisecondsSinceEpoch(
+        value < 1000000000000 ? value * 1000 : value,
+        isUtc: true,
+      ).toLocal();
+    }
   }
 
   Map<String, dynamic> toJson() {
-    final Map<String, dynamic> data = new Map<String, dynamic>();
-    data['type'] = this.type;
-    data['coordinates'] = this.coordinates;
+    final Map<String, dynamic> data = <String, dynamic>{};
+    data['type'] = type;
+    data['coordinates'] = coordinates;
+    if (speed != null) data['speed'] = speed;
+    if (heading != null) data['heading'] = heading;
+    if (accuracy != null) data['accuracy'] = accuracy;
+    if (updatedAt != null) data['updatedAt'] = updatedAt!.toIso8601String();
     return data;
   }
 }

@@ -1,7 +1,17 @@
-import 'package:flutter/material.dart';
-import 'package:ricardo/feature/view/home/link_export_file.dart';
+import 'dart:async';
 
-class MapView extends StatelessWidget {
+import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:ricardo/feature/controllers/home/map/map_opt_controller.dart';
+
+/// Google Map host for [MapScreen].
+///
+/// Rebuilds only when [MapOPTController.liveOverlayRevision] (or discrete
+/// ride state) changes — **not** on every LatLng Rx tick. That avoids
+/// MapController thrashing and Maps tile REQUEST_TIMEOUT floods while keeping
+/// car markers at ~10 FPS during motion.
+class MapView extends StatefulWidget {
   const MapView({
     super.key,
     required this.mapOPTController,
@@ -10,7 +20,7 @@ class MapView extends StatelessWidget {
     required this.markersBuilder,
     required this.polylines,
     required this.onMapCreated,
-    this.onCameraMove,
+    required this.onCameraMove,
   });
 
   final MapOPTController mapOPTController;
@@ -19,83 +29,73 @@ class MapView extends StatelessWidget {
   final Set<Marker> Function() markersBuilder;
   final Set<Polyline> polylines;
   final void Function(GoogleMapController) onMapCreated;
-  final void Function(CameraPosition)? onCameraMove;
+  final void Function(CameraPosition) onCameraMove;
+
+  @override
+  State<MapView> createState() => _MapViewState();
+}
+
+class _MapViewState extends State<MapView> {
+  Worker? _overlayWorker;
+  Timer? _coalesceTimer;
+  bool _rebuildQueued = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _overlayWorker = everAll(
+      [
+        widget.mapOPTController.liveOverlayRevision,
+        widget.mapOPTController.markerAssetsRevision,
+        widget.mapOPTController.rideStatusData,
+        widget.mapOPTController.getRideDriverLocation,
+      ],
+      (_) => _scheduleRebuild(),
+    );
+  }
+
+  void _scheduleRebuild() {
+    if (!mounted || _rebuildQueued) return;
+    _rebuildQueued = true;
+    _coalesceTimer?.cancel();
+    // Coalesce bursts so GoogleMap is not rebuilt faster than ~20 FPS.
+    _coalesceTimer = Timer(const Duration(milliseconds: 50), () {
+      _rebuildQueued = false;
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _coalesceTimer?.cancel();
+    _overlayWorker?.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final screenHeight = MediaQuery.sizeOf(context).height;
-    final mapPadding = EdgeInsets.fromLTRB(
-      16,
-      (screenHeight * 0.14).clamp(90.0, 140.0),
-      16,
-      (screenHeight * 0.28).clamp(180.0, 280.0),
+    final c = widget.mapOPTController;
+    final LatLng initialTarget = LatLng(
+      c.currentLatitudePosition?.value ?? widget.defaultLocation.latitude,
+      c.currentLongitudePosition?.value ?? widget.defaultLocation.longitude,
     );
 
-    return Obx(
-      () {
-        final currentLatitude =
-            mapOPTController.currentLatitudePosition?.value ?? 0.0;
-        final currentLongitude =
-            mapOPTController.currentLongitudePosition?.value ?? 0.0;
-        final animatedPosition =
-            mapOPTController.animatedCurrentMarkerPosition.value;
-        final isPassenger = mapOPTController
-                .userController.userModel.value?.userProfile?.role ==
-            AppConstants.passenger;
-        final remoteCoordinates = mapOPTController
-            .getRideDriverLocation.value?.driverLocation?.coordinates;
-        final remoteDriverPosition =
-            mapOPTController.animatedRemoteDriverPosition.value ??
-                (remoteCoordinates != null && remoteCoordinates.length >= 2
-                    ? LatLng(remoteCoordinates[1], remoteCoordinates[0])
-                    : null);
-        final circlePosition = isPassenger && remoteDriverPosition != null
-            ? remoteDriverPosition
-            : (animatedPosition ?? LatLng(currentLatitude, currentLongitude));
-
-        return GoogleMap(
-          mapToolbarEnabled: false,
-          padding: mapPadding,
-          scrollGesturesEnabled: true,
-          rotateGesturesEnabled: false,
-          tiltGesturesEnabled: false,
-          trafficEnabled: false,
-          zoomGesturesEnabled: true,
-          mapType: MapType.normal,
-          buildingsEnabled: true,
-          indoorViewEnabled: false,
-          initialCameraPosition: CameraPosition(
-            target: LatLng(
-              (mapOPTController.currentLatitudePosition?.value ?? 0) != 0
-                  ? mapOPTController.currentLatitudePosition!.value
-                  : defaultLocation.latitude,
-              (mapOPTController.currentLongitudePosition?.value ?? 0) != 0
-                  ? mapOPTController.currentLongitudePosition!.value
-                  : defaultLocation.longitude,
-            ),
-            zoom: currentZoom,
-            bearing: 0,
-            tilt: 0,
-          ),
-          markers: markersBuilder(),
-          polylines: polylines,
-          onMapCreated: onMapCreated,
-          onCameraMove: onCameraMove,
-          myLocationButtonEnabled: false,
-          zoomControlsEnabled: false,
-          compassEnabled: false,
-          circles: {
-            Circle(
-              circleId: const CircleId('currentDriver'),
-              center: circlePosition,
-              radius: 20,
-              strokeColor: Colors.white,
-              strokeWidth: 2,
-              fillColor: const Color(0xFF006491).withOpacity(0.2),
-            ),
-          },
-        );
-      },
+    return GoogleMap(
+      initialCameraPosition: CameraPosition(
+        target: initialTarget,
+        zoom: widget.currentZoom,
+      ),
+      onMapCreated: widget.onMapCreated,
+      markers: widget.markersBuilder(),
+      polylines: widget.polylines,
+      myLocationEnabled: false,
+      myLocationButtonEnabled: false,
+      zoomControlsEnabled: false,
+      mapToolbarEnabled: false,
+      compassEnabled: false,
+      rotateGesturesEnabled: true,
+      tiltGesturesEnabled: false,
+      onCameraMove: widget.onCameraMove,
     );
   }
 }

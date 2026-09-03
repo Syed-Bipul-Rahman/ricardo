@@ -48,9 +48,7 @@ extension _Routes on _MapScreenState {
       if (routeGeneration != _routeGeneration) return;
       if (activeRoutePoints.isEmpty) return;
 
-      _fullRoutePoints = List.from(activeRoutePoints);
-      _lastAnimatedRouteUpdateAt = null;
-      _routeTarget = pickupLocation;
+      _setRoadRoute(activeRoutePoints, pickupLocation, seed: driverLocation);
 
       if (!mounted) return;
       setState(() {
@@ -132,9 +130,7 @@ extension _Routes on _MapScreenState {
       if (routeGeneration != _routeGeneration) return;
       if (activeRoutePoints.isEmpty) return;
 
-      _fullRoutePoints = List.from(activeRoutePoints);
-      _lastAnimatedRouteUpdateAt = null;
-      _routeTarget = destinationLocation;
+      _setRoadRoute(activeRoutePoints, destinationLocation, seed: driverLocation);
 
       if (!mounted) return;
       setState(() {
@@ -164,6 +160,24 @@ extension _Routes on _MapScreenState {
     } catch (e) {
       debugPrint('_loadAcceptedRideRoute error: $e');
     }
+  }
+
+  void _setRoadRoute(List<LatLng> points, LatLng target, {LatLng? seed}) {
+    _fullRoutePoints = List<LatLng>.from(points);
+    _routeProgressIndex = 0;
+    _routeTarget = target;
+    _lastAnimatedRouteUpdateAt = null;
+    if (seed != null && _fullRoutePoints.length >= 2) {
+      final projection = _nearestPointOnRoute(seed, _fullRoutePoints);
+      _routeProgressIndex = projection.segmentIndex;
+    }
+  }
+
+  void _clearRoadRoute() {
+    _fullRoutePoints = <LatLng>[];
+    _routeProgressIndex = 0;
+    _routeTarget = null;
+    _lastAnimatedRouteUpdateAt = null;
   }
 
   void _updateRouteForAnimatedCar(LatLng driverPos) {
@@ -197,11 +211,16 @@ extension _Routes on _MapScreenState {
       return;
     }
 
+    _routeProgressIndex = math.max(
+      _routeProgressIndex,
+      math.max(0, projection.nextPointIndex - 1),
+    );
+
+    // Display remaining road ahead only — never mutate [_fullRoutePoints].
+    // Trimming the source geometry removed turn vertices and caused footpath
+    // chords on the next animation.
     final remaining = _fullRoutePoints.sublist(projection.nextPointIndex);
-    // Keep the visible polyline on the road — never prepend raw GPS which can
-    // sit on the sidewalk after a turn.
     final updatedPoints = [projection.point, ...remaining];
-    _fullRoutePoints = updatedPoints;
 
     if (!mounted) return;
     setState(() {
@@ -218,11 +237,19 @@ extension _Routes on _MapScreenState {
     });
   }
 
+  /// Nearest point on the driving polyline, biased forward from
+  /// [_routeProgressIndex] so sidewalk GPS at turns does not snap onto a
+  /// behind / parallel segment.
   ({
     LatLng point,
     int nextPointIndex,
     double distanceMeters,
-  }) _nearestPointOnRoute(LatLng position, List<LatLng> route) {
+    int segmentIndex,
+  }) _nearestPointOnRoute(
+    LatLng position,
+    List<LatLng> route, {
+    bool relaxForwardBias = false,
+  }) {
     if (route.length == 1) {
       return (
         point: route.first,
@@ -233,18 +260,27 @@ extension _Routes on _MapScreenState {
           route.first.latitude,
           route.first.longitude,
         ),
+        segmentIndex: 0,
       );
     }
 
-    var bestPoint = route.first;
-    var bestNextIndex = 1;
+    // Dense step polylines put vertices every few meters — look back ~80m /
+    // 25 segments so a turn still finds the correct roadway segment.
+    final lookback = relaxForwardBias ? route.length : 25;
+    final searchStart =
+        math.max(0, _routeProgressIndex - lookback).clamp(0, route.length - 2);
+    final searchEnd = route.length - 1;
+
+    var bestPoint = route[searchStart];
+    var bestNextIndex = searchStart + 1;
+    var bestSegmentIndex = searchStart;
     var bestDistance = double.infinity;
     final longitudeScale =
         math.cos(position.latitude * math.pi / 180).abs().clamp(0.01, 1.0);
     final positionX = position.longitude * longitudeScale;
     final positionY = position.latitude;
 
-    for (var i = 0; i < route.length - 1; i++) {
+    for (var i = searchStart; i < searchEnd; i++) {
       final start = route[i];
       final end = route[i + 1];
       final startX = start.longitude * longitudeScale;
@@ -274,6 +310,7 @@ extension _Routes on _MapScreenState {
         bestDistance = distance;
         bestPoint = projected;
         bestNextIndex = i + 1;
+        bestSegmentIndex = i;
       }
     }
 
@@ -281,15 +318,23 @@ extension _Routes on _MapScreenState {
       point: bestPoint,
       nextPointIndex: bestNextIndex,
       distanceMeters: bestDistance,
+      segmentIndex: bestSegmentIndex,
     );
   }
 
   /// Hard snap onto the drivable route. Returns null when no route is loaded
   /// or the position is too far for a safe snap (reroute territory).
-  LatLng? _snapToRoute(LatLng position) {
+  LatLng? _snapToRoute(LatLng position, {bool advanceCursor = false}) {
     if (_fullRoutePoints.length < 2) return null;
     final projection = _nearestPointOnRoute(position, _fullRoutePoints);
-    if (projection.distanceMeters > 50) return null;
+    // Allow lateral snap at turns (sidewalk / lane offset).
+    if (projection.distanceMeters > 80) return null;
+    if (advanceCursor) {
+      _routeProgressIndex = math.max(
+        _routeProgressIndex,
+        projection.segmentIndex,
+      );
+    }
     return projection.point;
   }
 
@@ -300,24 +345,24 @@ extension _Routes on _MapScreenState {
     if (_fullRoutePoints.length < 2) return null;
 
     final fromProj = _nearestPointOnRoute(from, _fullRoutePoints);
-    final toProj = _nearestPointOnRoute(to, _fullRoutePoints);
+    // Prefer road ahead for [to], but fall back to a wider search if needed.
+    var toProj = _nearestPointOnRoute(to, _fullRoutePoints);
+    if (toProj.distanceMeters > 40) {
+      toProj = _nearestPointOnRoute(
+        to,
+        _fullRoutePoints,
+        relaxForwardBias: true,
+      );
+    }
 
-    if (fromProj.distanceMeters > 50 || toProj.distanceMeters > 50) {
+    if (fromProj.distanceMeters > 80 || toProj.distanceMeters > 80) {
       return null;
     }
-    if (toProj.nextPointIndex < fromProj.nextPointIndex) {
-      // GPS noise can briefly reverse along the route index. Still keep the
-      // marker on the road by snapping to the target projection only.
-      if (Geolocator.distanceBetween(
-            fromProj.point.latitude,
-            fromProj.point.longitude,
-            toProj.point.latitude,
-            toProj.point.longitude,
-          ) <
-          0.2) {
-        return [toProj.point];
-      }
-      return [fromProj.point, toProj.point];
+
+    // Never emit a straight chord when GPS projects "backward" — that chord
+    // cuts the corner onto footpaths. Hold on the roadway only.
+    if (toProj.segmentIndex < fromProj.segmentIndex) {
+      return [fromProj.point];
     }
 
     // Road points only — never raw GPS (sidewalk drift).
@@ -337,6 +382,18 @@ extension _Routes on _MapScreenState {
           toProj.point.longitude,
         ) >
         0.01) {
+      path.add(toProj.point);
+    }
+
+    // Same-segment hop still needs 2 points so the marker eases along the road.
+    if (path.length == 1 &&
+        Geolocator.distanceBetween(
+              fromProj.point.latitude,
+              fromProj.point.longitude,
+              toProj.point.latitude,
+              toProj.point.longitude,
+            ) >
+            0.2) {
       path.add(toProj.point);
     }
 
@@ -410,7 +467,7 @@ extension _Routes on _MapScreenState {
       final newRoute =
           await DirectionsService.getPolyline(driverPos, _routeTarget!);
       if (routeGeneration == _routeGeneration && newRoute.isNotEmpty) {
-        _fullRoutePoints = newRoute;
+        _setRoadRoute(newRoute, _routeTarget!, seed: driverPos);
         updatePolylineForDriverPosition(driverPos);
       }
     } catch (e) {

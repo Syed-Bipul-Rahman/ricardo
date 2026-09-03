@@ -140,9 +140,19 @@ extension _Markers on _MapScreenState {
     final start =
         mapOPTController.animatedCurrentMarkerPosition.value ?? fallback;
     final distance = _distanceBetween(start, target);
-    final speed = reportedSpeedMps.isFinite && reportedSpeedMps > 0.5
-        ? reportedSpeedMps.clamp(0.5, 55.0).toDouble()
-        : 8.33;
+    final isStopped = !reportedSpeedMps.isFinite || reportedSpeedMps < 0.5;
+
+    if (isStopped || distance < 0.5) {
+      _currentMarkerAnimation?.cancel();
+      final snapped = _snapToRoute(target, advanceCursor: true) ?? target;
+      mapOPTController.animatedCurrentMarkerSpeedMps.value = 0;
+      mapOPTController.animatedCurrentMarkerPosition.value = snapped;
+      updatePolylineForDriverPosition(snapped);
+      mapOPTController.liveOverlayRevision.value++;
+      return;
+    }
+
+    final speed = reportedSpeedMps.clamp(0.5, 55.0).toDouble();
     final heading = distance >= 0.2
         ? _bearingBetween(start, target)
         : mapOPTController.animatedCurrentMarkerHeading.value;
@@ -152,95 +162,124 @@ extension _Markers on _MapScreenState {
     _animateMarker(
       from: start,
       to: target,
-      durationMs: _travelDurationMs(distance, speed),
+      durationMs: _travelDurationMs(
+        distanceMeters: distance,
+        speedMps: speed,
+        updateInterval: null,
+      ),
       curve: Curves.linear,
       startHeading: mapOPTController.animatedCurrentMarkerHeading.value,
       targetHeading: heading,
       cancelPrevious: () => _currentMarkerAnimation?.cancel(),
       saveTimer: (timer) => _currentMarkerAnimation = timer,
       onFrame: (position, rotation) {
-        _updateRouteForAnimatedCar(position);
         mapOPTController.animatedCurrentMarkerPosition.value = position;
         mapOPTController.animatedCurrentMarkerHeading.value = rotation;
+        mapOPTController.liveOverlayRevision.value++;
+        // Route trimming is expensive — do it at sample boundaries, not every frame.
       },
-      onComplete: () => updatePolylineForDriverPosition(target),
+      onComplete: () {
+        final snapped = _snapToRoute(target, advanceCursor: true) ?? target;
+        updatePolylineForDriverPosition(snapped);
+      },
     );
   }
 
-  void _animateRemoteDriverTo(LatLng target) {
-    final coords = mapOPTController
-        .getRideDriverLocation.value?.driverLocation?.coordinates;
-    final fallback = coords != null && coords.length >= 2
-        ? LatLng(coords[1], coords[0])
-        : target;
-    final start =
-        mapOPTController.animatedRemoteDriverPosition.value ?? fallback;
+  /// Passenger live-car update from a validated socket sample.
+  void _applyLiveDriverSample(LiveDriverLocationSample sample) {
+    final target = sample.position;
+    final start = mapOPTController.animatedRemoteDriverPosition.value ??
+        sample.previousPosition ??
+        target;
     final distance = _distanceBetween(start, target);
+    final isPassenger = userController.userModel.value?.userProfile?.role ==
+        AppConstants.passenger;
 
-    // Same as the driver GPS marker: ignore sub-meter jitter, and do not
-    // restart an in-flight animation toward the same point (socket polls
-    // often repeat the last coordinate).
-    final sameTarget = _remoteDriverTarget != null &&
-        _distanceBetween(_remoteDriverTarget!, target) < 0.5;
-    if (distance < 0.5 ||
-        (sameTarget && _remoteDriverAnimation?.isActive == true)) {
-      if (mapOPTController.animatedRemoteDriverPosition.value == null) {
-        mapOPTController.animatedRemoteDriverPosition.value =
-            _snapToRoute(target) ?? target;
+    if (_liveLocationDiag) {
+      debugPrint(
+        '🚗 LIVE sample seq=${sample.sequence} '
+        'lat=${target.latitude.toStringAsFixed(6)} '
+        'lng=${target.longitude.toStringAsFixed(6)} '
+        'speed=${sample.speedMps.toStringAsFixed(2)} '
+        'dist=${sample.distanceFromPreviousMeters.toStringAsFixed(1)}m '
+        'interval=${sample.intervalFromPrevious?.inMilliseconds ?? -1}ms '
+        'dup=${sample.isDuplicate} stopped=${sample.isStopped} '
+        'animStartDist=${distance.toStringAsFixed(1)}m',
+      );
+    }
+
+    mapOPTController.animatedRemoteDriverSpeedMps.value = sample.speedMps;
+
+    // STOP: cancel coasting animation and settle immediately.
+    if (sample.isStopped || sample.isDuplicate) {
+      _remoteDriverAnimation?.cancel();
+      _remoteDriverTarget = target;
+      final snapped = _snapToRoute(target, advanceCursor: true) ?? target;
+      mapOPTController.animatedRemoteDriverPosition.value = snapped;
+      if (sample.headingDegrees > 0 || distance >= 0.2) {
+        mapOPTController.animatedRemoteDriverHeading.value =
+            sample.headingDegrees;
       }
+      if (isPassenger) {
+        updatePolylineForDriverPosition(snapped);
+      }
+      mapOPTController.liveOverlayRevision.value++;
       return;
     }
 
-    final speed = _remoteDriverSpeedMps(fallback, target);
+    final sameTarget = _remoteDriverTarget != null &&
+        _distanceBetween(_remoteDriverTarget!, target) < 0.5;
+    if (sameTarget && _remoteDriverAnimation?.isActive == true) {
+      return;
+    }
+
     final heading = distance >= 0.2
-        ? _bearingBetween(start, target)
+        ? sample.headingDegrees
         : mapOPTController.animatedRemoteDriverHeading.value;
-    mapOPTController.animatedRemoteDriverSpeedMps.value = speed;
     _remoteDriverTarget = target;
     unawaited(_ensureCarTravelVisible(start, target));
-    final isPassenger = userController.userModel.value?.userProfile?.role ==
-        AppConstants.passenger;
+
+    final durationMs = _travelDurationMs(
+      distanceMeters: distance,
+      speedMps: sample.speedMps,
+      updateInterval: sample.intervalFromPrevious ??
+          _liveDriverTracker.lastUpdateInterval,
+    );
+
+    if (_liveLocationDiag) {
+      debugPrint(
+        '🚗 LIVE animate duration=${durationMs}ms '
+        'speed=${sample.speedMps.toStringAsFixed(2)} '
+        'from=(${start.latitude.toStringAsFixed(5)},${start.longitude.toStringAsFixed(5)}) '
+        'to=(${target.latitude.toStringAsFixed(5)},${target.longitude.toStringAsFixed(5)})',
+      );
+    }
 
     _animateMarker(
       from: start,
       to: target,
-      durationMs: _travelDurationMs(distance, speed),
+      durationMs: durationMs,
       curve: Curves.linear,
       startHeading: mapOPTController.animatedRemoteDriverHeading.value,
       targetHeading: heading,
       cancelPrevious: () => _remoteDriverAnimation?.cancel(),
       saveTimer: (timer) => _remoteDriverAnimation = timer,
       onFrame: (position, rotation) {
-        if (isPassenger) _updateRouteForAnimatedCar(position);
         mapOPTController.animatedRemoteDriverPosition.value = position;
         mapOPTController.animatedRemoteDriverHeading.value = rotation;
+        mapOPTController.liveOverlayRevision.value++;
       },
-      onComplete:
-          isPassenger ? () => updatePolylineForDriverPosition(target) : null,
+      onComplete: () {
+        if (isPassenger) {
+          final snapped = _snapToRoute(target, advanceCursor: true) ?? target;
+          _updateRouteForAnimatedCar(snapped);
+          updatePolylineForDriverPosition(snapped);
+        }
+        if (_liveLocationDiag) {
+          debugPrint('🚗 LIVE animate complete seq=${sample.sequence}');
+        }
+      },
     );
-  }
-
-  /// Derive a GPS-like speed so the passenger car interpolates the same way
-  /// the driver car does from `Position.speed`. Burst/duplicate socket
-  /// samples are ignored so the marker does not teleport.
-  double _remoteDriverSpeedMps(LatLng previousSocket, LatLng target) {
-    final previousSpeed = mapOPTController.animatedRemoteDriverSpeedMps.value;
-    final lastUpdate = mapOPTController.lastDriverLocationSocketAt.value;
-    final intervalMs = lastUpdate == null
-        ? 1000
-        : DateTime.now().difference(lastUpdate).inMilliseconds;
-    final sampleDistance = _distanceBetween(previousSocket, target);
-    final hasCleanSample = intervalMs >= 800 && sampleDistance >= 3;
-    if (hasCleanSample) {
-      final measured =
-          (sampleDistance / (intervalMs / 1000)).clamp(0.5, 55.0).toDouble();
-      if (previousSpeed > 0.5) {
-        return previousSpeed * 0.6 + measured * 0.4;
-      }
-      return measured;
-    }
-    if (previousSpeed > 0.5) return previousSpeed;
-    return 8.33;
   }
 
   void _animateMarker({
@@ -260,43 +299,56 @@ extension _Markers on _MapScreenState {
     // Prefer the road geometry between the two GPS samples. Path endpoints are
     // route-snapped so sidewalk GPS drift cannot pull the marker off the road.
     final routePath = _routeAnimationPath(from, to);
+    final bool hasRoad = _fullRoutePoints.length >= 2;
     final LatLng animFrom;
     final LatLng animTo;
     if (routePath != null && routePath.isNotEmpty) {
       animFrom = routePath.first;
       animTo = routePath.last;
+    } else if (hasRoad) {
+      animFrom = _snapToRoute(from) ?? (_snapToRoute(to) ?? from);
+      animTo = _snapToRoute(to) ?? animFrom;
     } else {
-      // No usable route segment — still snap onto the road when possible so
-      // the marker never intentionally sits on a sidewalk GPS sample.
-      animFrom = _snapToRoute(from) ?? from;
-      animTo = _snapToRoute(to) ?? to;
+      animFrom = from;
+      animTo = to;
     }
+
+    final List<LatLng>? effectivePath =
+        (routePath != null && routePath.length >= 2)
+            ? routePath
+            : (!hasRoad ? <LatLng>[animFrom, animTo] : routePath);
 
     onFrame(
       animFrom,
-      routePath != null && routePath.length >= 2
-          ? _bearingBetween(routePath.first, routePath[1])
+      effectivePath != null && effectivePath.length >= 2
+          ? _bearingBetween(effectivePath.first, effectivePath[1])
           : startHeading,
     );
 
-    final chordDistance = Geolocator.distanceBetween(
-      animFrom.latitude,
-      animFrom.longitude,
-      animTo.latitude,
-      animTo.longitude,
-    );
-    if (chordDistance < 0.2) {
+    final travelMeters = effectivePath != null && effectivePath.length >= 2
+        ? _routePathLengthMeters(effectivePath)
+        : Geolocator.distanceBetween(
+            animFrom.latitude,
+            animFrom.longitude,
+            animTo.latitude,
+            animTo.longitude,
+          );
+
+    // Tiny hop or single on-road hold — settle immediately.
+    if (travelMeters < 0.2) {
       onFrame(animTo, targetHeading);
       onComplete?.call();
       return;
     }
 
-    // Preserve caller wall-clock timing on straight roads. Around turns the
-    // road arc is longer than the GPS chord — scale duration so the marker
-    // keeps the same speed instead of racing the short sidewalk chord.
-    final roadDistance = routePath != null && routePath.length >= 2
-        ? _routePathLengthMeters(routePath)
-        : chordDistance;
+    // If we have a road but failed to build a multi-point path, still move
+    // along the two snapped road points (same segment) — never raw GPS.
+    final List<LatLng> pathForAnim = (effectivePath != null &&
+            effectivePath.length >= 2)
+        ? effectivePath
+        : (hasRoad ? <LatLng>[animFrom, animTo] : <LatLng>[animFrom, animTo]);
+
+    final roadDistance = _routePathLengthMeters(pathForAnim);
     final rawChord = Geolocator.distanceBetween(
       from.latitude,
       from.longitude,
@@ -305,24 +357,36 @@ extension _Markers on _MapScreenState {
     );
     final int resolvedDurationMs;
     if (durationMs != null) {
-      if (routePath != null &&
-          roadDistance > 0.2 &&
+      if (roadDistance > 0.2 &&
           rawChord > 0.2 &&
           roadDistance > rawChord * 1.05) {
-        resolvedDurationMs =
-            (durationMs * (roadDistance / rawChord)).clamp(250, 30000).round();
+        final scaled = (durationMs * (roadDistance / rawChord)).round();
+        resolvedDurationMs = scaled.clamp(
+          math.max(80, durationMs),
+          math.max(durationMs, (durationMs * 1.35).round()),
+        );
       } else {
         resolvedDurationMs = durationMs;
       }
     } else {
-      resolvedDurationMs = _travelDurationMs(roadDistance, 8.33);
+      resolvedDurationMs = _travelDurationMs(
+        distanceMeters: roadDistance,
+        speedMps: 8.33,
+        updateInterval: null,
+      );
     }
+
+    if (resolvedDurationMs <= 0) {
+      onFrame(animTo, targetHeading);
+      onComplete?.call();
+      return;
+    }
+
     final startedAt = DateTime.now();
     final headingDelta = ((targetHeading - startHeading + 540) % 360) - 180;
 
     late final Timer timer;
-    // Native map overlays are expensive to update. At driving speeds, 20 FPS
-    // remains smooth while leaving enough frame time for map gestures/tiles.
+    // ~20 FPS for Uber-like continuous motion without starving map tiles.
     timer = Timer.periodic(const Duration(milliseconds: 50), (_) {
       if (!mounted) {
         timer.cancel();
@@ -335,25 +399,25 @@ extension _Markers on _MapScreenState {
 
       LatLng position;
       double rotation;
-      if (routePath != null && routePath.length >= 2) {
-        final alongRoute = _positionAlongRoutePath(routePath, eased);
+      if (pathForAnim.length >= 2 && hasRoad) {
+        final alongRoute = _positionAlongRoutePath(pathForAnim, eased);
         position = alongRoute.position;
         rotation = alongRoute.bearing;
-      } else if (routePath != null && routePath.length == 1) {
-        position = routePath.first;
-        rotation = targetHeading;
+      } else if (pathForAnim.length >= 2) {
+        final alongRoute = _positionAlongRoutePath(pathForAnim, eased);
+        position = alongRoute.position;
+        rotation = alongRoute.bearing != 0
+            ? alongRoute.bearing
+            : (startHeading + headingDelta * eased + 360) % 360;
       } else {
-        position = LatLng(
-          animFrom.latitude + (animTo.latitude - animFrom.latitude) * eased,
-          animFrom.longitude +
-              (animTo.longitude - animFrom.longitude) * eased,
-        );
-        rotation = (startHeading + headingDelta * eased + 360) % 360;
+        position = animTo;
+        rotation = targetHeading;
       }
 
-      // Explicit road lock: never emit a sidewalk/off-road coordinate while a
-      // route is active. Turns must stay on the drivable path.
-      position = _snapToRoute(position) ?? position;
+      // Explicit road lock while a route is active.
+      if (hasRoad) {
+        position = _snapToRoute(position) ?? position;
+      }
 
       onFrame(position, rotation);
       if (progress >= 1) {
@@ -377,10 +441,30 @@ extension _Markers on _MapScreenState {
     return total;
   }
 
-  int _travelDurationMs(double distanceMeters, double speedMps) {
-    if (distanceMeters < 0.2) return 0;
-    final safeSpeed = speedMps.clamp(0.5, 55.0);
-    return ((distanceMeters / safeSpeed) * 1000).clamp(250, 30000).round();
+  /// Catch-up duration so the marker stays near the live vehicle.
+  /// Long intervals used to animate for up to 2.5s — that made the car feel
+  /// permanently late vs Uber/Pathao. New samples retarget immediately.
+  int _travelDurationMs({
+    required double distanceMeters,
+    required double speedMps,
+    required Duration? updateInterval,
+  }) {
+    if (distanceMeters < 0.2 || speedMps < 0.15) return 0;
+
+    final fromSpeedMs =
+        ((distanceMeters / speedMps.clamp(0.15, 55.0)) * 1000).round();
+
+    final intervalMs = updateInterval?.inMilliseconds;
+    final int candidate;
+    if (intervalMs != null && intervalMs > 0) {
+      // Finish slightly before the next sample so we never trail a full cycle.
+      candidate = math.min(fromSpeedMs, (intervalMs * 0.85).round());
+    } else {
+      candidate = fromSpeedMs;
+    }
+
+    // Snappy catch-up window: smooth enough, never multi-second lag.
+    return candidate.clamp(80, 550);
   }
 
   double _distanceBetween(LatLng from, LatLng to) {

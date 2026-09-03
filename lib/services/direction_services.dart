@@ -11,17 +11,26 @@ import 'package:ricardo/feature/controllers/home/google_search_location_controll
 class DirectionsService {
   static final String _apiKey = dotenv.env['MAP_API_KEY'] ?? '';
 
+  /// Driving-only Directions URL. Never use walking/transit — those draw
+  /// footpaths and cut corners the car must not follow.
+  static Uri _directionsUri(LatLng from, LatLng to) {
+    return Uri.parse(
+      'https://maps.googleapis.com/maps/api/directions/json'
+      '?origin=${from.latitude},${from.longitude}'
+      '&destination=${to.latitude},${to.longitude}'
+      '&mode=driving'
+      '&overview=full'
+      '&units=metric'
+      '&key=$_apiKey',
+    );
+  }
+
   static Future<({int distanceMeters, int durationSeconds})?> getRouteMetrics(
-      LatLng from,
-      LatLng to,
-      ) async {
+    LatLng from,
+    LatLng to,
+  ) async {
     try {
-      final res = await http.get(Uri.parse(
-        'https://maps.googleapis.com/maps/api/directions/json'
-            '?origin=${from.latitude},${from.longitude}'
-            '&destination=${to.latitude},${to.longitude}'
-            '&key=$_apiKey',
-      ));
+      final res = await http.get(_directionsUri(from, to));
 
       final data = jsonDecode(res.body);
 
@@ -31,8 +40,8 @@ class DirectionsService {
 
       final leg = data['routes'][0]['legs'][0];
       return (
-      distanceMeters: (leg['distance']['value'] as num).round(),
-      durationSeconds: (leg['duration']['value'] as num).round(),
+        distanceMeters: (leg['distance']['value'] as num).round(),
+        durationSeconds: (leg['duration']['value'] as num).round(),
       );
     } catch (e) {
       print('Error fetching route metrics: $e');
@@ -42,12 +51,7 @@ class DirectionsService {
 
   static Future<List<LatLng>> getPolyline(LatLng from, LatLng to) async {
     try {
-      final res = await http.get(Uri.parse(
-        'https://maps.googleapis.com/maps/api/directions/json'
-            '?origin=${from.latitude},${from.longitude}'
-            '&destination=${to.latitude},${to.longitude}'
-            '&key=$_apiKey',
-      ));
+      final res = await http.get(_directionsUri(from, to));
 
       final data = jsonDecode(res.body);
 
@@ -60,8 +64,8 @@ class DirectionsService {
       final routes = data['routes'] as List?;
       if (routes == null || routes.isEmpty) return [];
 
-      // Prefer detailed step geometry (follows curves) over simplified
-      // overview_polyline, which cuts corners onto footpaths.
+      // Prefer detailed DRIVING step geometry (follows curves on the roadway)
+      // over simplified overview_polyline, which cuts corners onto footpaths.
       final detailed = _decodeDetailedStepPolyline(routes[0]);
       if (detailed.length >= 2) return detailed;
 
@@ -78,7 +82,8 @@ class DirectionsService {
     }
   }
 
-  /// Build a high-resolution route from each step's encoded polyline.
+  /// Build a high-resolution route from each DRIVING step's encoded polyline.
+  /// Walking / access-path steps are skipped so the car never follows a footpath.
   static List<LatLng> _decodeDetailedStepPolyline(dynamic route) {
     try {
       final legs = route['legs'];
@@ -91,6 +96,13 @@ class DirectionsService {
         final steps = leg['steps'];
         if (steps is! List) continue;
         for (final step in steps) {
+          final travelMode = (step['travel_mode'] as String?)?.toUpperCase();
+          // Strict roadway only — skip pedestrian / transit access legs.
+          if (travelMode != null &&
+              travelMode != 'DRIVING' &&
+              travelMode != 'DRIVE') {
+            continue;
+          }
           final encoded = step['polyline']?['points'];
           if (encoded is! String || encoded.isEmpty) continue;
           final decoded = decoder.decodePolyline(encoded);

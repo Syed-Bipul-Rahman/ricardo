@@ -1,8 +1,13 @@
 import 'dart:async';
+
 import 'package:flutter/widgets.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:ricardo/app/helpers/prefs_helper.dart';
+import 'package:ricardo/app/utils/app_constants.dart';
 import 'package:ricardo/services/socket_services.dart';
 
+/// Pushes the driver's live GPS to the backend during an active ride so
+/// passenger polls (`get-driver-location`) return fresh coordinates.
 class DriverLocationService with WidgetsBindingObserver {
   static final DriverLocationService _instance =
       DriverLocationService._internal();
@@ -14,23 +19,26 @@ class DriverLocationService with WidgetsBindingObserver {
   }
 
   StreamSubscription<Position>? _positionSubscription;
+  Timer? _stoppedHeartbeat;
   Position? _lastEmittedPosition;
   DateTime? _lastEmittedAt;
-
   String? _rideId;
+  String? _accessToken;
 
   bool get isRunning => _positionSubscription != null;
 
-  /// Start listening location changes
+  /// Start listening location changes and push ride location to the backend.
   void startEmitting(String rideId) {
     stop();
 
     _rideId = rideId;
+    unawaited(_loadToken());
 
     _positionSubscription = Geolocator.getPositionStream(
       locationSettings: const LocationSettings(
-        accuracy: LocationAccuracy.high,
-        distanceFilter: 5,
+        accuracy: LocationAccuracy.bestForNavigation,
+        // 1m so turns/short hops still produce samples (Uber-like).
+        distanceFilter: 1,
       ),
     ).listen(
       (Position position) {
@@ -40,27 +48,64 @@ class DriverLocationService with WidgetsBindingObserver {
         }
 
         if (!_shouldEmit(position)) return;
-        _lastEmittedPosition = position;
-        _lastEmittedAt = DateTime.now();
-
-        SocketServices.socket?.emit(
-          'get-driver-location',
-          {
-            'rideId': rideId,
-          },
-        );
-
-        debugPrint(
-          '📡 Driver moved → emitted location '
-          '(${position.latitude}, ${position.longitude})',
-        );
+        _emitLocation(position);
       },
       onError: (e) {
         debugPrint('❌ Location stream error: $e');
       },
     );
 
+    // While stationary, keep telling the backend/passenger we are still here
+    // so the remote marker can settle at speed 0 instead of coasting.
+    _stoppedHeartbeat = Timer.periodic(const Duration(seconds: 2), (_) {
+      final last = _lastEmittedPosition;
+      if (last == null) return;
+      if (SocketServices.socket?.connected != true) return;
+      if (last.speed >= 0.5) return;
+      final lastAt = _lastEmittedAt;
+      if (lastAt != null &&
+          DateTime.now().difference(lastAt) < const Duration(seconds: 2)) {
+        return;
+      }
+      _emitLocation(last);
+    });
+
     debugPrint('✅ Started location stream for rideId: $rideId');
+  }
+
+  Future<void> _loadToken() async {
+    _accessToken = await PrefsHelper.getString(AppConstants.bearerToken);
+  }
+
+  /// Push actual GPS — this is what the passenger eventually reads back.
+  void _emitLocation(Position position) {
+    _lastEmittedPosition = position;
+    _lastEmittedAt = DateTime.now();
+
+    final token = _accessToken;
+    if (token == null || token.isEmpty) {
+      unawaited(_loadToken());
+    }
+
+    SocketServices.socket?.emit('update-user-location', {
+      'accessToken': _accessToken ?? token,
+      'location': {
+        'type': 'Point',
+        'coordinates': [position.longitude, position.latitude],
+      },
+      'speed': position.speed.isFinite ? position.speed : 0,
+      'heading': position.heading.isFinite ? position.heading : null,
+      'accuracy': position.accuracy.isFinite ? position.accuracy : null,
+      'updatedAt': position.timestamp.toIso8601String(),
+      if (_rideId != null) 'rideId': _rideId,
+    });
+
+    // Also nudge the backend to fan out the latest stored point (passenger
+    // apps that are mid-poll cycle pick it up immediately).
+    final rideId = _rideId;
+    if (rideId != null && rideId.isNotEmpty) {
+      SocketServices.socket?.emit('get-driver-location', {'rideId': rideId});
+    }
   }
 
   bool _shouldEmit(Position position) {
@@ -69,7 +114,10 @@ class DriverLocationService with WidgetsBindingObserver {
     final previous = _lastEmittedPosition;
     final emittedAt = _lastEmittedAt;
     if (previous == null || emittedAt == null) return true;
-    if (DateTime.now().difference(emittedAt) < const Duration(seconds: 2)) {
+
+    final elapsed = DateTime.now().difference(emittedAt);
+    // ~2–3 Hz while moving — close to Uber/Pathao feel over a pull backend.
+    if (elapsed < const Duration(milliseconds: 400)) {
       return false;
     }
 
@@ -79,17 +127,20 @@ class DriverLocationService with WidgetsBindingObserver {
       position.latitude,
       position.longitude,
     );
-    final minimumMovement =
-        position.speed >= 0 && position.speed < 0.5 ? 8.0 : 5.0;
-    if (distance < minimumMovement) return false;
-    if (position.accuracy > 35 && distance < 12) return false;
+    final isStopped = position.speed >= 0 && position.speed < 0.5;
+    if (!isStopped && distance < 1.5 && elapsed < const Duration(seconds: 1)) {
+      return false;
+    }
+    if (isStopped && elapsed < const Duration(seconds: 2)) return false;
+    if (position.accuracy > 35 && distance < 5) return false;
     return true;
   }
 
-  /// Stop service
   void stop() {
     _positionSubscription?.cancel();
     _positionSubscription = null;
+    _stoppedHeartbeat?.cancel();
+    _stoppedHeartbeat = null;
     _lastEmittedPosition = null;
     _lastEmittedAt = null;
 

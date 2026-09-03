@@ -25,11 +25,27 @@ extension _Tracking on _MapScreenState {
     String? token = await PrefsHelper.getString(AppConstants.bearerToken);
 
     _positionStream = Geolocator.getPositionStream(
-      locationSettings: const LocationSettings(
+      locationSettings: LocationSettings(
         accuracy: LocationAccuracy.bestForNavigation,
-        distanceFilter: 3,
+        distanceFilter: mapOPTController.isInActiveRide ? 1 : 3,
       ),
     ).listen((Position position) async {
+      if (_liveLocationDiag) {
+        final isDriver = userController.userModel.value?.userProfile?.role ==
+            AppConstants.driver;
+        if (isDriver && mapOPTController.isInActiveRide) {
+          debugPrint(
+            '🛰️ DRIVER GPS '
+            'lat=${position.latitude.toStringAsFixed(6)} '
+            'lng=${position.longitude.toStringAsFixed(6)} '
+            'speed=${position.speed.toStringAsFixed(2)} '
+            'acc=${position.accuracy.toStringAsFixed(1)} '
+            'hdg=${position.heading.toStringAsFixed(1)} '
+            'ts=${position.timestamp}',
+          );
+        }
+      }
+
       _updateLocalMarker(position);
 
       if (_lastSentPosition == null) {
@@ -48,11 +64,18 @@ extension _Tracking on _MapScreenState {
       );
 
       final now = DateTime.now();
-      final heartbeatDue = mapOPTController.isInActiveRide &&
-          (_lastLocationSentAt == null ||
+      final inRide = mapOPTController.isInActiveRide;
+      // During an active ride, push more often so passenger polls see fresh
+      // coordinates (Uber/Pathao-like). Outside rides, keep quieter cadence.
+      final heartbeatDue = inRide
+          ? (_lastLocationSentAt == null ||
+              now.difference(_lastLocationSentAt!) >=
+                  const Duration(milliseconds: 500))
+          : (_lastLocationSentAt == null ||
               now.difference(_lastLocationSentAt!) >=
                   const Duration(seconds: 10));
-      if (distance >= 3 || heartbeatDue) {
+      final movedEnough = inRide ? distance >= 1.5 : distance >= 3;
+      if (movedEnough || heartbeatDue) {
         if (sendLocation(position, token)) {
           _lastSentPosition = position;
           _lastLocationSentAt = now;
@@ -73,6 +96,7 @@ extension _Tracking on _MapScreenState {
     } else {
       _currentMarkerAnimation?.cancel();
       mapOPTController.animatedCurrentMarkerPosition.value = target;
+      mapOPTController.liveOverlayRevision.value++;
     }
     mapOPTController.currentLatitudePosition?.value = position.latitude;
     mapOPTController.currentLongitudePosition?.value = position.longitude;
@@ -95,22 +119,39 @@ extension _Tracking on _MapScreenState {
 
     final socketConnected = SocketServices.socket?.connected == true;
     if (socketConnected) {
+      // Keep GeoJSON Point intact for strict backends. Optional telemetry is
+      // sent as sibling fields — ignored by older servers, useful when newer
+      // ones forward them into get-ride-driver-location.
       SocketServices.socket?.emit('update-user-location', {
         "accessToken": token,
         "location": {
           "type": "Point",
-          "coordinates": [newLocation.longitude, newLocation.latitude]
-        }
+          "coordinates": [newLocation.longitude, newLocation.latitude],
+        },
+        "speed": position.speed.isFinite ? position.speed : 0,
+        "heading": position.heading.isFinite ? position.heading : null,
+        "accuracy": position.accuracy.isFinite ? position.accuracy : null,
+        "updatedAt": position.timestamp.toIso8601String(),
       });
+
+      if (_liveLocationDiag && mapOPTController.isInActiveRide) {
+        debugPrint(
+          '📤 update-user-location '
+          'lat=${newLocation.latitude.toStringAsFixed(6)} '
+          'lng=${newLocation.longitude.toStringAsFixed(6)} '
+          'speed=${position.speed.toStringAsFixed(2)}',
+        );
+      }
     }
 
-    final isPassenger = userController.userModel.value?.userProfile?.role ==
-        AppConstants.passenger;
-    // During an active ride the passenger watches the driver car, not their
-    // own GPS. Following the passenger pin here fights that animation.
-    if (_mapController != null &&
-        mounted &&
-        !(isPassenger && mapOPTController.isInActiveRide)) {
+    // Never chase the camera on every GPS sample during an active ride.
+    // Continuous animateCamera floods the Maps SDK with tile requests
+    // (REQUEST_TIMEOUT / ImageReader buffer exhaustion) and the marker
+    // appears frozen while tiles/GC dominate. Framing is handled by
+    // _ensureCarTravelVisible on live samples only.
+    if (!mapOPTController.isInActiveRide &&
+        _mapController != null &&
+        mounted) {
       _mapController?.animateCamera(
         CameraUpdate.newCameraPosition(
           CameraPosition(

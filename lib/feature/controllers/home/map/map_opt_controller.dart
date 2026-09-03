@@ -37,6 +37,9 @@ class MapOPTController extends GetxController {
   final RxDouble animatedRemoteDriverSpeedMps = 0.0.obs;
   final RxDouble animatedCurrentMarkerHeading = 0.0.obs;
   final RxDouble animatedRemoteDriverHeading = 0.0.obs;
+  /// Bumped once per live-marker paint (after lat+heading written).
+  /// MapView listens to this alone so position/heading don't each force a rebuild.
+  final RxInt liveOverlayRevision = 0.obs;
   final RxInt markerAssetsRevision = 0.obs;
   final prefetchedPickupDistance = 0.obs;
   final prefetchedPickupDuration = 0.obs;
@@ -688,13 +691,15 @@ class MapOPTController extends GetxController {
 
   /// Both passenger and driver emit this; backend replies on the same socket
   /// with [get-ride-driver-location].
+  ///
+  /// Throttled at ~2 Hz so location stays near real-time without flooding.
   void maybeEmitGetDriverLocation(String rideId) {
     if (rideId.isEmpty || !SocketServices.isConnected) return;
 
     final now = DateTime.now();
     if (_lastGetDriverLocationEmitAt != null &&
         now.difference(_lastGetDriverLocationEmitAt!) <
-            const Duration(seconds: 1)) {
+            const Duration(milliseconds: 350)) {
       return;
     }
 
@@ -737,8 +742,11 @@ class MapOPTController extends GetxController {
     if (isDriver) {
       DriverLocationService().startEmitting(rideId);
     } else {
+      // Passenger pull cadence — backend stores coords from update-user-location
+      // and returns them on get-ride-driver-location. 350ms keeps the marker
+      // close to the vehicle without saturating the socket.
       _rideLocationSyncTimer = Timer.periodic(
-        const Duration(seconds: 1),
+        const Duration(milliseconds: 350),
         (_) => maybeEmitGetDriverLocation(rideId),
       );
     }

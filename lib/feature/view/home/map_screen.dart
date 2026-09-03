@@ -7,6 +7,7 @@ import 'package:flutter_compass/flutter_compass.dart';
 import 'package:ricardo/feature/models/home/ride_status_model.dart'
     as RideModel;
 import 'package:ricardo/feature/models/socket/accept_ride_model.dart';
+import 'package:ricardo/feature/view/home/map/helpers/live_driver_location_tracker.dart';
 import 'link_export_file.dart';
 
 part 'map/parts/_bootstrap.part.dart';
@@ -35,7 +36,12 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
   List<LatLng> polylineCoordinates = [];
   StreamSubscription<Position>? positionStream;
 
+  /// Full driving-route geometry (immutable until refetch). Never trim this —
+  /// trimming destroyed turn vertices and let the car cut corners / footpaths.
   List<LatLng> _fullRoutePoints = [];
+  /// Forward progress cursor into [_fullRoutePoints] so snaps prefer the road
+  /// ahead through turns instead of a nearer sidewalk-side segment behind.
+  int _routeProgressIndex = 0;
   LatLng? _routeTarget;
   bool _isReFetchingRoute = false;
   int _routeGeneration = 0;
@@ -62,7 +68,12 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
   Timer? _currentMarkerAnimation;
   Timer? _remoteDriverAnimation;
   LatLng? _remoteDriverTarget;
+  final LiveDriverLocationTracker _liveDriverTracker =
+      LiveDriverLocationTracker();
   bool _isKeepingCarVisible = false;
+  DateTime? _lastCarTravelCameraAt;
+  // Toggle live location pipeline diagnostics in debug consoles.
+  final bool _liveLocationDiag = false;
 
   @override
   void initState() {
@@ -166,6 +177,13 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
     final controller = _mapController;
     if (controller == null || _isKeepingCarVisible || !mounted) return;
 
+    // Cap camera reframes so Maps tile requests cannot flood (Logcat REQUEST_TIMEOUT).
+    final now = DateTime.now();
+    final last = _lastCarTravelCameraAt;
+    if (last != null && now.difference(last) < const Duration(seconds: 2)) {
+      return;
+    }
+
     _isKeepingCarVisible = true;
     try {
       final bounds = await controller.getVisibleRegion();
@@ -184,6 +202,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
               bounds.northeast.longitude - longitudeMargin;
 
       if (!insideSafeArea) {
+        _lastCarTravelCameraAt = now;
         var minLatitude =
             math.min(currentPosition.latitude, targetPosition.latitude);
         var maxLatitude =
