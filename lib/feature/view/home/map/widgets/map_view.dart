@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:ricardo/feature/controllers/home/map/map_opt_controller.dart';
+import 'package:ricardo/feature/controllers/home/map/ride_controller.dart';
 
 /// Google Map host for [MapScreen].
 ///
@@ -43,12 +44,16 @@ class _MapViewState extends State<MapView> {
   @override
   void initState() {
     super.initState();
+    final rideController = Get.find<RideController>();
     _overlayWorker = everAll(
       [
         widget.mapOPTController.liveOverlayRevision,
         widget.mapOPTController.markerAssetsRevision,
         widget.mapOPTController.rideStatusData,
         widget.mapOPTController.getRideDriverLocation,
+        // Passenger "View In Map" — nearby driver markers depend on these.
+        rideController.drivers,
+        rideController.viewInMapReturn,
       ],
       (_) => _scheduleRebuild(),
     );
