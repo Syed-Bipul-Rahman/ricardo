@@ -8,6 +8,7 @@ import 'package:ricardo/feature/models/home/ride_status_model.dart'
     as RideModel;
 import 'package:ricardo/feature/models/socket/accept_ride_model.dart';
 import 'package:ricardo/feature/view/home/map/helpers/live_driver_location_tracker.dart';
+import 'package:ricardo/feature/view/home/map/helpers/vehicle_motion_engine.dart';
 import 'link_export_file.dart';
 
 part 'map/parts/_bootstrap.part.dart';
@@ -65,13 +66,16 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
   DateTime? _lastLocationSentAt;
   bool _isTracking = false;
   DateTime? _lastHeadingUpdateAt;
-  Timer? _currentMarkerAnimation;
-  Timer? _remoteDriverAnimation;
   LatLng? _remoteDriverTarget;
   final LiveDriverLocationTracker _liveDriverTracker =
       LiveDriverLocationTracker();
+  final VehicleMotionEngine _selfMotionEngine =
+      VehicleMotionEngine(smoothObservedSpeed: true);
+  final VehicleMotionEngine _remoteMotionEngine =
+      VehicleMotionEngine(smoothObservedSpeed: false);
   bool _isKeepingCarVisible = false;
   DateTime? _lastCarTravelCameraAt;
+  LatLng? _pendingCameraTarget;
   // Toggle live location pipeline diagnostics in debug consoles.
   final bool _liveLocationDiag = false;
 
@@ -80,9 +84,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     initMarkers();
-    mapOPTController.currentLatitudePosition?.value = _defaultLocation.latitude;
-    mapOPTController.currentLongitudePosition?.value =
-        _defaultLocation.longitude;
+    _bindVehicleMotionEngines();
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await initializeMap();
@@ -103,9 +105,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
             defaultLocation: _defaultLocation,
             markersBuilder: buildMarkers,
             polylines: _polylines,
-            onMapCreated: (controller) {
-              _mapController = controller;
-            },
+            onMapCreated: _onMapCreated,
             onCameraMove: (_) {
               mapOPTController.notifyMapMoved();
             },
@@ -149,6 +149,16 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
         ],
       ),
     );
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) return;
+    if (!mapOPTController.hasValidCoordinates) {
+      unawaited(getCurrentLocation());
+    } else {
+      unawaited(mapOPTController.maybeRefreshAddress());
+    }
   }
 
   void moveToCurrentLocation() {
@@ -259,8 +269,8 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
 
   @override
   void dispose() {
-    _currentMarkerAnimation?.cancel();
-    _remoteDriverAnimation?.cancel();
+    _selfMotionEngine.dispose();
+    _remoteMotionEngine.dispose();
     _mapController?.dispose();
     WidgetsBinding.instance.removeObserver(this);
     positionStream?.cancel();

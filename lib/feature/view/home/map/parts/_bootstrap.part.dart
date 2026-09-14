@@ -19,6 +19,7 @@ extension _Bootstrap on _MapScreenState {
         } else if (rideStatus.startRide == true) {
           await pickupToDestinationRoute();
         } else if (rideStatus.arrivingRide == true) {
+          _haltVehicleMotion(phase: VehicleMotionPhase.stopped);
           _routeGeneration++;
           _polylines = <Polyline>{};
           _clearRoadRoute();
@@ -38,8 +39,9 @@ extension _Bootstrap on _MapScreenState {
     markers = <Marker>{};
     _clearRoadRoute();
     _remoteDriverTarget = null;
-    _remoteDriverAnimation?.cancel();
-    _currentMarkerAnimation?.cancel();
+    _selfMotionEngine.reset();
+    _remoteMotionEngine.reset();
+    mapOPTController.remoteVehiclePhase.value = VehicleMotionPhase.idle.name;
     _liveDriverTracker.reset();
     _isReFetchingRoute = false;
     if (mounted) setState(() {});
@@ -102,14 +104,7 @@ extension _Bootstrap on _MapScreenState {
   Future<void> initializeMap() async {
     if (!mounted) return;
 
-    final bool hasCached = await _seedFromCachedLocation();
-
-    if (!hasCached) {
-      mapOPTController.currentLatitudePosition?.value =
-          _defaultLocation.latitude;
-      mapOPTController.currentLongitudePosition?.value =
-          _defaultLocation.longitude;
-    }
+    await _seedFromCachedLocation();
     if (!mounted) return;
     setState(() {
       _isLoading = false;
@@ -120,19 +115,20 @@ extension _Bootstrap on _MapScreenState {
     final bool hasPermission = await requestLocationPermission();
     if (!hasPermission) return;
 
-    await getCurrentLocation();
+    // Start the GPS stream before a one-shot fix. On cold start last-known
+    // is null and getCurrentPosition can time out; the stream still delivers.
+    startLocationTracking();
+    unawaited(getCurrentLocation());
     await connectSocket();
     await userController.fetchUser();
     await loadAcceptedRideRoute();
   }
 
   Future<bool> _seedFromCachedLocation() async {
-    final cachedLat = double.tryParse(await PrefsHelper.getString('last_lat'));
-    final cachedLng = double.tryParse(await PrefsHelper.getString('last_lng'));
-    if (cachedLat == null || cachedLng == null) return false;
+    await mapOPTController.seedCachedCoordinates();
+    if (!mapOPTController.hasValidCoordinates) return false;
 
-    mapOPTController.currentLatitudePosition?.value = cachedLat;
-    mapOPTController.currentLongitudePosition?.value = cachedLng;
+    _queueCameraToCurrentLocation();
     if (mounted) {
       setState(() {
         _hasLocation = true;
@@ -169,38 +165,74 @@ extension _Bootstrap on _MapScreenState {
     if (!mounted) return;
 
     if (position == null) {
-      if (_hasLocation) return;
-      setState(() {
-        _errorMessage = 'Could not get your location. Tap retry.';
-        _hasLocation = false;
-      });
+      // Stream may still produce a fix; keep showing the map.
+      unawaited(mapOPTController.maybeRefreshAddress());
       return;
     }
+
+    _applyResolvedPosition(position);
+    await mapOPTController.getLocation(knownPosition: position);
+  }
+
+  void _applyResolvedPosition(Position position) {
+    if (!isValidLatLng(position.latitude, position.longitude)) return;
 
     mapOPTController.currentLatitudePosition?.value = position.latitude;
     mapOPTController.currentLongitudePosition?.value = position.longitude;
     PrefsHelper.setString('last_lat', position.latitude);
     PrefsHelper.setString('last_lng', position.longitude);
-    unawaited(mapOPTController.getLocation());
 
-    setState(() {
-      _hasLocation = true;
-      _errorMessage = '';
-    });
+    if (mounted) {
+      setState(() {
+        _hasLocation = true;
+        _errorMessage = '';
+      });
+    }
 
-    startLocationTracking();
+    _queueCameraToCurrentLocation();
+  }
 
-    if (_mapController != null) {
-      _mapController?.animateCamera(
+  void _queueCameraToCurrentLocation() {
+    final lat = mapOPTController.currentLatitudePosition?.value;
+    final lng = mapOPTController.currentLongitudePosition?.value;
+    if (!isValidLatLng(lat, lng)) return;
+    final target = LatLng(lat!, lng!);
+    if (_mapController == null) {
+      _pendingCameraTarget = target;
+      return;
+    }
+    _pendingCameraTarget = null;
+    mapOPTController.beginProgrammaticCamera();
+    _mapController!.animateCamera(
+      CameraUpdate.newCameraPosition(
+        CameraPosition(
+          target: target,
+          zoom: currentZoom,
+          bearing: 0,
+          tilt: 0,
+        ),
+      ),
+    );
+  }
+
+  void _onMapCreated(GoogleMapController controller) {
+    _mapController = controller;
+    final pending = _pendingCameraTarget;
+    if (pending != null) {
+      _pendingCameraTarget = null;
+      mapOPTController.beginProgrammaticCamera();
+      controller.animateCamera(
         CameraUpdate.newCameraPosition(
           CameraPosition(
-            target: LatLng(position.latitude, position.longitude),
+            target: pending,
             zoom: currentZoom,
             bearing: 0,
             tilt: 0,
           ),
         ),
       );
+      return;
     }
+    _queueCameraToCurrentLocation();
   }
 }

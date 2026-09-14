@@ -3,6 +3,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import 'package:ricardo/app/helpers/prefs_helper.dart';
 import 'package:ricardo/app/utils/app_constants.dart';
+import 'package:ricardo/feature/controllers/home/map/map_opt_controller.dart';
 import 'package:ricardo/feature/controllers/user_controller.dart';
 import 'package:ricardo/feature/models/user_model.dart';
 import 'package:ricardo/feature/view/auth/auth_initial_screen.dart';
@@ -101,6 +102,11 @@ class _SplashScreenState extends State<SplashScreen>
                 user.driverProfile?.vehicleDataUploaded == false)) {
           Get.offAllNamed(AppRoutes.uploadRequirementScreen);
           return;
+        }
+        try {
+          await Get.find<MapOPTController>().seedCachedCoordinates();
+        } catch (e) {
+          debugPrint('Splash location seed skipped: $e');
         }
         Get.offAllNamed(AppRoutes.customBottomNavBar);
       }

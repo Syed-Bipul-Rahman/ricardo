@@ -1,7 +1,7 @@
 part of '../../map_screen.dart';
 
 extension _Tracking on _MapScreenState {
-  void startLocationTracking() async {
+  void startLocationTracking() {
     if (_isTracking) return;
     _isTracking = true;
 
@@ -22,7 +22,12 @@ extension _Tracking on _MapScreenState {
       mapOPTController.headingDegrees.value = normalized;
     });
 
-    String? token = await PrefsHelper.getString(AppConstants.bearerToken);
+    String token = '';
+    unawaited(
+      PrefsHelper.getString(AppConstants.bearerToken).then((value) {
+        token = value;
+      }),
+    );
 
     _positionStream = Geolocator.getPositionStream(
       locationSettings: LocationSettings(
@@ -47,6 +52,7 @@ extension _Tracking on _MapScreenState {
       }
 
       _updateLocalMarker(position);
+      unawaited(mapOPTController.maybeRefreshAddress());
 
       if (_lastSentPosition == null) {
         if (sendLocation(position, token)) {
@@ -94,7 +100,6 @@ extension _Tracking on _MapScreenState {
         reportedSpeedMps: position.speed,
       );
     } else {
-      _currentMarkerAnimation?.cancel();
       mapOPTController.animatedCurrentMarkerPosition.value = target;
       mapOPTController.liveOverlayRevision.value++;
     }
@@ -149,19 +154,8 @@ extension _Tracking on _MapScreenState {
     // (REQUEST_TIMEOUT / ImageReader buffer exhaustion) and the marker
     // appears frozen while tiles/GC dominate. Framing is handled by
     // _ensureCarTravelVisible on live samples only.
-    if (!mapOPTController.isInActiveRide &&
-        _mapController != null &&
-        mounted) {
-      _mapController?.animateCamera(
-        CameraUpdate.newCameraPosition(
-          CameraPosition(
-            target: newLocation,
-            zoom: currentZoom,
-            bearing: 0,
-            tilt: 0,
-          ),
-        ),
-      );
+    if (!mapOPTController.isInActiveRide) {
+      _queueCameraToCurrentLocation();
     }
     return socketConnected;
   }

@@ -180,25 +180,35 @@ class LiveDriverLocationTracker {
     required double previousSpeed,
     required bool preferStopped,
   }) {
+    double raw;
     if (reported != null && reported.isFinite && reported >= 0) {
-      if (reported < stoppedSpeedMps) return 0;
-      return reported.clamp(0.0, 55.0).toDouble();
+      raw = reported.clamp(0.0, 55.0);
+    } else {
+      final seconds = interval.inMilliseconds / 1000.0;
+      if (seconds <= 0) {
+        raw = preferStopped ? 0.0 : previousSpeed;
+      } else if (distanceMeters < duplicateDistanceMeters) {
+        raw = 0.0;
+      } else {
+        raw = (distanceMeters / seconds).clamp(0.0, 55.0);
+      }
     }
 
-    final seconds = interval.inMilliseconds / 1000.0;
-    if (seconds <= 0) return preferStopped ? 0 : previousSpeed;
-
-    if (distanceMeters < duplicateDistanceMeters) {
+    // Stop must reach zero — never keep coasting on an old speed.
+    if (preferStopped || raw < stoppedSpeedMps) {
+      lastSpeedMps = 0;
       return 0;
     }
 
-    final measured = distanceMeters / seconds;
-    if (measured < stoppedSpeedMps) return 0;
-
-    if (previousSpeed > stoppedSpeedMps && !preferStopped) {
-      return (previousSpeed * 0.55 + measured * 0.45).clamp(0.0, 55.0);
+    const alpha = 0.35;
+    const startAlpha = 0.55;
+    if (previousSpeed < stoppedSpeedMps) {
+      lastSpeedMps = startAlpha * raw;
+    } else {
+      lastSpeedMps = alpha * raw + (1 - alpha) * previousSpeed;
     }
-    return measured.clamp(0.0, 55.0);
+    if (lastSpeedMps < stoppedSpeedMps) lastSpeedMps = 0;
+    return lastSpeedMps.clamp(0.0, 55.0);
   }
 
   static bool _isValidCoordinate(double lat, double lng) {

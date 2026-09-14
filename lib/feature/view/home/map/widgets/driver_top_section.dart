@@ -92,55 +92,27 @@ class DriverTopSection extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          FutureBuilder<Map<String, String>>(
-                            future:
-                                DirectionsService().getCurrentAddressParts(),
-                            builder: (context, snapshot) {
-                              if (snapshot.connectionState ==
-                                  ConnectionState.waiting) {
-                                return const Text('Loading...');
-                              }
-                              if (snapshot.hasError || !snapshot.hasData) {
-                                return const Text('Error getting address');
-                              }
-                              return Text(
-                                snapshot.data!['firstLine'] ??
-                                    'No address found',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w700,
-                                  fontFamily: FontFamily.poppins,
-                                  color: const Color(0xff171717),
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                                maxLines: 1,
-                              );
-                            },
+                          Text(
+                            mapOPTController.currentLocationLine1.value,
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              fontFamily: FontFamily.poppins,
+                              color: const Color(0xff171717),
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
                           ),
-                          FutureBuilder<Map<String, String>>(
-                            future:
-                                DirectionsService().getCurrentAddressParts(),
-                            builder: (context, snapshot) {
-                              if (snapshot.connectionState ==
-                                  ConnectionState.waiting) {
-                                return const Text('Loading...');
-                              }
-                              if (snapshot.hasError || !snapshot.hasData) {
-                                return const Text('Error getting address');
-                              }
-                              return Text(
-                                snapshot.data!['secondLine'] ??
-                                    'No address found',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w500,
-                                  fontFamily: FontFamily.poppins,
-                                  color: const Color(0xffA3A3A3),
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                                maxLines: 1,
-                              );
-                            },
+                          Text(
+                            mapOPTController.currentLocationLine2.value,
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                              fontFamily: FontFamily.poppins,
+                              color: const Color(0xffA3A3A3),
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
                           ),
                         ],
                       ),

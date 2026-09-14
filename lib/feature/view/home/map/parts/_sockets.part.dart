@@ -246,6 +246,7 @@ extension _Sockets on _MapScreenState {
 
         if (rideStatus.completeRide == true) {
           debugPrint('🏁✅ ride-status: completeRide=true | role=$role');
+          _haltVehicleMotion(phase: VehicleMotionPhase.arrived);
           _routeGeneration++;
           _polylines = <Polyline>{};
           _clearRoadRoute();
@@ -294,11 +295,13 @@ extension _Sockets on _MapScreenState {
           }
           loadAcceptedRideRoute();
         } else if (rideStatus.arrivingRide == true) {
+          _haltVehicleMotion(phase: VehicleMotionPhase.stopped);
           _routeGeneration++;
           markers.clear();
           _polylines = <Polyline>{};
           _clearRoadRoute();
         } else if (rideStatus.startRide == true) {
+          _haltVehicleMotion(phase: VehicleMotionPhase.idle);
           _routeGeneration++;
           _polylines = <Polyline>{};
           _clearRoadRoute();

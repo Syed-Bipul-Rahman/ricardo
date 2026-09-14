@@ -45,6 +45,7 @@ export 'package:ricardo/feature/view/home/map/dialogs/permission_dialogs.dart';
 export 'package:ricardo/feature/view/home/map/draggable_location_button.dart';
 export 'package:ricardo/feature/view/home/map/driver_location_service.dart';
 export 'package:ricardo/feature/view/home/map/helpers/location_bootstrap_helper.dart';
+export 'package:ricardo/feature/view/home/map/helpers/vehicle_motion_engine.dart';
 export 'package:ricardo/feature/view/home/map/widgets/driver_bottom_panel.dart';
 export 'package:ricardo/feature/view/home/map/widgets/driver_top_section.dart';
 export 'package:ricardo/feature/view/home/map/widgets/location_status_banner.dart';

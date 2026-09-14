@@ -13,9 +13,6 @@ import 'app/helpers/prefs_helper.dart';
 import 'app/utils/app_constants.dart';
 
 void main() async {
-  // Must be called before WidgetsFlutterBinding.ensureInitialized() to prevent
-  // flutter_foreground_task from spawning an uninitialized DartWorker isolate
-  // on iOS that crashes with KERN_CODESIGN_ERROR (EXC_BAD_ACCESS code=50).
   FlutterForegroundTask.initCommunicationPort();
 
   await dotenv.load(fileName: '.env');

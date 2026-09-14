@@ -2,8 +2,8 @@ import 'dart:convert';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:geocoding/geocoding.dart';
 import 'package:ricardo/app/helpers/custom_location_helper.dart';
+import 'package:ricardo/feature/view/home/map/helpers/location_bootstrap_helper.dart';
 import 'package:ricardo/app/helpers/snackbar_helper.dart';
 import 'package:ricardo/feature/models/home/ride_status_model.dart';
 import 'package:ricardo/feature/models/socket/accept_ride_driver_model.dart';
@@ -38,6 +38,7 @@ class MapOPTController extends GetxController {
   final RxDouble animatedRemoteDriverSpeedMps = 0.0.obs;
   final RxDouble animatedCurrentMarkerHeading = 0.0.obs;
   final RxDouble animatedRemoteDriverHeading = 0.0.obs;
+  final RxString remoteVehiclePhase = 'idle'.obs;
   /// Bumped once per live-marker paint (after lat+heading written).
   /// MapView listens to this alone so position/heading don't each force a rebuild.
   final RxInt liveOverlayRevision = 0.obs;
@@ -97,7 +98,9 @@ class MapOPTController extends GetxController {
       rideStatusData,
       (status) => unawaited(_syncWaitingState(status)),
     );
-    getLocation();
+    // Prefetch last GPS only — do not reverse-geocode here. Cold-start
+    // getCurrentPosition races the map screen and often yields "Unknown".
+    unawaited(seedCachedCoordinates());
   }
 
   Timer? _rideRequestTimer;
@@ -144,36 +147,68 @@ class MapOPTController extends GetxController {
   // ***************************************************
 
   RxString currentLocation = 'Fetching location...'.obs;
+  RxString currentLocationLine1 = 'Fetching location...'.obs;
+  RxString currentLocationLine2 = ''.obs;
   RxDouble? currentLatitudePosition = 0.0.obs;
   RxDouble? currentLongitudePosition = 0.0.obs;
+  DateTime? _lastAddressRefreshAt;
   // Heading in degrees clockwise from North. Used to rotate the car marker so
   // it points the way the driver is moving. Stays at the last valid value when
   // the device is stationary (otherwise the icon spins from GPS jitter).
   RxDouble headingDegrees = 0.0.obs;
 
-  Future<void> getLocation() async {
+  bool get hasValidCoordinates => isValidLatLng(
+        currentLatitudePosition?.value,
+        currentLongitudePosition?.value,
+      );
+
+  bool get needsAddressRefresh =>
+      isUnknownAddressText(currentLocation.value);
+
+  Future<void> seedCachedCoordinates() async {
+    final cachedLat = double.tryParse(await PrefsHelper.getString('last_lat'));
+    final cachedLng = double.tryParse(await PrefsHelper.getString('last_lng'));
+    if (!isValidLatLng(cachedLat, cachedLng)) return;
+    currentLatitudePosition?.value = cachedLat!;
+    currentLongitudePosition?.value = cachedLng!;
+  }
+
+  Future<void> maybeRefreshAddress() async {
+    if (!needsAddressRefresh) return;
+    final now = DateTime.now();
+    if (_lastAddressRefreshAt != null &&
+        now.difference(_lastAddressRefreshAt!) < const Duration(seconds: 3)) {
+      return;
+    }
+    _lastAddressRefreshAt = now;
+    await getLocation();
+  }
+
+  Future<void> getLocation({Position? knownPosition}) async {
     try {
-      Position position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-      );
-      currentLatitudePosition?.value = position.latitude;
-      currentLongitudePosition?.value = position.longitude;
-
-      // Convert coordinates to address using geocoding
-      List<Placemark> placemarks = await placemarkFromCoordinates(
-        position.latitude,
-        position.longitude,
-      );
-
-      if (placemarks.isNotEmpty) {
-        Placemark place = placemarks.first;
-
-        currentLocation.value =
-            '${place.street}, ${place.subLocality}, ${place.locality}';
+      Position? position = knownPosition;
+      if (position == null && !hasValidCoordinates) {
+        position = await resolveInitialPosition();
       }
+
+      if (position != null &&
+          isValidLatLng(position.latitude, position.longitude)) {
+        currentLatitudePosition?.value = position.latitude;
+        currentLongitudePosition?.value = position.longitude;
+      }
+
+      final lat = currentLatitudePosition?.value;
+      final lng = currentLongitudePosition?.value;
+      if (!isValidLatLng(lat, lng)) return;
+
+      final parts = await reverseGeocodeAddressParts(lat!, lng!);
+      if (parts == null) return;
+
+      currentLocationLine1.value = parts.firstLine;
+      currentLocationLine2.value = parts.secondLine;
+      currentLocation.value = parts.full;
     } catch (e) {
-      // ✅ Fallback to user address from API if location fails
-      currentLocation.value = 'Location not available';
+      debugPrint('getLocation failed: $e');
     }
   }
 
@@ -716,6 +751,7 @@ class MapOPTController extends GetxController {
     animatedRemoteDriverPosition.value = null;
     animatedRemoteDriverSpeedMps.value = 0;
     animatedRemoteDriverHeading.value = 0;
+    remoteVehiclePhase.value = 'idle';
     lastDriverLocationSocketAt.value = null;
     showCancelReasonDialog.value = false;
     clearPrefetchedRouteEstimates();

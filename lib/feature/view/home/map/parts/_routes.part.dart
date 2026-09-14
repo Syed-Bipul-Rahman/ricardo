@@ -472,6 +472,37 @@ extension _Routes on _MapScreenState {
     );
   }
 
+  /// Bearing of the segment [lookAheadMeters] ahead of [progress] (0..1).
+  /// Speed-dependent look-ahead is chosen by the caller.
+  double _lookAheadBearing(
+    List<LatLng> path,
+    double progress,
+    double lookAheadMeters,
+  ) {
+    if (path.length < 2) return 0;
+    final total = _routePathLengthMeters(path);
+    if (total < 0.01) {
+      return _bearingBetween(path[path.length - 2], path.last);
+    }
+    final ahead = progress.clamp(0.0, 1.0) * total + lookAheadMeters;
+    final aheadProgress = (ahead / total).clamp(0.0, 1.0);
+    return _positionAlongRoutePath(path, aheadProgress).bearing;
+  }
+
+  double? _remainingRouteMeters(LatLng from) {
+    if (_fullRoutePoints.length < 2 || _routeTarget == null) return null;
+    final path = _routeAnimationPath(from, _routeTarget!);
+    if (path == null || path.length < 2) {
+      return Geolocator.distanceBetween(
+        from.latitude,
+        from.longitude,
+        _routeTarget!.latitude,
+        _routeTarget!.longitude,
+      );
+    }
+    return _routePathLengthMeters(path);
+  }
+
   Future<void> reFetchRouteFromDriver(LatLng driverPos) async {
     final routeGeneration = ++_routeGeneration;
     try {

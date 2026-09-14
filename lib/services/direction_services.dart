@@ -1,12 +1,12 @@
 import 'dart:convert';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_polyline_points/flutter_polyline_points.dart';
-import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:get/get.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:http/http.dart' as http;
 import 'package:ricardo/feature/controllers/home/google_search_location_controller.dart';
+import 'package:ricardo/feature/view/home/map/helpers/location_bootstrap_helper.dart';
 
 class DirectionsService {
   static final String _apiKey = dotenv.env['MAP_API_KEY'] ?? '';
@@ -123,45 +123,50 @@ class DirectionsService {
   }
 
   Future<String> getCurrentAddress() async {
-    Position position = await Geolocator.getCurrentPosition(
-      desiredAccuracy: LocationAccuracy.high,
-    );
-    List<Placemark> placemarks = await placemarkFromCoordinates(
-      position.latitude,
-      position.longitude,
-    );
+    try {
+      final position = await resolveInitialPosition();
+      if (position == null) return 'Fetching location...';
 
-    Placemark place = placemarks[0];
-
-    return '${place.street}, ${place.subLocality}, ${place.locality}, ${place.country}';
+      final parts = await reverseGeocodeAddressParts(
+        position.latitude,
+        position.longitude,
+      );
+      return parts?.full ?? 'Fetching location...';
+    } catch (e) {
+      return 'Fetching location...';
+    }
   }
 
   Future<Map<String, String>> getCurrentAddressParts() async {
-    Position position = await Geolocator.getCurrentPosition(
-      desiredAccuracy: LocationAccuracy.high,
-    );
+    try {
+      final position = await resolveInitialPosition();
+      if (position == null) {
+        return {
+          'firstLine': 'Fetching location...',
+          'secondLine': '',
+        };
+      }
 
-    List<Placemark> placemarks = await placemarkFromCoordinates(
-      position.latitude,
-      position.longitude,
-    );
-
-    Placemark place = placemarks[0];
-
-    String firstLine = [
-      place.street,
-      place.subLocality,
-    ].where((e) => e != null && e.trim().isNotEmpty).join(', ');
-
-    String secondLine = [
-      place.locality,
-      place.country,
-    ].where((e) => e != null && e.trim().isNotEmpty).join(', ');
-
-    return {
-      'firstLine': firstLine,
-      'secondLine': secondLine,
-    };
+      final parts = await reverseGeocodeAddressParts(
+        position.latitude,
+        position.longitude,
+      );
+      if (parts == null) {
+        return {
+          'firstLine': 'Fetching location...',
+          'secondLine': '',
+        };
+      }
+      return {
+        'firstLine': parts.firstLine,
+        'secondLine': parts.secondLine,
+      };
+    } catch (e) {
+      return {
+        'firstLine': 'Fetching location...',
+        'secondLine': '',
+      };
+    }
   }
 
   static Future<String> calculateDistance(double? lng, double? lat) async {

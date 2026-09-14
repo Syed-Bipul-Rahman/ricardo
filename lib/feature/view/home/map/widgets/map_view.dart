@@ -5,6 +5,7 @@ import 'package:get/get.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:ricardo/feature/controllers/home/map/map_opt_controller.dart';
 import 'package:ricardo/feature/controllers/home/map/ride_controller.dart';
+import 'package:ricardo/feature/view/home/map/helpers/location_bootstrap_helper.dart';
 
 /// Google Map host for [MapScreen].
 ///
@@ -80,10 +81,11 @@ class _MapViewState extends State<MapView> {
   @override
   Widget build(BuildContext context) {
     final c = widget.mapOPTController;
-    final LatLng initialTarget = LatLng(
-      c.currentLatitudePosition?.value ?? widget.defaultLocation.latitude,
-      c.currentLongitudePosition?.value ?? widget.defaultLocation.longitude,
-    );
+    final lat = c.currentLatitudePosition?.value;
+    final lng = c.currentLongitudePosition?.value;
+    final LatLng initialTarget = isValidLatLng(lat, lng)
+        ? LatLng(lat!, lng!)
+        : widget.defaultLocation;
 
     return GoogleMap(
       initialCameraPosition: CameraPosition(
