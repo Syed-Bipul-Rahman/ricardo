@@ -83,6 +83,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
   LatLng? _pendingCameraTarget;
   // Toggle live location pipeline diagnostics in debug consoles.
   final bool _liveLocationDiag = false;
+  DateTime? _lastMarkerRenderLogAt;
   Worker? _screenAwakeWorker;
 
   @override
@@ -245,6 +246,8 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
     final controller = _mapController;
     if (controller == null || _isKeepingCarVisible || !mounted) return;
     if (!mapOPTController.isInActiveRide) return;
+    // User panned/zoomed — do not steal the camera from marker motion.
+    if (mapOPTController.isLocationButtonVisible.value) return;
 
     final now = DateTime.now();
     final last = _lastCarTravelCameraAt;
@@ -289,35 +292,6 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
     } finally {
       _isKeepingCarVisible = false;
     }
-  }
-
-  /// Soft recenter while the car is animating along the road (north-up).
-  /// Pauses when the user has panned the map (location button visible).
-  void _softFollowCar(LatLng carPosition) {
-    if (!mapOPTController.isInActiveRide) return;
-    if (mapOPTController.isLocationButtonVisible.value) return;
-    final controller = _mapController;
-    if (controller == null || !mounted) return;
-
-    final now = DateTime.now();
-    final last = _lastCarTravelCameraAt;
-    if (last != null &&
-        now.difference(last) < const Duration(milliseconds: 900)) {
-      return;
-    }
-    _lastCarTravelCameraAt = now;
-    mapOPTController.beginProgrammaticCamera();
-    // moveCamera avoids stacked animateCamera tile floods.
-    controller.moveCamera(
-      CameraUpdate.newCameraPosition(
-        CameraPosition(
-          target: carPosition,
-          zoom: currentZoom,
-          bearing: 0,
-          tilt: 0,
-        ),
-      ),
-    );
   }
 
   @override

@@ -47,7 +47,7 @@ extension _Markers on _MapScreenState {
         mapOPTController.animatedCurrentMarkerSpeedMps.value =
             _selfMotionEngine.smoothedSpeedMps;
         mapOPTController.liveOverlayRevision.value++;
-        _softFollowCar(position);
+        _logMarkerRender(position, heading, 'self');
       }
       ..onSettled = () {
         final pos = _selfMotionEngine.displayedPosition;
@@ -70,7 +70,7 @@ extension _Markers on _MapScreenState {
         mapOPTController.remoteVehiclePhase.value =
             _remoteMotionEngine.phase.name;
         mapOPTController.liveOverlayRevision.value++;
-        _softFollowCar(position);
+        _logMarkerRender(position, heading, 'remote');
       }
       ..onSettled = () {
         final isPassenger = userController.userModel.value?.userProfile?.role ==
@@ -179,6 +179,25 @@ extension _Markers on _MapScreenState {
     return result;
   }
 
+  void _logMarkerRender(LatLng position, double heading, String source) {
+    if (!_liveLocationDiag) return;
+    final now = DateTime.now();
+    final last = _lastMarkerRenderLogAt;
+    if (last != null &&
+        now.difference(last) < const Duration(milliseconds: 500)) {
+      return;
+    }
+    _lastMarkerRenderLogAt = now;
+    debugPrint(
+      'MARKER_RENDER ${now.toIso8601String()} '
+      'src=$source '
+      'visual=${position.latitude.toStringAsFixed(6)},'
+      '${position.longitude.toStringAsFixed(6)} '
+      'heading=${heading.toStringAsFixed(1)} '
+      'target=${(_remoteMotionEngine.latestTargetPosition ?? _selfMotionEngine.latestTargetPosition)?.latitude.toStringAsFixed(6)}',
+    );
+  }
+
   void _animateCurrentMarkerTo(
     LatLng target, {
     required double reportedSpeedMps,
@@ -203,38 +222,16 @@ extension _Markers on _MapScreenState {
     }
 
     final start = visual;
-
-    final hasRoad = _fullRoutePoints.length >= 2;
-    final LatLng? snappedTarget =
-        hasRoad ? _snapToRoute(target, advanceCursor: true) : null;
-    if (hasRoad && snappedTarget == null) {
-      if (!_isReFetchingRoute && _routeTarget != null) {
-        _isReFetchingRoute = true;
-        reFetchRouteFromDriver(target);
-      }
-      // Off-route: keep moving toward filtered GPS, never teleport onto the old road.
-      _selfMotionEngine.observe(
-        target: target,
-        path: [start, target],
-        observedSpeedMps: reportedSpeedMps,
-        isStopped: !reportedSpeedMps.isFinite || reportedSpeedMps < 0.5,
-        offRoute: true,
-        observedHeading: reportedHeading,
-      );
-      return;
-    }
-    final roadTarget = snappedTarget ?? target;
+    final liveTarget = _liveMarkerTarget(target);
     final isStopped = !reportedSpeedMps.isFinite || reportedSpeedMps < 0.5;
-    final path =
-        _routeAnimationPath(start, roadTarget) ?? <LatLng>[start, roadTarget];
 
-    unawaited(_ensureCarTravelVisible(start, roadTarget));
+    unawaited(_ensureCarTravelVisible(start, liveTarget));
     _selfMotionEngine.observe(
-      target: roadTarget,
-      path: path,
+      target: liveTarget,
+      path: [start, liveTarget],
       observedSpeedMps: reportedSpeedMps,
       isStopped: isStopped,
-      remainingToDestinationMeters: _remainingRouteMeters(start),
+      offRoute: _fullRoutePoints.length < 2,
       observedHeading: reportedHeading,
     );
   }
@@ -251,29 +248,7 @@ extension _Markers on _MapScreenState {
         mapOPTController.animatedRemoteDriverPosition.value ??
         sample.previousPosition ??
         rawTarget;
-    final isPassenger = userController.userModel.value?.userProfile?.role ==
-        AppConstants.passenger;
-    final hasRoad = _fullRoutePoints.length >= 2;
-
-    final LatLng? snappedTarget =
-        hasRoad ? _snapToRoute(rawTarget, advanceCursor: true) : null;
-    if (hasRoad && snappedTarget == null) {
-      if (!_isReFetchingRoute && _routeTarget != null) {
-        _isReFetchingRoute = true;
-        reFetchRouteFromDriver(rawTarget);
-      }
-      _remoteMotionEngine.observe(
-        target: rawTarget,
-        path: [start, rawTarget],
-        observedSpeedMps: sample.speedMps,
-        isStopped: sample.isStopped,
-        offRoute: true,
-        sampleInterval: sample.intervalFromPrevious,
-        observedHeading: sample.headingDegrees,
-      );
-      return;
-    }
-    final target = snappedTarget ?? rawTarget;
+    final target = _liveMarkerTarget(rawTarget);
 
     final hasValidRemoteVisual = () {
       final visual = _remoteMotionEngine.displayedPosition ??
@@ -297,9 +272,12 @@ extension _Markers on _MapScreenState {
 
     if (_liveLocationDiag) {
       debugPrint(
-        '🚗 LIVE sample seq=${sample.sequence} '
-        'lat=${target.latitude.toStringAsFixed(6)} '
-        'lng=${target.longitude.toStringAsFixed(6)} '
+        'NEW_TARGET ${DateTime.now().toIso8601String()} '
+        'seq=${sample.sequence} '
+        'target=${target.latitude.toStringAsFixed(6)},'
+        '${target.longitude.toStringAsFixed(6)} '
+        'visual=${start.latitude.toStringAsFixed(6)},'
+        '${start.longitude.toStringAsFixed(6)} '
         'speed=${sample.speedMps.toStringAsFixed(2)} '
         'dist=${sample.distanceFromPreviousMeters.toStringAsFixed(1)}m '
         'interval=${sample.intervalFromPrevious?.inMilliseconds ?? -1}ms '
@@ -307,20 +285,41 @@ extension _Markers on _MapScreenState {
       );
     }
 
+    if (sample.isDuplicate) {
+      return;
+    }
+
     mapOPTController.animatedRemoteDriverSpeedMps.value = sample.speedMps;
 
-    final path = _routeAnimationPath(start, target) ?? <LatLng>[start, target];
     unawaited(_ensureCarTravelVisible(start, target));
     _remoteMotionEngine.observe(
       target: target,
-      path: path,
+      path: [start, target],
       observedSpeedMps: sample.speedMps,
       isStopped: sample.isStopped,
-      remainingToDestinationMeters:
-          isPassenger ? _remainingRouteMeters(start) : null,
+      offRoute: _fullRoutePoints.length < 2,
       sampleInterval: sample.intervalFromPrevious,
       observedHeading: sample.headingDegrees,
     );
+  }
+
+  LatLng _liveMarkerTarget(LatLng rawTarget) {
+    if (_fullRoutePoints.length < 2) return rawTarget;
+    final snapped = _snapToRoute(rawTarget, advanceCursor: true);
+    if (snapped == null) {
+      if (!_isReFetchingRoute && _routeTarget != null) {
+        _isReFetchingRoute = true;
+        reFetchRouteFromDriver(rawTarget);
+      }
+      return rawTarget;
+    }
+    final snapMeters = Geolocator.distanceBetween(
+      rawTarget.latitude,
+      rawTarget.longitude,
+      snapped.latitude,
+      snapped.longitude,
+    );
+    return snapMeters <= 20 ? snapped : rawTarget;
   }
 
   void _haltVehicleMotion({

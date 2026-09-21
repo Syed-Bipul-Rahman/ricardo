@@ -40,13 +40,13 @@ extension _Tracking on _MapScreenState {
             AppConstants.driver;
         if (isDriver && mapOPTController.isInActiveRide) {
           debugPrint(
-            '🛰️ DRIVER GPS '
+            'GPS_RECEIVED ${DateTime.now().toIso8601String()} '
             'lat=${position.latitude.toStringAsFixed(6)} '
             'lng=${position.longitude.toStringAsFixed(6)} '
             'speed=${position.speed.toStringAsFixed(2)} '
             'acc=${position.accuracy.toStringAsFixed(1)} '
             'hdg=${position.heading.toStringAsFixed(1)} '
-            'ts=${position.timestamp}',
+            'gpsTs=${position.timestamp}',
           );
         }
       }
@@ -76,11 +76,11 @@ extension _Tracking on _MapScreenState {
       final heartbeatDue = inRide
           ? (_lastLocationSentAt == null ||
               now.difference(_lastLocationSentAt!) >=
-                  const Duration(milliseconds: 500))
+                  const Duration(milliseconds: 400))
           : (_lastLocationSentAt == null ||
               now.difference(_lastLocationSentAt!) >=
                   const Duration(seconds: 10));
-      final movedEnough = inRide ? distance >= 1.5 : distance >= 3;
+      final movedEnough = inRide ? distance >= 1.0 : distance >= 3;
       if (movedEnough || heartbeatDue) {
         if (sendLocation(position, token)) {
           _lastSentPosition = position;
@@ -147,12 +147,13 @@ extension _Tracking on _MapScreenState {
         "speed": position.speed.isFinite ? position.speed : 0,
         "heading": position.heading.isFinite ? position.heading : null,
         "accuracy": position.accuracy.isFinite ? position.accuracy : null,
-        "updatedAt": position.timestamp.toIso8601String(),
+        "updatedAt": DateTime.now().toUtc().toIso8601String(),
       });
 
       if (_liveLocationDiag && mapOPTController.isInActiveRide) {
         debugPrint(
-          '📤 update-user-location '
+          'SOCKET_EMIT ${DateTime.now().toIso8601String()} '
+          'update-user-location '
           'lat=${newLocation.latitude.toStringAsFixed(6)} '
           'lng=${newLocation.longitude.toStringAsFixed(6)} '
           'speed=${position.speed.toStringAsFixed(2)}',

@@ -12,7 +12,8 @@ import 'package:ricardo/feature/view/home/map/helpers/location_bootstrap_helper.
 /// Rebuilds only when [MapOPTController.liveOverlayRevision] (or discrete
 /// ride state) changes — **not** on every LatLng Rx tick. That avoids
 /// MapController thrashing and Maps tile REQUEST_TIMEOUT floods while keeping
-/// car markers at ~10 FPS during motion.
+/// car markers around 30 FPS during motion. The motion engine still chases
+/// the latest GPS on vsync; this coalesce only limits GoogleMap rebuilds.
 class MapView extends StatefulWidget {
   const MapView({
     super.key,
@@ -64,8 +65,8 @@ class _MapViewState extends State<MapView> {
     if (!mounted || _rebuildQueued) return;
     _rebuildQueued = true;
     _coalesceTimer?.cancel();
-    // Coalesce bursts so GoogleMap is not rebuilt faster than ~20 FPS.
-    _coalesceTimer = Timer(const Duration(milliseconds: 50), () {
+    // Coalesce bursts so GoogleMap is not rebuilt faster than ~30 FPS.
+    _coalesceTimer = Timer(const Duration(milliseconds: 33), () {
       _rebuildQueued = false;
       if (mounted) setState(() {});
     });

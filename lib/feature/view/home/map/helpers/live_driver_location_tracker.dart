@@ -3,15 +3,15 @@ import 'dart:math' as math;
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
-/// Validated, ordered remote-driver location samples for the passenger map.
+/// Turns each backend location payload into a marker sample.
 ///
-/// Keeps the latest authoritative position and rejects stale / invalid /
-/// duplicate events so marker animation never moves backward from old data.
+/// The backend already decided what to share. This class only:
+/// - rejects impossible coordinates (NaN / 0,0)
+/// - records the previous point for heading/speed
+/// It does not delay, queue, or drop a newer point because of timestamps.
 class LiveDriverLocationTracker {
-  static const double maxAcceptedAccuracyMeters = 75;
   static const double stoppedSpeedMps = 0.5;
   static const double duplicateDistanceMeters = 0.8;
-  static const Duration maxSampleAge = Duration(seconds: 30);
 
   LatLng? lastAccepted;
   DateTime? lastAcceptedAt;
@@ -20,8 +20,6 @@ class LiveDriverLocationTracker {
   double lastHeading = 0;
   double lastAccuracyMeters = 0;
   int acceptedSequence = 0;
-
-  /// Interval between the last two *accepted* samples (for animation timing).
   Duration? lastUpdateInterval;
 
   void reset() {
@@ -35,7 +33,6 @@ class LiveDriverLocationTracker {
     lastUpdateInterval = null;
   }
 
-  /// Returns null when the sample must be ignored.
   LiveDriverLocationSample? accept({
     required double latitude,
     required double longitude,
@@ -45,85 +42,12 @@ class LiveDriverLocationTracker {
     double? accuracyMeters,
     DateTime? receivedAt,
   }) {
+    if (!_isValidCoordinate(latitude, longitude)) return null;
+
     final now = receivedAt ?? DateTime.now();
-
-    if (!_isValidCoordinate(latitude, longitude)) {
-      return null;
-    }
-
-    if (accuracyMeters != null &&
-        accuracyMeters.isFinite &&
-        accuracyMeters > maxAcceptedAccuracyMeters) {
-      return null;
-    }
-
-    if (gpsTimestamp != null) {
-      if (lastGpsTimestamp != null &&
-          !gpsTimestamp.isAfter(lastGpsTimestamp!)) {
-        return null;
-      }
-      if (now.difference(gpsTimestamp) > maxSampleAge) {
-        return null;
-      }
-    }
-
     final target = LatLng(latitude, longitude);
     final previous = lastAccepted;
     final previousAt = lastAcceptedAt;
-
-    if (previous != null && previousAt != null) {
-      final distance = Geolocator.distanceBetween(
-        previous.latitude,
-        previous.longitude,
-        target.latitude,
-        target.longitude,
-      );
-
-      // Exact / near-duplicate of the last accepted socket sample.
-      if (distance < duplicateDistanceMeters) {
-        final resolvedSpeed = _resolveSpeed(
-          reported: speedMps,
-          distanceMeters: distance,
-          interval: now.difference(previousAt),
-          previousSpeed: lastSpeedMps,
-          preferStopped: true,
-        );
-        lastAcceptedAt = now;
-        lastSpeedMps = resolvedSpeed;
-        if (accuracyMeters != null && accuracyMeters.isFinite) {
-          lastAccuracyMeters = accuracyMeters;
-        }
-        if (gpsTimestamp != null) lastGpsTimestamp = gpsTimestamp;
-        return LiveDriverLocationSample(
-          position: previous,
-          previousPosition: previous,
-          receivedAt: now,
-          gpsTimestamp: gpsTimestamp ?? lastGpsTimestamp,
-          speedMps: resolvedSpeed,
-          headingDegrees: lastHeading,
-          accuracyMeters: lastAccuracyMeters,
-          distanceFromPreviousMeters: distance,
-          intervalFromPrevious: now.difference(previousAt),
-          sequence: acceptedSequence,
-          isDuplicate: true,
-          isStopped: resolvedSpeed < stoppedSpeedMps,
-        );
-      }
-
-      // Reject physically impossible jumps (e.g. delayed/stale burst).
-      final elapsedSec =
-          now.difference(previousAt).inMilliseconds.clamp(1, 60000) / 1000.0;
-      final impliedSpeed = distance / elapsedSec;
-      if (impliedSpeed > 70 && distance > 120) {
-        return null;
-      }
-    }
-
-    final interval = previousAt == null ? null : now.difference(previousAt);
-    if (interval != null) {
-      lastUpdateInterval = interval;
-    }
-
     final distance = previous == null
         ? 0.0
         : Geolocator.distanceBetween(
@@ -132,35 +56,26 @@ class LiveDriverLocationTracker {
             target.latitude,
             target.longitude,
           );
+    final interval = previousAt == null ? null : now.difference(previousAt);
+    if (interval != null) lastUpdateInterval = interval;
 
+    final isDuplicate = previous != null && distance < duplicateDistanceMeters;
     final resolvedSpeed = _resolveSpeed(
       reported: speedMps,
       distanceMeters: distance,
-      interval: interval ?? const Duration(seconds: 1),
+      interval: interval,
       previousSpeed: lastSpeedMps,
-      preferStopped: false,
+      preferStopped: isDuplicate,
+    );
+    final heading = _resolveHeading(
+      reported: headingDegrees,
+      previous: previous,
+      target: target,
+      distance: distance,
+      isStopped: resolvedSpeed < stoppedSpeedMps,
     );
 
-    final heading = () {
-      final reportedOk = headingDegrees != null &&
-          headingDegrees.isFinite &&
-          headingDegrees >= 0;
-      final movement = previous != null && distance >= 1.0
-          ? _bearingBetween(previous, target)
-          : null;
-      if (!reportedOk) {
-        return movement ?? lastHeading;
-      }
-      final h = (headingDegrees % 360 + 360) % 360;
-      // Android uses 0 for both "north" and "unavailable".
-      if (h == 0 && movement != null) {
-        final delta = ((movement - 0 + 540) % 360) - 180;
-        if (delta.abs() > 45) return movement;
-      }
-      return h;
-    }();
-
-    lastAccepted = target;
+    lastAccepted = isDuplicate ? previous : target;
     lastAcceptedAt = now;
     if (gpsTimestamp != null) lastGpsTimestamp = gpsTimestamp;
     lastSpeedMps = resolvedSpeed;
@@ -168,10 +83,10 @@ class LiveDriverLocationTracker {
     if (accuracyMeters != null && accuracyMeters.isFinite) {
       lastAccuracyMeters = accuracyMeters;
     }
-    acceptedSequence += 1;
+    if (!isDuplicate) acceptedSequence += 1;
 
     return LiveDriverLocationSample(
-      position: target,
+      position: lastAccepted!,
       previousPosition: previous,
       receivedAt: now,
       gpsTimestamp: gpsTimestamp ?? lastGpsTimestamp,
@@ -181,47 +96,59 @@ class LiveDriverLocationTracker {
       distanceFromPreviousMeters: distance,
       intervalFromPrevious: interval,
       sequence: acceptedSequence,
-      isDuplicate: false,
+      isDuplicate: isDuplicate,
       isStopped: resolvedSpeed < stoppedSpeedMps,
     );
+  }
+
+  double _resolveHeading({
+    required double? reported,
+    required LatLng? previous,
+    required LatLng target,
+    required double distance,
+    required bool isStopped,
+  }) {
+    if (isStopped) return lastHeading;
+    final movement = previous != null && distance >= 1.0
+        ? _bearingBetween(previous, target)
+        : null;
+    if (reported != null && reported.isFinite && reported >= 0) {
+      final h = (reported % 360 + 360) % 360;
+      if (h == 0 && movement != null) {
+        final delta = ((movement - 0 + 540) % 360) - 180;
+        if (delta.abs() > 45) return movement;
+      }
+      return h;
+    }
+    return movement ?? lastHeading;
   }
 
   double _resolveSpeed({
     required double? reported,
     required double distanceMeters,
-    required Duration interval,
+    required Duration? interval,
     required double previousSpeed,
     required bool preferStopped,
   }) {
     double raw;
     if (reported != null && reported.isFinite && reported >= 0) {
-      raw = reported.clamp(0.0, 55.0);
+      raw = reported;
     } else {
-      final seconds = interval.inMilliseconds / 1000.0;
+      final seconds = (interval?.inMilliseconds ?? 0) / 1000.0;
       if (seconds <= 0) {
         raw = preferStopped ? 0.0 : previousSpeed;
       } else if (distanceMeters < duplicateDistanceMeters) {
         raw = 0.0;
       } else {
-        raw = (distanceMeters / seconds).clamp(0.0, 55.0);
+        raw = distanceMeters / seconds;
       }
     }
-
-    // Stop must reach zero — never keep coasting on an old speed.
     if (preferStopped || raw < stoppedSpeedMps) {
       lastSpeedMps = 0;
       return 0;
     }
-
-    const alpha = 0.35;
-    const startAlpha = 0.55;
-    if (previousSpeed < stoppedSpeedMps) {
-      lastSpeedMps = startAlpha * raw;
-    } else {
-      lastSpeedMps = alpha * raw + (1 - alpha) * previousSpeed;
-    }
-    if (lastSpeedMps < stoppedSpeedMps) lastSpeedMps = 0;
-    return lastSpeedMps.clamp(0.0, 55.0);
+    lastSpeedMps = raw;
+    return raw;
   }
 
   static bool _isValidCoordinate(double lat, double lng) {

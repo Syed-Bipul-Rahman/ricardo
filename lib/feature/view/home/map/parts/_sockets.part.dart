@@ -146,8 +146,8 @@ extension _Sockets on _MapScreenState {
 
           if (_liveLocationDiag) {
             debugPrint(
-              '📍 SOCKET get-ride-driver-location '
-              'recv=${socketReceiveAt.toIso8601String()} '
+              'SOCKET_RECEIVED ${socketReceiveAt.toIso8601String()} '
+              'get-ride-driver-location '
               'lat=${updatedCoords[1]} lng=${updatedCoords[0]} '
               'speed=$speed heading=$heading '
               'accuracy=$accuracy '
