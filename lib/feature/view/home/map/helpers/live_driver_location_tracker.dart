@@ -141,11 +141,24 @@ class LiveDriverLocationTracker {
       preferStopped: false,
     );
 
-    final heading = headingDegrees != null && headingDegrees.isFinite
-        ? (headingDegrees % 360 + 360) % 360
-        : (previous != null && distance >= 0.5
-            ? _bearingBetween(previous, target)
-            : lastHeading);
+    final heading = () {
+      final reportedOk = headingDegrees != null &&
+          headingDegrees.isFinite &&
+          headingDegrees >= 0;
+      final movement = previous != null && distance >= 1.0
+          ? _bearingBetween(previous, target)
+          : null;
+      if (!reportedOk) {
+        return movement ?? lastHeading;
+      }
+      final h = (headingDegrees % 360 + 360) % 360;
+      // Android uses 0 for both "north" and "unavailable".
+      if (h == 0 && movement != null) {
+        final delta = ((movement - 0 + 540) % 360) - 180;
+        if (delta.abs() > 45) return movement;
+      }
+      return h;
+    }();
 
     lastAccepted = target;
     lastAcceptedAt = now;

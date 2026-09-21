@@ -7,6 +7,7 @@ import 'package:flutter_compass/flutter_compass.dart';
 import 'package:ricardo/feature/models/home/ride_status_model.dart'
     as RideModel;
 import 'package:ricardo/feature/models/socket/accept_ride_model.dart';
+import 'package:ricardo/app/helpers/screen_awake_helper.dart';
 import 'package:ricardo/feature/view/home/map/helpers/live_driver_location_tracker.dart';
 import 'package:ricardo/feature/view/home/map/helpers/vehicle_motion_engine.dart';
 import 'link_export_file.dart';
@@ -40,6 +41,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
   /// Full driving-route geometry (immutable until refetch). Never trim this —
   /// trimming destroyed turn vertices and let the car cut corners / footpaths.
   List<LatLng> _fullRoutePoints = [];
+
   /// Forward progress cursor into [_fullRoutePoints] so snaps prefer the road
   /// ahead through turns instead of a nearer sidewalk-side segment behind.
   int _routeProgressIndex = 0;
@@ -58,7 +60,10 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
   bool _hasLocation = true;
   String _errorMessage = '';
 
-  final LatLng _defaultLocation = const LatLng(37.7749, -122.4194);
+  final LatLng _defaultLocation = const LatLng(
+    kMapFallbackLatitude,
+    kMapFallbackLongitude,
+  );
 
   StreamSubscription<Position>? _positionStream;
   StreamSubscription<CompassEvent>? _compassStream;
@@ -78,6 +83,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
   LatLng? _pendingCameraTarget;
   // Toggle live location pipeline diagnostics in debug consoles.
   final bool _liveLocationDiag = false;
+  Worker? _screenAwakeWorker;
 
   @override
   void initState() {
@@ -85,10 +91,12 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     initMarkers();
     _bindVehicleMotionEngines();
+    _bindScreenAwake();
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await initializeMap();
       await loadStatus();
+      _syncScreenAwake();
     });
   }
 
@@ -153,12 +161,56 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    _syncScreenAwake(lifecycle: state);
+
     if (state != AppLifecycleState.resumed) return;
     if (!mapOPTController.hasValidCoordinates) {
       unawaited(getCurrentLocation());
     } else {
       unawaited(mapOPTController.maybeRefreshAddress());
     }
+  }
+
+  void _bindScreenAwake() {
+    final sources = <RxInterface<dynamic>>[
+      mapOPTController.rideStatusData,
+      rideController.isRideAccepted,
+    ];
+    if (Get.isRegistered<CustomBottomNavBarController>()) {
+      sources.add(Get.find<CustomBottomNavBarController>().selectedIndex);
+    }
+    _screenAwakeWorker = everAll(sources, (_) => _syncScreenAwake());
+    _syncScreenAwake();
+  }
+
+  /// Screen stays awake only while this tracking view is in the foreground
+  /// during an active ride. Leaving the tab, backgrounding, or ending the
+  /// ride restores the system timeout.
+  void _syncScreenAwake({AppLifecycleState? lifecycle}) {
+    if (!mounted) {
+      unawaited(ScreenAwakeHelper.release());
+      return;
+    }
+
+    final state = lifecycle ?? WidgetsBinding.instance.lifecycleState;
+    final inForeground = state == null ||
+        state == AppLifecycleState.resumed ||
+        state == AppLifecycleState.inactive;
+
+    var onTrackingTab = true;
+    if (Get.isRegistered<CustomBottomNavBarController>()) {
+      onTrackingTab =
+          Get.find<CustomBottomNavBarController>().selectedIndex.value == 0;
+    }
+
+    final trackingActive = mapOPTController.isInActiveRide ||
+        rideController.isRideAccepted.value == true;
+
+    unawaited(
+      ScreenAwakeHelper.setDesired(
+        trackingActive && onTrackingTab && inForeground,
+      ),
+    );
   }
 
   void moveToCurrentLocation() {
@@ -197,7 +249,8 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
     final now = DateTime.now();
     final last = _lastCarTravelCameraAt;
     // Throttle tile churn; still responsive enough to follow turns.
-    if (last != null && now.difference(last) < const Duration(milliseconds: 750)) {
+    if (last != null &&
+        now.difference(last) < const Duration(milliseconds: 750)) {
       return;
     }
 
@@ -269,6 +322,9 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    _screenAwakeWorker?.dispose();
+    _screenAwakeWorker = null;
+    unawaited(ScreenAwakeHelper.release());
     _selfMotionEngine.dispose();
     _remoteMotionEngine.dispose();
     _mapController?.dispose();

@@ -45,6 +45,7 @@ dependencies:
   http: ^1.1.0
   geolocator: ^10.1.0
   flutter_compass: ^0.8.0
+  wakelock_plus: ^1.2.8
   get: ^4.6.6
   cupertino_icons: ^1.0.6
   shimmer: ^3.0.0

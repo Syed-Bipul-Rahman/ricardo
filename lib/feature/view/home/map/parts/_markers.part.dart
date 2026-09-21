@@ -34,10 +34,8 @@ extension _Markers on _MapScreenState {
 
   void _bindVehicleMotionEngines() {
     _selfMotionEngine
-      ..displayedPosition =
-          mapOPTController.animatedCurrentMarkerPosition.value
-      ..displayedHeading =
-          mapOPTController.animatedCurrentMarkerHeading.value
+      ..displayedPosition = mapOPTController.animatedCurrentMarkerPosition.value
+      ..displayedHeading = mapOPTController.animatedCurrentMarkerHeading.value
       ..alongPath = _positionAlongRoutePath
       ..lookAheadBearing = _lookAheadBearing
       ..isMounted = () {
@@ -57,10 +55,8 @@ extension _Markers on _MapScreenState {
       };
 
     _remoteMotionEngine
-      ..displayedPosition =
-          mapOPTController.animatedRemoteDriverPosition.value
-      ..displayedHeading =
-          mapOPTController.animatedRemoteDriverHeading.value
+      ..displayedPosition = mapOPTController.animatedRemoteDriverPosition.value
+      ..displayedHeading = mapOPTController.animatedRemoteDriverHeading.value
       ..alongPath = _positionAlongRoutePath
       ..lookAheadBearing = _lookAheadBearing
       ..isMounted = () {
@@ -77,9 +73,8 @@ extension _Markers on _MapScreenState {
         _softFollowCar(position);
       }
       ..onSettled = () {
-        final isPassenger =
-            userController.userModel.value?.userProfile?.role ==
-                AppConstants.passenger;
+        final isPassenger = userController.userModel.value?.userProfile?.role ==
+            AppConstants.passenger;
         final pos = _remoteMotionEngine.displayedPosition;
         if (isPassenger && pos != null) {
           _updateRouteForAnimatedCar(pos);
@@ -106,7 +101,7 @@ extension _Markers on _MapScreenState {
         userController.userModel.value?.userProfile?.role ==
             AppConstants.passenger;
 
-    if (currentLat != 0.0 && currentLng != 0.0) {
+    if (mapOPTController.hasValidCoordinates) {
       final double heading =
           mapOPTController.animatedCurrentMarkerHeading.value;
       final BitmapDescriptor selfIcon = isPassenger
@@ -187,20 +182,27 @@ extension _Markers on _MapScreenState {
   void _animateCurrentMarkerTo(
     LatLng target, {
     required double reportedSpeedMps,
+    double? reportedHeading,
   }) {
     if (_selfMotionEngine.phase == VehicleMotionPhase.arrived &&
         mapOPTController.rideStatusData.value?.completeRide != true) {
       _selfMotionEngine.halt(to: VehicleMotionPhase.idle);
     }
 
-    final currentLat = mapOPTController.currentLatitudePosition?.value;
-    final currentLng = mapOPTController.currentLongitudePosition?.value;
-    final fallback = currentLat != null && currentLng != null
-        ? LatLng(currentLat, currentLng)
-        : target;
-    final start = _selfMotionEngine.displayedPosition ??
-        mapOPTController.animatedCurrentMarkerPosition.value ??
-        fallback;
+    final visual = _selfMotionEngine.displayedPosition ??
+        mapOPTController.animatedCurrentMarkerPosition.value;
+    final hasValidVisual = visual != null &&
+        isValidLatLng(visual.latitude, visual.longitude) &&
+        !isAppFallbackCoordinate(visual.latitude, visual.longitude);
+    if (!hasValidVisual) {
+      _placeInitialDeviceMarkerIfNeeded(
+        target,
+        heading: reportedHeading ?? 0,
+      );
+      return;
+    }
+
+    final start = visual;
 
     final hasRoad = _fullRoutePoints.length >= 2;
     final LatLng? snappedTarget =
@@ -217,12 +219,14 @@ extension _Markers on _MapScreenState {
         observedSpeedMps: reportedSpeedMps,
         isStopped: !reportedSpeedMps.isFinite || reportedSpeedMps < 0.5,
         offRoute: true,
+        observedHeading: reportedHeading,
       );
       return;
     }
     final roadTarget = snappedTarget ?? target;
     final isStopped = !reportedSpeedMps.isFinite || reportedSpeedMps < 0.5;
-    final path = _routeAnimationPath(start, roadTarget) ?? <LatLng>[start, roadTarget];
+    final path =
+        _routeAnimationPath(start, roadTarget) ?? <LatLng>[start, roadTarget];
 
     unawaited(_ensureCarTravelVisible(start, roadTarget));
     _selfMotionEngine.observe(
@@ -231,6 +235,7 @@ extension _Markers on _MapScreenState {
       observedSpeedMps: reportedSpeedMps,
       isStopped: isStopped,
       remainingToDestinationMeters: _remainingRouteMeters(start),
+      observedHeading: reportedHeading,
     );
   }
 
@@ -261,12 +266,34 @@ extension _Markers on _MapScreenState {
         target: rawTarget,
         path: [start, rawTarget],
         observedSpeedMps: sample.speedMps,
-        isStopped: sample.isStopped || sample.isDuplicate,
+        isStopped: sample.isStopped,
         offRoute: true,
+        sampleInterval: sample.intervalFromPrevious,
+        observedHeading: sample.headingDegrees,
       );
       return;
     }
     final target = snappedTarget ?? rawTarget;
+
+    final hasValidRemoteVisual = () {
+      final visual = _remoteMotionEngine.displayedPosition ??
+          mapOPTController.animatedRemoteDriverPosition.value;
+      return visual != null &&
+          isValidLatLng(visual.latitude, visual.longitude) &&
+          !isAppFallbackCoordinate(visual.latitude, visual.longitude);
+    }();
+    if (!hasValidRemoteVisual) {
+      final heading = sample.headingDegrees.isFinite
+          ? (sample.headingDegrees % 360 + 360) % 360
+          : 0.0;
+      _remoteMotionEngine.displayedPosition = target;
+      _remoteMotionEngine.displayedHeading = heading;
+      _remoteMotionEngine.latestTargetPosition = target;
+      _remoteMotionEngine.latestTargetRotation = heading;
+      mapOPTController.animatedRemoteDriverPosition.value = target;
+      mapOPTController.animatedRemoteDriverHeading.value = heading;
+      mapOPTController.liveOverlayRevision.value++;
+    }
 
     if (_liveLocationDiag) {
       debugPrint(
@@ -288,8 +315,11 @@ extension _Markers on _MapScreenState {
       target: target,
       path: path,
       observedSpeedMps: sample.speedMps,
-      isStopped: sample.isStopped || sample.isDuplicate,
-      remainingToDestinationMeters: isPassenger ? _remainingRouteMeters(start) : null,
+      isStopped: sample.isStopped,
+      remainingToDestinationMeters:
+          isPassenger ? _remainingRouteMeters(start) : null,
+      sampleInterval: sample.intervalFromPrevious,
+      observedHeading: sample.headingDegrees,
     );
   }
 

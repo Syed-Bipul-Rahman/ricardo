@@ -92,19 +92,30 @@ extension _Tracking on _MapScreenState {
 
   void _updateLocalMarker(Position position) {
     final target = LatLng(position.latitude, position.longitude);
+    final applied = mapOPTController.applyCurrentGps(
+      latitude: position.latitude,
+      longitude: position.longitude,
+      gpsTimestamp: position.timestamp,
+    );
+    if (!applied) return;
+
     final isDriver = userController.userModel.value?.userProfile?.role ==
         AppConstants.driver;
-    if (isDriver) {
+    if (!_hasValidVisualDeviceMarker()) {
+      _placeInitialDeviceMarkerIfNeeded(
+        target,
+        heading: position.heading,
+      );
+    } else if (isDriver) {
       _animateCurrentMarkerTo(
         target,
         reportedSpeedMps: position.speed,
+        reportedHeading: position.heading,
       );
     } else {
       mapOPTController.animatedCurrentMarkerPosition.value = target;
       mapOPTController.liveOverlayRevision.value++;
     }
-    mapOPTController.currentLatitudePosition?.value = position.latitude;
-    mapOPTController.currentLongitudePosition?.value = position.longitude;
 
     if (!mapOPTController.isInActiveRide) return;
 

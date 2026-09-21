@@ -104,37 +104,47 @@ extension _Bootstrap on _MapScreenState {
   Future<void> initializeMap() async {
     if (!mounted) return;
 
-    await _seedFromCachedLocation();
-    if (!mounted) return;
     setState(() {
       _isLoading = false;
-      _hasLocation = true;
       _errorMessage = '';
     });
 
     final bool hasPermission = await requestLocationPermission();
     if (!hasPermission) return;
 
-    // Start the GPS stream before a one-shot fix. On cold start last-known
-    // is null and getCurrentPosition can time out; the stream still delivers.
+    // This-app cache may pan the camera (tiles), never the user marker/address.
+    await _hintCameraFromCachedPrefs();
+    if (!mounted) return;
+
     startLocationTracking();
-    unawaited(getCurrentLocation());
-    await connectSocket();
-    await userController.fetchUser();
+    unawaited(connectSocket());
+    unawaited(userController.fetchUser());
+    await getCurrentLocation();
+    if (!mounted) return;
     await loadAcceptedRideRoute();
   }
 
-  Future<bool> _seedFromCachedLocation() async {
-    await mapOPTController.seedCachedCoordinates();
-    if (!mapOPTController.hasValidCoordinates) return false;
-
-    _queueCameraToCurrentLocation();
-    if (mounted) {
-      setState(() {
-        _hasLocation = true;
-      });
+  /// Camera-only hint from this app's last session. Not a user location.
+  Future<void> _hintCameraFromCachedPrefs() async {
+    if (mapOPTController.hasValidCoordinates) return;
+    final cachedLat = double.tryParse(await PrefsHelper.getString('last_lat'));
+    final cachedLng = double.tryParse(await PrefsHelper.getString('last_lng'));
+    if (!isValidLatLng(cachedLat, cachedLng)) return;
+    if (isAppFallbackCoordinate(cachedLat, cachedLng)) return;
+    _pendingCameraTarget = LatLng(cachedLat!, cachedLng!);
+    if (_mapController != null) {
+      mapOPTController.beginProgrammaticCamera();
+      await _mapController!.animateCamera(
+        CameraUpdate.newCameraPosition(
+          CameraPosition(
+            target: _pendingCameraTarget!,
+            zoom: currentZoom,
+            bearing: 0,
+            tilt: 0,
+          ),
+        ),
+      );
     }
-    return true;
   }
 
   Future<bool> requestLocationPermission() async {
@@ -165,8 +175,9 @@ extension _Bootstrap on _MapScreenState {
     if (!mounted) return;
 
     if (position == null) {
-      // Stream may still produce a fix; keep showing the map.
-      unawaited(mapOPTController.maybeRefreshAddress());
+      if (mapOPTController.hasValidCoordinates) {
+        unawaited(mapOPTController.maybeRefreshAddress());
+      }
       return;
     }
 
@@ -175,10 +186,13 @@ extension _Bootstrap on _MapScreenState {
   }
 
   void _applyResolvedPosition(Position position) {
-    if (!isValidLatLng(position.latitude, position.longitude)) return;
+    final applied = mapOPTController.applyCurrentGps(
+      latitude: position.latitude,
+      longitude: position.longitude,
+      gpsTimestamp: position.timestamp,
+    );
+    if (!applied) return;
 
-    mapOPTController.currentLatitudePosition?.value = position.latitude;
-    mapOPTController.currentLongitudePosition?.value = position.longitude;
     PrefsHelper.setString('last_lat', position.latitude);
     PrefsHelper.setString('last_lng', position.longitude);
 
@@ -189,13 +203,38 @@ extension _Bootstrap on _MapScreenState {
       });
     }
 
+    _placeInitialDeviceMarkerIfNeeded(
+      LatLng(position.latitude, position.longitude),
+      heading: position.heading,
+    );
     _queueCameraToCurrentLocation();
+  }
+
+  bool _hasValidVisualDeviceMarker() {
+    final visual = _selfMotionEngine.displayedPosition ??
+        mapOPTController.animatedCurrentMarkerPosition.value;
+    if (visual == null) return false;
+    return isValidLatLng(visual.latitude, visual.longitude) &&
+        !isAppFallbackCoordinate(visual.latitude, visual.longitude);
+  }
+
+  void _placeInitialDeviceMarkerIfNeeded(LatLng target, {double heading = 0}) {
+    if (!isValidLatLng(target.latitude, target.longitude)) return;
+    if (isAppFallbackCoordinate(target.latitude, target.longitude)) return;
+    if (_hasValidVisualDeviceMarker()) return;
+
+    final headingDegrees = heading.isFinite ? (heading % 360 + 360) % 360 : 0.0;
+    _selfMotionEngine.displayedPosition = target;
+    _selfMotionEngine.displayedHeading = headingDegrees;
+    mapOPTController.animatedCurrentMarkerPosition.value = target;
+    mapOPTController.animatedCurrentMarkerHeading.value = headingDegrees;
+    mapOPTController.liveOverlayRevision.value++;
   }
 
   void _queueCameraToCurrentLocation() {
     final lat = mapOPTController.currentLatitudePosition?.value;
     final lng = mapOPTController.currentLongitudePosition?.value;
-    if (!isValidLatLng(lat, lng)) return;
+    if (!isValidLatLng(lat, lng) || isAppFallbackCoordinate(lat, lng)) return;
     final target = LatLng(lat!, lng!);
     if (_mapController == null) {
       _pendingCameraTarget = target;
