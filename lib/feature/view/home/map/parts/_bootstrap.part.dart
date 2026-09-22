@@ -43,6 +43,7 @@ extension _Bootstrap on _MapScreenState {
     _remoteMotionEngine.reset();
     mapOPTController.remoteVehiclePhase.value = VehicleMotionPhase.idle.name;
     _liveDriverTracker.reset();
+    _navCamera.reset();
     _isReFetchingRoute = false;
     if (mounted) setState(() {});
   }
@@ -117,6 +118,8 @@ extension _Bootstrap on _MapScreenState {
     if (!mounted) return;
 
     startLocationTracking();
+    await _captureInitialDeviceHeadingOnce();
+    if (!mounted) return;
     unawaited(connectSocket());
     unawaited(userController.fetchUser());
     await getCurrentLocation();
@@ -133,16 +136,9 @@ extension _Bootstrap on _MapScreenState {
     if (isAppFallbackCoordinate(cachedLat, cachedLng)) return;
     _pendingCameraTarget = LatLng(cachedLat!, cachedLng!);
     if (_mapController != null) {
-      mapOPTController.beginProgrammaticCamera();
-      await _mapController!.animateCamera(
-        CameraUpdate.newCameraPosition(
-          CameraPosition(
-            target: _pendingCameraTarget!,
-            zoom: currentZoom,
-            bearing: 0,
-            tilt: 0,
-          ),
-        ),
+      await _navCamera.applyInitial(
+        target: _pendingCameraTarget!,
+        zoom: currentZoom,
       );
     }
   }
@@ -205,9 +201,13 @@ extension _Bootstrap on _MapScreenState {
 
     _placeInitialDeviceMarkerIfNeeded(
       LatLng(position.latitude, position.longitude),
-      heading: position.heading,
+      heading: _initialMarkerHeading(position.heading),
     );
-    _queueCameraToCurrentLocation();
+    final isPassenger = userController.userModel.value?.userProfile?.role ==
+        AppConstants.passenger;
+    if (!(mapOPTController.isInActiveRide && isPassenger)) {
+      _queueCameraToCurrentLocation();
+    }
   }
 
   bool _hasValidVisualDeviceMarker() {
@@ -241,33 +241,24 @@ extension _Bootstrap on _MapScreenState {
       return;
     }
     _pendingCameraTarget = null;
-    mapOPTController.beginProgrammaticCamera();
-    _mapController!.animateCamera(
-      CameraUpdate.newCameraPosition(
-        CameraPosition(
+      unawaited(
+        _navCamera.applyInitial(
           target: target,
           zoom: currentZoom,
-          bearing: 0,
-          tilt: 0,
         ),
-      ),
-    );
+      );
   }
 
   void _onMapCreated(GoogleMapController controller) {
     _mapController = controller;
+    _navCamera.attach(controller);
     final pending = _pendingCameraTarget;
     if (pending != null) {
       _pendingCameraTarget = null;
-      mapOPTController.beginProgrammaticCamera();
-      controller.animateCamera(
-        CameraUpdate.newCameraPosition(
-          CameraPosition(
-            target: pending,
-            zoom: currentZoom,
-            bearing: 0,
-            tilt: 0,
-          ),
+      unawaited(
+        _navCamera.applyInitial(
+          target: pending,
+          zoom: currentZoom,
         ),
       );
       return;

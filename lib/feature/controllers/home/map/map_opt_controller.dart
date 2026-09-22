@@ -66,6 +66,8 @@ class MapOPTController extends GetxController {
   // camera-move callbacks fired by the animation don't re-show the button.
   bool _isCenteringCamera = false;
 
+  int _programmaticCameraGen = 0;
+
   void notifyMapMoved() {
     // Ignore camera events that we triggered ourselves (e.g. animateCamera).
     if (_isCenteringCamera) return;
@@ -77,7 +79,9 @@ class MapOPTController extends GetxController {
     Duration hold = const Duration(milliseconds: 500),
   }) {
     _isCenteringCamera = true;
+    final gen = ++_programmaticCameraGen;
     Future.delayed(hold, () {
+      if (gen != _programmaticCameraGen) return;
       _isCenteringCamera = false;
     });
   }
@@ -85,9 +89,9 @@ class MapOPTController extends GetxController {
   void hideLocationButton() {
     _isCenteringCamera = true;
     isLocationButtonVisible.value = false;
-    // Allow a bit longer than the 2-second camera animation before re-enabling
-    // the flag, so we don't accidentally show the button mid-animation.
-    Future.delayed(const Duration(milliseconds: 2500), () {
+    final gen = ++_programmaticCameraGen;
+    Future.delayed(const Duration(milliseconds: 900), () {
+      if (gen != _programmaticCameraGen) return;
       _isCenteringCamera = false;
     });
   }

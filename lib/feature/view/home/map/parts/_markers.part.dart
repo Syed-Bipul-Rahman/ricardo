@@ -48,6 +48,11 @@ extension _Markers on _MapScreenState {
             _selfMotionEngine.smoothedSpeedMps;
         mapOPTController.liveOverlayRevision.value++;
         _logMarkerRender(position, heading, 'self');
+        final isPassenger = userController.userModel.value?.userProfile?.role ==
+            AppConstants.passenger;
+        if (!isPassenger) {
+          _followTrackingVehicle(position);
+        }
       }
       ..onSettled = () {
         final pos = _selfMotionEngine.displayedPosition;
@@ -71,6 +76,11 @@ extension _Markers on _MapScreenState {
             _remoteMotionEngine.phase.name;
         mapOPTController.liveOverlayRevision.value++;
         _logMarkerRender(position, heading, 'remote');
+        final isPassenger = userController.userModel.value?.userProfile?.role ==
+            AppConstants.passenger;
+        if (isPassenger) {
+          _followTrackingVehicle(position);
+        }
       }
       ..onSettled = () {
         final isPassenger = userController.userModel.value?.userProfile?.role ==
@@ -216,7 +226,7 @@ extension _Markers on _MapScreenState {
     if (!hasValidVisual) {
       _placeInitialDeviceMarkerIfNeeded(
         target,
-        heading: reportedHeading ?? 0,
+        heading: _initialMarkerHeading(reportedHeading),
       );
       return;
     }
@@ -225,10 +235,10 @@ extension _Markers on _MapScreenState {
     final liveTarget = _liveMarkerTarget(target);
     final isStopped = !reportedSpeedMps.isFinite || reportedSpeedMps < 0.5;
 
-    unawaited(_ensureCarTravelVisible(start, liveTarget));
+    unawaited(_ensureInitialNavCamera(start));
     _selfMotionEngine.observe(
       target: liveTarget,
-      path: [start, liveTarget],
+      path: [liveTarget],
       observedSpeedMps: reportedSpeedMps,
       isStopped: isStopped,
       offRoute: _fullRoutePoints.length < 2,
@@ -291,10 +301,10 @@ extension _Markers on _MapScreenState {
 
     mapOPTController.animatedRemoteDriverSpeedMps.value = sample.speedMps;
 
-    unawaited(_ensureCarTravelVisible(start, target));
+    unawaited(_ensureInitialNavCamera(start));
     _remoteMotionEngine.observe(
       target: target,
-      path: [start, target],
+      path: [target],
       observedSpeedMps: sample.speedMps,
       isStopped: sample.isStopped,
       offRoute: _fullRoutePoints.length < 2,

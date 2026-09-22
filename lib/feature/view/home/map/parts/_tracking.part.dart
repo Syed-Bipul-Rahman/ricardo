@@ -5,23 +5,6 @@ extension _Tracking on _MapScreenState {
     if (_isTracking) return;
     _isTracking = true;
 
-    _compassStream = FlutterCompass.events?.listen((CompassEvent event) {
-      final double? h = event.heading;
-      if (h == null || h.isNaN) return;
-      final double normalized = (h % 360 + 360) % 360;
-      final now = DateTime.now();
-      final previous = mapOPTController.headingDegrees.value;
-      final headingDelta = ((normalized - previous + 540) % 360) - 180;
-      if (_lastHeadingUpdateAt != null &&
-          now.difference(_lastHeadingUpdateAt!) <
-              const Duration(milliseconds: 100)) {
-        return;
-      }
-      if (headingDelta.abs() < 1.5) return;
-      _lastHeadingUpdateAt = now;
-      mapOPTController.headingDegrees.value = normalized;
-    });
-
     String token = '';
     unawaited(
       PrefsHelper.getString(AppConstants.bearerToken).then((value) {
@@ -104,7 +87,7 @@ extension _Tracking on _MapScreenState {
     if (!_hasValidVisualDeviceMarker()) {
       _placeInitialDeviceMarkerIfNeeded(
         target,
-        heading: position.heading,
+        heading: _initialMarkerHeading(position.heading),
       );
     } else if (isDriver) {
       _animateCurrentMarkerTo(
@@ -161,11 +144,7 @@ extension _Tracking on _MapScreenState {
       }
     }
 
-    // Never chase the camera on every GPS sample during an active ride.
-    // Continuous animateCamera floods the Maps SDK with tile requests
-    // (REQUEST_TIMEOUT / ImageReader buffer exhaustion) and the marker
-    // appears frozen while tiles/GC dominate. Framing is handled by
-    // _ensureCarTravelVisible on live samples only.
+    // Camera follow uses the latest painted vehicle pose, not a second GPS read.
     if (!mapOPTController.isInActiveRide) {
       _queueCameraToCurrentLocation();
     }
@@ -175,8 +154,6 @@ extension _Tracking on _MapScreenState {
   void stopLocationTracking() {
     _positionStream?.cancel();
     _positionStream = null;
-    _compassStream?.cancel();
-    _compassStream = null;
     _lastSentPosition = null;
     _lastLocationSentAt = null;
     _isTracking = false;

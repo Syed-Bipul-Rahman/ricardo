@@ -9,11 +9,10 @@ import 'package:ricardo/feature/view/home/map/helpers/location_bootstrap_helper.
 
 /// Google Map host for [MapScreen].
 ///
-/// Rebuilds only when [MapOPTController.liveOverlayRevision] (or discrete
-/// ride state) changes — **not** on every LatLng Rx tick. That avoids
-/// MapController thrashing and Maps tile REQUEST_TIMEOUT floods while keeping
-/// car markers around 30 FPS during motion. The motion engine still chases
-/// the latest GPS on vsync; this coalesce only limits GoogleMap rebuilds.
+/// Rebuilds when [MapOPTController.liveOverlayRevision] (or discrete ride
+/// state) changes — **not** on every LatLng Rx tick. Marker paints are
+/// GPS/socket-rate now, so a same-frame microtask is enough to batch
+/// duplicate signals without adding a visible delay.
 class MapView extends StatefulWidget {
   const MapView({
     super.key,
@@ -24,6 +23,8 @@ class MapView extends StatefulWidget {
     required this.polylines,
     required this.onMapCreated,
     required this.onCameraMove,
+    this.onCameraMoveStarted,
+    this.onCameraIdle,
   });
 
   final MapOPTController mapOPTController;
@@ -33,6 +34,8 @@ class MapView extends StatefulWidget {
   final Set<Polyline> polylines;
   final void Function(GoogleMapController) onMapCreated;
   final void Function(CameraPosition) onCameraMove;
+  final VoidCallback? onCameraMoveStarted;
+  final VoidCallback? onCameraIdle;
 
   @override
   State<MapView> createState() => _MapViewState();
@@ -40,8 +43,8 @@ class MapView extends StatefulWidget {
 
 class _MapViewState extends State<MapView> {
   Worker? _overlayWorker;
-  Timer? _coalesceTimer;
   bool _rebuildQueued = false;
+  CameraPosition? _frozenInitialCamera;
 
   @override
   void initState() {
@@ -64,9 +67,8 @@ class _MapViewState extends State<MapView> {
   void _scheduleRebuild() {
     if (!mounted || _rebuildQueued) return;
     _rebuildQueued = true;
-    _coalesceTimer?.cancel();
-    // Coalesce bursts so GoogleMap is not rebuilt faster than ~30 FPS.
-    _coalesceTimer = Timer(const Duration(milliseconds: 33), () {
+    // Same-frame only — do not sit on a timer after a new GPS sample.
+    scheduleMicrotask(() {
       _rebuildQueued = false;
       if (mounted) setState(() {});
     });
@@ -74,7 +76,6 @@ class _MapViewState extends State<MapView> {
 
   @override
   void dispose() {
-    _coalesceTimer?.cancel();
     _overlayWorker?.dispose();
     super.dispose();
   }
@@ -84,15 +85,18 @@ class _MapViewState extends State<MapView> {
     final c = widget.mapOPTController;
     final lat = c.currentLatitudePosition?.value;
     final lng = c.currentLongitudePosition?.value;
-    final LatLng initialTarget = isValidLatLng(lat, lng)
-        ? LatLng(lat!, lng!)
-        : widget.defaultLocation;
+    _frozenInitialCamera ??= CameraPosition(
+      target: isValidLatLng(lat, lng)
+          ? LatLng(lat!, lng!)
+          : widget.defaultLocation,
+      zoom: widget.currentZoom,
+      bearing: 0,
+      tilt: 0,
+    );
 
-    return GoogleMap(
-      initialCameraPosition: CameraPosition(
-        target: initialTarget,
-        zoom: widget.currentZoom,
-      ),
+    return SizedBox.expand(
+      child: GoogleMap(
+      initialCameraPosition: _frozenInitialCamera!,
       onMapCreated: widget.onMapCreated,
       markers: widget.markersBuilder(),
       polylines: widget.polylines,
@@ -104,6 +108,9 @@ class _MapViewState extends State<MapView> {
       rotateGesturesEnabled: true,
       tiltGesturesEnabled: false,
       onCameraMove: widget.onCameraMove,
+      onCameraMoveStarted: widget.onCameraMoveStarted,
+      onCameraIdle: widget.onCameraIdle,
+    ),
     );
   }
 }

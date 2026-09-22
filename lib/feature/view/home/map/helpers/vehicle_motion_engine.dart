@@ -1,6 +1,5 @@
 import 'dart:math' as math;
 
-import 'package:flutter/scheduler.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
@@ -19,13 +18,11 @@ typedef VehicleLookAhead = double Function(
 );
 typedef VehicleFrameCallback = void Function(LatLng position, double heading);
 
-/// One-loop chase interpolator.
+/// Applies each new GPS/socket sample to the car marker immediately.
 ///
-/// GPS/socket samples only replace [latestTargetPosition] and the remaining
-/// path from the **current visual pose**. A single vsync callback advances
-/// the pose toward that target. There is no duration clip, no queue, and no
-/// second timer. Settles at the latest known coordinate when nothing newer
-/// arrives — it does not invent motion.
+/// The latest valid coordinate is the source of truth. [observe] replaces
+/// [latestTargetPosition] and the displayed pose in the same call. It does
+/// not chase at car speed, queue hops, or keep moving toward a stale point.
 class VehicleMotionEngine {
   VehicleMotionEngine({this.smoothObservedSpeed = true});
 
@@ -58,19 +55,6 @@ class VehicleMotionEngine {
   double latestTargetRotation = 0;
   DateTime? lastLocationTimestamp;
 
-  List<LatLng> _path = const [];
-  double _distanceAlongMeters = 0;
-  double _pathLengthMeters = 0;
-  double _travelMps = 0;
-  bool _stopping = false;
-  bool _offRoute = false;
-  LatLng? _pendingTarget;
-  List<LatLng>? _pendingPath;
-  bool _pendingStop = false;
-  double? _pendingHeading;
-  bool _frameScheduled = false;
-  Duration? _lastFrameStamp;
-
   void observe({
     required LatLng target,
     required List<LatLng> path,
@@ -89,7 +73,6 @@ class VehicleMotionEngine {
     lastLocationTimestamp = now;
     latestTargetPosition = target;
 
-    _offRoute = offRoute;
     final interval = sampleInterval ??
         (previousAt == null ? null : now.difference(previousAt));
     _applyRealSpeed(
@@ -112,46 +95,16 @@ class VehicleMotionEngine {
       movementBearing: movementBearing,
       fallback: displayedHeading,
     );
-    latestTargetRotation = resolvedHeading;
 
-    if (!isStopped && from != null) {
-      final visualGap = _distance(from, target);
-      if (visualGap < settleDistanceMeters) return;
-      if (previousTarget != null &&
-          visualGap < 1.5 &&
-          _distance(previousTarget, target) < noiseTargetMeters) {
-        return;
-      }
-    }
-
-    List<LatLng> nextPath = path;
-    if (nextPath.length < 2) {
-      nextPath = [from ?? target];
-    }
-
-    _pendingTarget = target;
-    _pendingPath = nextPath;
-    _pendingStop = isStopped || smoothedSpeedMps < stoppedSpeedMps;
-    _pendingHeading = resolvedHeading;
-
-    _applyPendingIfAny();
-    _scheduleFrame();
+    // Newest point wins: the marker is this sample, not a leftover hop.
+    _syncDisplayedToLatest(
+      heading: resolvedHeading,
+      isStopped: isStopped || smoothedSpeedMps < stoppedSpeedMps,
+    );
   }
 
   void halt({VehicleMotionPhase to = VehicleMotionPhase.arrived}) {
     generation++;
-    _frameScheduled = false;
-    _lastFrameStamp = null;
-    _pendingTarget = null;
-    _pendingPath = null;
-    _pendingStop = false;
-    _pendingHeading = null;
-    _path = const [];
-    _distanceAlongMeters = 0;
-    _pathLengthMeters = 0;
-    _travelMps = 0;
-    _stopping = false;
-    _offRoute = false;
     smoothedSpeedMps = 0;
     latestTargetPosition = null;
     lastLocationTimestamp = null;
@@ -202,167 +155,21 @@ class VehicleMotionEngine {
     }
   }
 
-  void _applyPendingIfAny() {
-    final pendingPath = _pendingPath;
-    final pendingTarget = _pendingTarget;
-    if (pendingPath == null || pendingTarget == null) return;
-    _pendingPath = null;
-    _pendingTarget = null;
-    var stopping = _pendingStop;
-    _pendingStop = false;
-    final pendingHeading = _pendingHeading;
-    _pendingHeading = null;
+  /// Place the marker on [latestTargetPosition] now.
+  void _syncDisplayedToLatest({
+    required double heading,
+    required bool isStopped,
+  }) {
+    final target = latestTargetPosition;
+    if (target == null) return;
 
-    final from = displayedPosition ?? pendingPath.first;
-    var path = List<LatLng>.from(pendingPath);
-    if (path.isEmpty) {
-      path = [from, pendingTarget];
-    } else if (!_pointsEqual(path.first, from) &&
-        _distance(from, path.first) > 2) {
-      path.insert(0, from);
-    }
-
-    if (path.length < 2) {
-      if (stopping) {
-        _settle(
-          path.isEmpty ? pendingTarget : path.last,
-          VehicleMotionPhase.stopped,
-        );
-      } else if (pendingHeading != null) {
-        displayedHeading = pendingHeading;
-        latestTargetRotation = pendingHeading;
-        displayedPosition = displayedPosition ??
-            (path.isEmpty ? pendingTarget : path.last);
-        _emitFrame();
-      }
-      _path = const [];
-      _pathLengthMeters = 0;
-      _distanceAlongMeters = 0;
-      return;
-    }
-
-    var remaining = pathLengthMeters(path);
-    if (remaining < settleDistanceMeters) {
-      _settle(
-        path.last,
-        stopping ? VehicleMotionPhase.stopped : VehicleMotionPhase.moving,
-      );
-      return;
-    }
-
-    // Do not animate a huge leftover polyline for several seconds. Latest GPS
-    // is the target; if the road path is far longer than the hop, go direct.
-    final straight = _distance(from, pendingTarget);
-    if (remaining > math.max(straight * 2.0, 25.0)) {
-      path = [from, pendingTarget];
-      remaining = straight;
-    }
-
-    // Impossible / outlier jump: snap to the latest valid point.
-    if (remaining > snapJumpMeters) {
-      _settle(
-        pendingTarget,
-        stopping ? VehicleMotionPhase.stopped : VehicleMotionPhase.moving,
-      );
-      return;
-    }
-
-    if (stopping && smoothedSpeedMps < stoppedSpeedMps) {
-      _settle(pendingTarget, VehicleMotionPhase.stopped);
-      return;
-    }
-
-    displayedPosition ??= path.first;
-    if (pendingHeading != null) {
-      latestTargetRotation = pendingHeading;
-    }
-    _path = path;
-    _pathLengthMeters = remaining;
-    _distanceAlongMeters = 0;
-    _stopping = stopping;
-    _travelMps = smoothedSpeedMps;
-    phase = stopping ? VehicleMotionPhase.stopping : VehicleMotionPhase.moving;
-  }
-
-  void _scheduleFrame() {
-    if (_frameScheduled) return;
-    if (phase == VehicleMotionPhase.arrived) return;
-    _frameScheduled = true;
-    final gen = generation;
-    SchedulerBinding.instance.scheduleFrameCallback((stamp) {
-      _frameScheduled = false;
-      if (gen != generation) return;
-      _onFrame(stamp);
-    });
-  }
-
-  void _onFrame(Duration stamp) {
-    if (isMounted != null && isMounted!() == false) {
-      halt(to: VehicleMotionPhase.idle);
-      return;
-    }
-
-    final last = _lastFrameStamp;
-    _lastFrameStamp = stamp;
-    var dt = last == null ? 0.016 : (stamp - last).inMicroseconds / 1e6;
-    if (dt <= 0 || dt > 0.05) dt = 0.016;
-
-    _applyPendingIfAny();
-
-    if (_path.length < 2 || _pathLengthMeters < settleDistanceMeters) {
-      if (_pendingPath != null) {
-        _scheduleFrame();
-        return;
-      }
-      final hold = displayedPosition;
-      if (_stopping && hold != null) {
-        _settle(hold, VehicleMotionPhase.stopped);
-      }
-      return;
-    }
-
-    final remaining = _pathLengthMeters - _distanceAlongMeters;
-    if (remaining <= settleDistanceMeters) {
-      final end = _path.last;
-      displayedPosition = end;
-      if (!_stopping && smoothedSpeedMps >= stoppedSpeedMps) {
-        displayedHeading = _bearing(_path[_path.length - 2], end);
-      }
-      _emitFrame();
-      _path = const [];
-      _pathLengthMeters = 0;
-      _distanceAlongMeters = 0;
-      if (_stopping) {
-        _settle(end, VehicleMotionPhase.stopped);
-      } else {
-        phase = VehicleMotionPhase.moving;
-        onSettled?.call();
-      }
-      return;
-    }
-
-    _distanceAlongMeters =
-        math.min(_pathLengthMeters, _distanceAlongMeters + _travelMps * dt);
-    final t = (_distanceAlongMeters / _pathLengthMeters).clamp(0.0, 1.0);
-    final along = alongPath?.call(_path, t) ?? _fallbackAlong(_path, t);
-    displayedPosition = along.position;
-
-    if (!_stopping && _travelMps >= stoppedSpeedMps) {
-      final desired = _offRoute ? latestTargetRotation : along.bearing;
-      final hopSec = _travelMps > 0.01
-          ? math.max(remaining / _travelMps, 0.05)
-          : 0.2;
-      final headingDelta =
-          shortestAngleDelta(displayedHeading, desired).abs();
-      displayedHeading = stepHeading(
-        displayedHeading,
-        desired,
-        headingDelta * (dt / hopSec),
-      );
-    }
-
+    generation++;
+    displayedPosition = target;
+    displayedHeading = heading;
+    latestTargetRotation = heading;
+    phase = isStopped ? VehicleMotionPhase.stopped : VehicleMotionPhase.moving;
     _emitFrame();
-    _scheduleFrame();
+    onSettled?.call();
   }
 
   void _emitFrame() {
@@ -372,26 +179,6 @@ class VehicleMotionEngine {
       pos,
       (displayedHeading + carIconRotationOffset + 360) % 360,
     );
-  }
-
-  void _settle(LatLng at, VehicleMotionPhase to) {
-    generation++;
-    displayedPosition = at;
-    smoothedSpeedMps = 0;
-    _travelMps = 0;
-    phase = to;
-    _path = const [];
-    _pathLengthMeters = 0;
-    _distanceAlongMeters = 0;
-    _pendingTarget = null;
-    _pendingPath = null;
-    _pendingStop = false;
-    _pendingHeading = null;
-    _frameScheduled = false;
-    _lastFrameStamp = null;
-    _stopping = false;
-    _emitFrame();
-    onSettled?.call();
   }
 
   static double lerpHeading(double from, double to, double t) {
@@ -448,39 +235,6 @@ class VehicleMotionEngine {
     return total;
   }
 
-  static VehiclePathPose _fallbackAlong(List<LatLng> path, double progress) {
-    if (path.length < 2) {
-      return (position: path.first, bearing: 0);
-    }
-    final total = pathLengthMeters(path);
-    if (total < 0.01) {
-      return (
-        position: path.last,
-        bearing: _bearing(path[path.length - 2], path.last),
-      );
-    }
-    final targetDistance = progress.clamp(0.0, 1.0) * total;
-    var covered = 0.0;
-    for (var i = 0; i < path.length - 1; i++) {
-      final seg = _distance(path[i], path[i + 1]);
-      if (covered + seg >= targetDistance) {
-        final t = seg < 0.001 ? 0.0 : (targetDistance - covered) / seg;
-        return (
-          position: LatLng(
-            path[i].latitude + (path[i + 1].latitude - path[i].latitude) * t,
-            path[i].longitude + (path[i + 1].longitude - path[i].longitude) * t,
-          ),
-          bearing: _bearing(path[i], path[i + 1]),
-        );
-      }
-      covered += seg;
-    }
-    return (
-      position: path.last,
-      bearing: _bearing(path[path.length - 2], path.last),
-    );
-  }
-
   static double _bearing(LatLng from, LatLng to) {
     final fromLat = from.latitude * math.pi / 180;
     final toLat = to.latitude * math.pi / 180;
@@ -498,10 +252,5 @@ class VehicleMotionEngine {
       b.latitude,
       b.longitude,
     );
-  }
-
-  static bool _pointsEqual(LatLng a, LatLng b) {
-    return (a.latitude - b.latitude).abs() < 1e-9 &&
-        (a.longitude - b.longitude).abs() < 1e-9;
   }
 }
