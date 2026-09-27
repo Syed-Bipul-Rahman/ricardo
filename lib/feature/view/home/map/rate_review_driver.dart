@@ -40,14 +40,14 @@ class RateReviewDriver extends StatelessWidget {
       body: SingleChildScrollView(
         child: Column(
           children: [
-            SizedBox(height: 54.h),
+            SizedBox(height: 28.h),
             Center(
               child: CustomHeadingText(
                 firstText: 'Rate',
                 secondText: 'Your Driver',
               ),
             ),
-            SizedBox(height: 10.h),
+            SizedBox(height: 8.h),
             Center(
               child: Text(
                 'How was your ride with Driver?',
@@ -59,7 +59,7 @@ class RateReviewDriver extends StatelessWidget {
                 ),
               ),
             ),
-            SizedBox(height: 78.h),
+            SizedBox(height: 28.h),
             Obx(() {
               final locked = controller.alreadyReviewed.value;
               return IgnorePointer(
@@ -70,7 +70,7 @@ class RateReviewDriver extends StatelessWidget {
                 ),
               );
             }),
-            SizedBox(height: 48.h),
+            SizedBox(height: 28.h),
             Obx(() {
               final locked = controller.alreadyReviewed.value;
               return IgnorePointer(
@@ -86,7 +86,7 @@ class RateReviewDriver extends StatelessWidget {
                 ),
               );
             }),
-            SizedBox(height: 110.h),
+            SizedBox(height: 36.h),
             Obx(() {
               final loading = cnt.isAddedFavouriteRiderStatus.value;
               final already = cnt.addedFavourite.value;
@@ -176,7 +176,7 @@ class RateReviewDriver extends StatelessWidget {
                     border: Border.all(
                       color: already
                           ? const Color(0xFFB8BCC3)
-                          : Colors.green,
+                          : const Color(0xff1BB600),
                       width: 1,
                     ),
                   ),
@@ -189,32 +189,17 @@ class RateReviewDriver extends StatelessWidget {
                             color: Colors.green,
                           ),
                         )
-                      : Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              already
-                                  ? Icons.favorite_rounded
-                                  : Icons.favorite_border_rounded,
-                              size: 18.r,
-                              color: already
-                                  ? AppColors.secondaryTextColor
-                                  : Colors.green,
-                            ),
-                            SizedBox(width: 8.w),
-                            Text(
-                              already
-                                  ? 'Already Favourite'
-                                  : 'Add to Favourite',
-                              style: TextStyle(
-                                color: already
-                                    ? AppColors.secondaryTextColor
-                                    : Colors.green,
-                                fontSize: 16.sp,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
+                      : Text(
+                          already
+                              ? 'Already Favourite'
+                              : 'Add to Favourite',
+                          style: TextStyle(
+                            color: already
+                                ? AppColors.secondaryTextColor
+                                : const Color(0xff1BB600),
+                            fontSize: 16.sp,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                 ),
               );
@@ -305,8 +290,11 @@ class RateReviewDriver extends StatelessWidget {
             allowHalfRating: true,
             itemCount: 5,
             initialRating: controller.driverRating.value,
+            itemSize: 42.r,
+            itemPadding: EdgeInsets.symmetric(horizontal: 6.w),
+            unratedColor: const Color(0xFFD5D5D5),
             itemBuilder: (context, index) {
-              return const Icon(Icons.star, color: Colors.amber);
+              return const Icon(Icons.star, color: Color(0xFFFFC107));
             },
             onRatingUpdate: (double value) {
               controller.driverRating.value = value;
