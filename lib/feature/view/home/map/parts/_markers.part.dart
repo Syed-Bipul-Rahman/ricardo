@@ -138,7 +138,7 @@ extension _Markers on _MapScreenState {
         ),
       );
     }
-    if (isPassenger) {
+    if (isPassenger && mapOPTController.showPassengerDriverCar) {
       final driverCoords = mapOPTController
           .getRideDriverLocation.value?.driverLocation?.coordinates;
       if (driverCoords != null && driverCoords.length >= 2) {

@@ -84,6 +84,10 @@ extension _Sockets on _MapScreenState {
     SocketServices.socket?.off('get-ride-driver-location');
     SocketServices.socket?.on('get-ride-driver-location', (data) {
       final socketReceiveAt = DateTime.now();
+      final bool isPassenger =
+          userController.userModel.value?.userProfile?.role ==
+              AppConstants.passenger;
+      if (isPassenger && !mapOPTController.showPassengerDriverCar) return;
       try {
         Map<String, dynamic> jsonData;
         if (data is List) {
@@ -164,9 +168,6 @@ extension _Sockets on _MapScreenState {
         mapOPTController.getRideDriverLocation.value = updatedDriverLocation;
         mapOPTController.getRideDriverLocation.refresh();
         mapOPTController.markDriverLocationSocketReceived();
-        final bool isPassenger =
-            userController.userModel.value?.userProfile?.role ==
-                AppConstants.passenger;
         if (isPassenger &&
             updatedCoords != null &&
             updatedCoords.length >= 2 &&

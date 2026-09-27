@@ -750,6 +750,21 @@ class MapOPTController extends GetxController {
         status.startRide == true;
   }
 
+  /// Passenger car marker. Hidden after cancel so a late location packet
+  /// cannot put the car back on the map.
+  bool get showPassengerDriverCar {
+    final status = rideStatusData.value;
+    if (status?.driverCancel == true ||
+        status?.passengerCancel == true ||
+        status?.ride?.status == 'cancelled') {
+      return false;
+    }
+    if (isInActiveRide || status?.completeRide == true) return true;
+    final finishedAt = _lastFinishedAt;
+    if (finishedAt == null) return true;
+    return DateTime.now().difference(finishedAt) >= const Duration(minutes: 2);
+  }
+
   String? get activeRideId {
     final fromStatus = rideStatusData.value?.ride?.id;
     if (fromStatus != null && fromStatus.isNotEmpty) return fromStatus;

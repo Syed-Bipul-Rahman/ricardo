@@ -68,6 +68,8 @@ extension _Bootstrap on _MapScreenState {
     mapOPTController.rideRequestReceivedAt.value = null;
     mapOPTController.isCurrentMarkerShowOrNot.value = true;
     mapOPTController.getRideDriverLocation.value = null;
+    mapOPTController.animatedRemoteDriverPosition.value = null;
+    mapOPTController.liveOverlayRevision.value++;
 
     googleSearchLocationController.isModalOn.value = false;
     googleSearchLocationController.cleanField();
