@@ -77,7 +77,7 @@ class _OnBoardScreenState extends State<OnBoardScreen> {
                                 fontWeight: FontWeight.w700,
                                 color: AppColors.primaryColor,
                                 letterSpacing: 1,
-                                fontName: FontFamily.inter,
+                                fontName: FontFamily.poppins,
                               ),
                               CustomText(
                                 right: 30.w,
@@ -87,7 +87,7 @@ class _OnBoardScreenState extends State<OnBoardScreen> {
                                 fontSize: 14.sp,
                                 textHeight: 1.5,
                                 color: AppColors.secondaryTextColor,
-                                fontName: FontFamily.inter,
+                                fontName: FontFamily.poppins,
                                 fontWeight: FontWeight.w500,
                               ),
                               SizedBox(height: constraints.maxHeight * 0.15),

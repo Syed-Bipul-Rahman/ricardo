@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:ricardo/feature/view/home/link_export_file.dart';
 import 'package:ricardo/feature/view/profile/profile_screen.dart';
@@ -22,22 +24,26 @@ class CustomHeader extends StatelessWidget {
         final user = userController.userModel.value?.userProfile;
         final profileImage =
             user?.image?.filename ?? Assets.images.defaultImage.path;
+        final profileName = user?.name?.trim() ?? '';
 
-        return Padding(
-          padding: EdgeInsets.fromLTRB(12.w, 6.h, 12.w, 0),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(22.r),
+        return ClipRRect(
+          borderRadius: BorderRadius.only(
+            bottomLeft: Radius.circular(22.r),
+            bottomRight: Radius.circular(22.r),
+          ),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
             child: Container(
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.96),
-                borderRadius: BorderRadius.circular(22.r),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.06),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
+                color: Colors.white.withValues(alpha: 0.28),
+                borderRadius: BorderRadius.only(
+                  bottomLeft: Radius.circular(22.r),
+                  bottomRight: Radius.circular(22.r),
+                ),
+                border: Border.all(
+                  color: Colors.white,
+                  width: 2,
+                ),
               ),
               child: SafeArea(
                 bottom: false,
@@ -47,7 +53,7 @@ class CustomHeader extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
                           Container(
                             width: 44.r,
@@ -77,6 +83,21 @@ class CustomHeader extends StatelessWidget {
                               ),
                             ),
                           ),
+                          SizedBox(width: 10.w),
+                          Expanded(
+                            child: Text(
+                              profileName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 15.sp,
+                                color: Colors.black,
+                                fontWeight: FontWeight.w600,
+                                fontFamily: FontFamily.poppins,
+                              ),
+                            ),
+                          ),
+                          SizedBox(width: 8.w),
                           GestureDetector(
                             onTap: () =>
                                 Get.toNamed(AppRoutes.notificationScreen),
@@ -109,14 +130,14 @@ class CustomHeader extends StatelessWidget {
                           Expanded(
                             child: Text(
                               mapOPTController.currentLocation.value,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                               style: TextStyle(
                                 fontSize: 13.sp,
                                 color: Colors.black,
                                 fontWeight: FontWeight.w600,
                                 fontFamily: FontFamily.poppins,
                               ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                         ],
