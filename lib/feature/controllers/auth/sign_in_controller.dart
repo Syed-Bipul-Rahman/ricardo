@@ -95,7 +95,7 @@ class SignInController extends GetxController {
     isLoginStatus.value = false;
   }
 
-  Future<void> logOut() async {
+  Future<bool> logOut() async {
     final deviceId = await PrefsHelper.getString('device_id');
     final response =
         await ApiClient.postData(ApiUrls.authLogOut, {'deviceId': deviceId});
@@ -115,6 +115,7 @@ class SignInController extends GetxController {
       historyCnt.historyDatas.value = [];
 
       Get.offAllNamed(AppRoutes.signInScreen);
+      return true;
     } else {
       final message = response.body is Map
           ? (response.body['message'] ??
@@ -123,6 +124,7 @@ class SignInController extends GetxController {
               'An error occurred')
           : (response.statusText ?? 'An error occurred');
       showSnackbar('Error', message.toString());
+      return false;
     }
   }
 
