@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:geolocator/geolocator.dart';
@@ -19,23 +18,22 @@ typedef VehicleLookAhead = double Function(
 );
 typedef VehicleFrameCallback = void Function(LatLng position, double heading);
 
-/// Frontend-only interpolator: GPS observations retarget a displayed pose.
+/// Applies each new GPS/socket sample to the car marker immediately.
 ///
-/// One 50 ms timer. New samples never cancel-restart from raw GPS; they
-/// replace the remaining polyline from the current displayed position.
+/// The latest valid coordinate is the source of truth. [observe] replaces
+/// [latestTargetPosition] and the displayed pose in the same call. It does
+/// not chase at car speed, queue hops, or keep moving toward a stale point.
 class VehicleMotionEngine {
   VehicleMotionEngine({this.smoothObservedSpeed = true});
 
-  static const int frameMs = 50;
-  static const double speedAlpha = 0.35;
-  static const double startAlpha = 0.55;
   static const double stoppedSpeedMps = 0.5;
-  static const int minDurationMs = 80;
-  static const int maxDurationMs = 4000;
-  static const int maxStopDurationMs = 1200;
-  static const double minSpeedForDuration = 0.3;
-  static const double arrivalProximityMeters = 12;
-  static const double settleDistanceMeters = 0.5;
+  static const double settleDistanceMeters = 0.45;
+  static const double noiseTargetMeters = 0.7;
+  static const double snapJumpMeters = 80;
+
+  /// `car_marker.png` faces north (windshield at top). Marker.rotation is
+  /// clockwise from north, so no extra offset.
+  static const double carIconRotationOffset = 0;
 
   /// When false, [observe] treats [observedSpeedMps] as already smoothed.
   final bool smoothObservedSpeed;
@@ -53,15 +51,9 @@ class VehicleMotionEngine {
   double displayedHeading = 0;
   double smoothedSpeedMps = 0;
 
-  List<LatLng> _path = const [];
-  DateTime? _pathStartedAt;
-  int _durationMs = 0;
-  bool _easeOut = false;
-  LatLng? _pendingTarget;
-  List<LatLng>? _pendingPath;
-  bool _pendingStop = false;
-  bool _offRoute = false;
-  Timer? _timer;
+  LatLng? latestTargetPosition;
+  double latestTargetRotation = 0;
+  DateTime? lastLocationTimestamp;
 
   void observe({
     required LatLng target,
@@ -70,55 +62,52 @@ class VehicleMotionEngine {
     required bool isStopped,
     bool offRoute = false,
     double? remainingToDestinationMeters,
+    Duration? sampleInterval,
+    double? observedHeading,
   }) {
     if (phase == VehicleMotionPhase.arrived) return;
 
-    _offRoute = offRoute;
-    _applySpeed(observedSpeedMps, forceZero: isStopped);
+    final now = DateTime.now();
+    final previousTarget = latestTargetPosition;
+    final previousAt = lastLocationTimestamp;
+    lastLocationTimestamp = now;
+    latestTargetPosition = target;
 
-    if (remainingToDestinationMeters != null &&
-        remainingToDestinationMeters < arrivalProximityMeters &&
-        (isStopped || smoothedSpeedMps < stoppedSpeedMps)) {
-      _settle(
-        path.length >= 2 ? path.last : (displayedPosition ?? target),
-        VehicleMotionPhase.stopped,
-      );
-      return;
-    }
+    final interval = sampleInterval ??
+        (previousAt == null ? null : now.difference(previousAt));
+    _applyRealSpeed(
+      observed: observedSpeedMps,
+      isStopped: isStopped,
+      gpsHopMeters:
+          previousTarget == null ? 0 : _distance(previousTarget, target),
+      sampleInterval: interval,
+    );
 
     final from = displayedPosition;
-    List<LatLng> nextPath = path;
-    if (nextPath.length < 2) {
-      final start = from ?? target;
-      // A one-point path means "hold on the road" (e.g. GPS projected backward).
-      // Do not invent a straight chord to the GPS target — that cuts corners.
-      nextPath = [start];
+    double? movementBearing;
+    if (from != null && _distance(from, target) >= 1.0) {
+      movementBearing = _bearing(from, target);
     }
+    final resolvedHeading = resolveTravelHeading(
+      reported: observedHeading,
+      speedMps: smoothedSpeedMps,
+      isStopped: isStopped,
+      movementBearing: movementBearing,
+      fallback: displayedHeading,
+    );
 
-    _pendingTarget = target;
-    _pendingPath = nextPath;
-    _pendingStop = isStopped || smoothedSpeedMps < stoppedSpeedMps;
-
-    if (_timer?.isActive == true) return;
-    _applyPendingIfAny();
-    if (_path.length >= 2 && _pathStartedAt != null) {
-      _startTimer();
-    }
+    // Newest point wins: the marker is this sample, not a leftover hop.
+    _syncDisplayedToLatest(
+      heading: resolvedHeading,
+      isStopped: isStopped || smoothedSpeedMps < stoppedSpeedMps,
+    );
   }
 
   void halt({VehicleMotionPhase to = VehicleMotionPhase.arrived}) {
     generation++;
-    _timer?.cancel();
-    _timer = null;
-    _pendingTarget = null;
-    _pendingPath = null;
-    _pendingStop = false;
-    _path = const [];
-    _pathStartedAt = null;
-    _durationMs = 0;
-    _easeOut = false;
-    _offRoute = false;
     smoothedSpeedMps = 0;
+    latestTargetPosition = null;
+    lastLocationTimestamp = null;
     phase = to;
   }
 
@@ -126,6 +115,7 @@ class VehicleMotionEngine {
     halt(to: VehicleMotionPhase.idle);
     displayedPosition = null;
     displayedHeading = 0;
+    latestTargetRotation = 0;
   }
 
   void dispose() {
@@ -137,171 +127,90 @@ class VehicleMotionEngine {
     isMounted = null;
   }
 
-  void _applySpeed(double observed, {required bool forceZero}) {
-    if (forceZero || !observed.isFinite || observed < stoppedSpeedMps) {
+  /// Marker speed is the real car speed: GPS `speed` when present, otherwise
+  /// distance between the last two real points divided by elapsed time.
+  void _applyRealSpeed({
+    required double observed,
+    required bool isStopped,
+    required double gpsHopMeters,
+    required Duration? sampleInterval,
+  }) {
+    final intervalSec = sampleInterval == null
+        ? 0.0
+        : sampleInterval.inMilliseconds / 1000.0;
+    final implied = (intervalSec >= 0.05 && gpsHopMeters >= 0.5)
+        ? gpsHopMeters / intervalSec
+        : 0.0;
+
+    if (observed.isFinite && observed >= stoppedSpeedMps) {
+      smoothedSpeedMps = observed;
+      return;
+    }
+    if (implied >= stoppedSpeedMps) {
+      smoothedSpeedMps = implied;
+      return;
+    }
+    if (isStopped || gpsHopMeters < settleDistanceMeters) {
       smoothedSpeedMps = 0;
-      return;
     }
-    final raw = observed.clamp(0.0, 55.0);
-    if (!smoothObservedSpeed) {
-      smoothedSpeedMps = raw;
-      return;
-    }
-    if (smoothedSpeedMps < stoppedSpeedMps) {
-      smoothedSpeedMps = startAlpha * raw;
-    } else {
-      smoothedSpeedMps =
-          speedAlpha * raw + (1 - speedAlpha) * smoothedSpeedMps;
-    }
-    if (smoothedSpeedMps < stoppedSpeedMps) smoothedSpeedMps = 0;
   }
 
-  void _applyPendingIfAny() {
-    final pendingPath = _pendingPath;
-    final pendingTarget = _pendingTarget;
-    if (pendingPath == null || pendingTarget == null) return;
-    _pendingPath = null;
-    _pendingTarget = null;
-    final stopping = _pendingStop;
-    _pendingStop = false;
+  /// Place the marker on [latestTargetPosition] now.
+  void _syncDisplayedToLatest({
+    required double heading,
+    required bool isStopped,
+  }) {
+    final target = latestTargetPosition;
+    if (target == null) return;
 
-    final from = displayedPosition ?? pendingPath.first;
-    var path = List<LatLng>.from(pendingPath);
-    if (path.isEmpty) {
-      path = [from, pendingTarget];
-    } else if (!_pointsEqual(path.first, from) &&
-        _distance(from, path.first) > 2) {
-      path.insert(0, from);
-    }
-
-    if (path.length < 2) {
-      _settle(path.isEmpty ? pendingTarget : path.last,
-          stopping ? VehicleMotionPhase.stopped : phase);
-      return;
-    }
-
-    final remaining = pathLengthMeters(path);
-    if (remaining < settleDistanceMeters) {
-      _settle(
-        path.last,
-        stopping ? VehicleMotionPhase.stopped : VehicleMotionPhase.moving,
-      );
-      return;
-    }
-
-    if (displayedPosition == null && path.length >= 2) {
-      displayedHeading =
-          alongPath?.call(path, 0).bearing ?? displayedHeading;
-    }
-    displayedPosition ??= path.first;
-    _path = path;
-    _easeOut = stopping;
-    phase = stopping
-        ? VehicleMotionPhase.stopping
-        : VehicleMotionPhase.moving;
-    _durationMs = durationMsFor(
-      remainingMeters: remaining,
-      speedMps: stopping
-          ? math.max(smoothedSpeedMps, minSpeedForDuration)
-          : smoothedSpeedMps,
-      stopping: stopping,
-    );
-    _pathStartedAt = DateTime.now();
-  }
-
-  void _startTimer() {
-    if (_timer?.isActive == true) return;
-    final gen = generation;
-    _timer = Timer.periodic(const Duration(milliseconds: frameMs), (timer) {
-      if (gen != generation) {
-        timer.cancel();
-        return;
-      }
-      if (isMounted != null && isMounted!() == false) {
-        halt(to: VehicleMotionPhase.idle);
-        return;
-      }
-
-      _applyPendingIfAny();
-
-      if (_path.length < 2 || _pathStartedAt == null || _durationMs <= 0) {
-        if (_pendingPath != null) return;
-        final hold = displayedPosition ??
-            (_path.isNotEmpty ? _path.last : null);
-        if (phase == VehicleMotionPhase.stopping && hold != null) {
-          _settle(hold, VehicleMotionPhase.stopped);
-          return;
-        }
-        timer.cancel();
-        _timer = null;
-        return;
-      }
-
-      final elapsed =
-          DateTime.now().difference(_pathStartedAt!).inMilliseconds;
-      var t = (elapsed / _durationMs).clamp(0.0, 1.0);
-      if (_easeOut) t = _easeOutCubic(t);
-
-      final along = alongPath?.call(_path, t) ?? _fallbackAlong(_path, t);
-      final lookAheadM =
-          _offRoute ? 0.0 : lookAheadMeters(smoothedSpeedMps);
-      final desired = lookAheadBearing?.call(_path, t, lookAheadM) ??
-          along.bearing;
-      final turnDelta = shortestAngleDelta(displayedHeading, desired).abs();
-      final maxStep = turnDelta > 12 ? 8.0 : 16.0;
-      displayedHeading = stepHeading(displayedHeading, desired, maxStep);
-      displayedPosition = along.position;
-
-      onFrame?.call(displayedPosition!, displayedHeading);
-
-      if (elapsed >= _durationMs) {
-        displayedPosition = _path.last;
-        onFrame?.call(displayedPosition!, displayedHeading);
-        if (phase == VehicleMotionPhase.stopping || _easeOut) {
-          _settle(displayedPosition!, VehicleMotionPhase.stopped);
-          return;
-        }
-        _path = const [];
-        _pathStartedAt = null;
-        if (_pendingPath == null) {
-          timer.cancel();
-          _timer = null;
-          onSettled?.call();
-        }
-      }
-    });
-  }
-
-  void _settle(LatLng at, VehicleMotionPhase to) {
     generation++;
-    displayedPosition = at;
-    smoothedSpeedMps = 0;
-    phase = to;
-    _path = const [];
-    _pathStartedAt = null;
-    _pendingTarget = null;
-    _pendingPath = null;
-    _pendingStop = false;
-    _timer?.cancel();
-    _timer = null;
-    onFrame?.call(at, displayedHeading);
+    displayedPosition = target;
+    displayedHeading = heading;
+    latestTargetRotation = heading;
+    phase = isStopped ? VehicleMotionPhase.stopped : VehicleMotionPhase.moving;
+    _emitFrame();
     onSettled?.call();
   }
 
-  static int durationMsFor({
-    required double remainingMeters,
+  void _emitFrame() {
+    final pos = displayedPosition;
+    if (pos == null) return;
+    onFrame?.call(
+      pos,
+      (displayedHeading + carIconRotationOffset + 360) % 360,
+    );
+  }
+
+  static double lerpHeading(double from, double to, double t) {
+    final delta = shortestAngleDelta(from, to);
+    return (from + delta * t.clamp(0.0, 1.0) + 360) % 360;
+  }
+
+  static double resolveTravelHeading({
+    required double? reported,
     required double speedMps,
-    bool stopping = false,
+    required bool isStopped,
+    required double? movementBearing,
+    required double fallback,
   }) {
-    if (remainingMeters < settleDistanceMeters) return 0;
-    final speed = speedMps < minSpeedForDuration
-        ? minSpeedForDuration
-        : speedMps.clamp(minSpeedForDuration, 55.0);
-    final ms = ((remainingMeters / speed) * 1000).round();
-    if (stopping) {
-      return ms.clamp(minDurationMs, maxStopDurationMs);
+    if (isStopped || speedMps < stoppedSpeedMps) {
+      return fallback;
     }
-    return ms.clamp(minDurationMs, maxDurationMs);
+
+    final reportedOk = reported != null && reported.isFinite && reported >= 0;
+    if (reportedOk) {
+      final heading = (reported % 360 + 360) % 360;
+      if (heading == 0 && movementBearing != null) {
+        final delta = shortestAngleDelta(0, movementBearing).abs();
+        if (delta > 45) return (movementBearing + 360) % 360;
+      }
+      return heading;
+    }
+
+    if (movementBearing != null) {
+      return (movementBearing + 360) % 360;
+    }
+    return fallback;
   }
 
   static double lookAheadMeters(double speedMps) {
@@ -326,45 +235,6 @@ class VehicleMotionEngine {
     return total;
   }
 
-  static double _easeOutCubic(double t) {
-    final inv = 1 - t;
-    return 1 - inv * inv * inv;
-  }
-
-  static VehiclePathPose _fallbackAlong(List<LatLng> path, double progress) {
-    if (path.length < 2) {
-      return (position: path.first, bearing: 0);
-    }
-    final total = pathLengthMeters(path);
-    if (total < 0.01) {
-      return (
-        position: path.last,
-        bearing: _bearing(path[path.length - 2], path.last),
-      );
-    }
-    final targetDistance = progress.clamp(0.0, 1.0) * total;
-    var covered = 0.0;
-    for (var i = 0; i < path.length - 1; i++) {
-      final seg = _distance(path[i], path[i + 1]);
-      if (covered + seg >= targetDistance) {
-        final t = seg < 0.001 ? 0.0 : (targetDistance - covered) / seg;
-        return (
-          position: LatLng(
-            path[i].latitude + (path[i + 1].latitude - path[i].latitude) * t,
-            path[i].longitude +
-                (path[i + 1].longitude - path[i].longitude) * t,
-          ),
-          bearing: _bearing(path[i], path[i + 1]),
-        );
-      }
-      covered += seg;
-    }
-    return (
-      position: path.last,
-      bearing: _bearing(path[path.length - 2], path.last),
-    );
-  }
-
   static double _bearing(LatLng from, LatLng to) {
     final fromLat = from.latitude * math.pi / 180;
     final toLat = to.latitude * math.pi / 180;
@@ -382,10 +252,5 @@ class VehicleMotionEngine {
       b.latitude,
       b.longitude,
     );
-  }
-
-  static bool _pointsEqual(LatLng a, LatLng b) {
-    return (a.latitude - b.latitude).abs() < 1e-9 &&
-        (a.longitude - b.longitude).abs() < 1e-9;
   }
 }

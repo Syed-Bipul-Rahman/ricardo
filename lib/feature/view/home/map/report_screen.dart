@@ -41,7 +41,7 @@ class _ReportScreenState extends State<ReportScreen> {
         child: Column(
           children: [
             SizedBox(
-              height: 24.h,
+              height: 18.h,
             ),
             Center(
               child: CustomHeadingText(
@@ -64,7 +64,7 @@ class _ReportScreenState extends State<ReportScreen> {
               ),
             ),
             SizedBox(
-              height: 42.h,
+              height: 28.h,
             ),
             _buildRadioOption(1, 'Safety Issues'),
             _buildRadioOption(2, 'Behavior Issues'),
@@ -83,7 +83,7 @@ class _ReportScreenState extends State<ReportScreen> {
               return const SizedBox.shrink();
             }),
             SizedBox(
-              height: 110.h,
+              height: 36.h,
             ),
             Obx(() {
               final loading = controller.isReportStatus.value;
@@ -108,15 +108,23 @@ class _ReportScreenState extends State<ReportScreen> {
       },
       child: Row(
         children: [
-          Obx(() => Radio(
+          Obx(() => Radio<int>(
                 value: value,
                 groupValue: controller.radioBtnValue.value,
+                activeColor: const Color(0xff007635),
                 onChanged: (value) {
                   controller.radioBtnValue.value = value!;
                 },
               )),
-          SizedBox(width: 10.0),
-          Text(label)
+          SizedBox(width: 4.w),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 15.sp,
+              fontWeight: FontWeight.w500,
+              color: AppColors.blackColor,
+            ),
+          )
         ],
       ),
     );

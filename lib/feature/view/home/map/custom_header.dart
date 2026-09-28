@@ -1,4 +1,3 @@
-import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:ricardo/feature/view/home/link_export_file.dart';
 import 'package:ricardo/feature/view/profile/profile_screen.dart';
@@ -23,30 +22,27 @@ class CustomHeader extends StatelessWidget {
         final user = userController.userModel.value?.userProfile;
         final profileImage =
             user?.image?.filename ?? Assets.images.defaultImage.path;
-        final userName = user?.name ?? 'User';
-        // ✅ In your initState or wherever you load user data
 
-        return ClipRRect(
-          borderRadius: BorderRadius.only(
-            bottomLeft: Radius.circular(30),
-            bottomRight: Radius.circular(30),
-          ),
-          child: BackdropFilter(
-            filter: ui.ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+        return Padding(
+          padding: EdgeInsets.fromLTRB(12.w, 6.h, 12.w, 0),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(22.r),
             child: Container(
-              height: MediaQuery.of(context).size.height * 0.2,
               decoration: BoxDecoration(
-                color: Color(0x80FFFFFF),
-                borderRadius: BorderRadius.only(
-                  bottomLeft: Radius.circular(30),
-                  bottomRight: Radius.circular(30),
-                ),
-                border: Border.all(color: Colors.white, width: 2),
+                color: Colors.white.withValues(alpha: 0.96),
+                borderRadius: BorderRadius.circular(22.r),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.06),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
               ),
               child: SafeArea(
                 bottom: false,
                 child: Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 10.h),
+                  padding: EdgeInsets.fromLTRB(12.w, 8.h, 12.w, 12.h),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -54,17 +50,16 @@ class CustomHeader extends StatelessWidget {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Container(
-                            width: 50.w,
-                            height: 50.h,
+                            width: 44.r,
+                            height: 44.r,
                             decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(50),
+                              shape: BoxShape.circle,
                               border: Border.all(
-                                color: Colors.green,
-                                width: 2,
+                                color: const Color(0xffE6E6E6),
+                                width: 1,
                               ),
                             ),
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(50),
+                            child: ClipOval(
                               child: GestureDetector(
                                 onTap: () {
                                   Get.to(ProfileScreen());
@@ -82,62 +77,40 @@ class CustomHeader extends StatelessWidget {
                               ),
                             ),
                           ),
-                          ClipRRect(
-                            borderRadius:
-                                BorderRadius.all(Radius.circular(100)),
-                            child: BackdropFilter(
-                              filter: ui.ImageFilter.blur(
-                                sigmaX: 20,
-                                sigmaY: 20,
+                          GestureDetector(
+                            onTap: () =>
+                                Get.toNamed(AppRoutes.notificationScreen),
+                            child: Container(
+                              width: 40.r,
+                              height: 40.r,
+                              decoration: const BoxDecoration(
+                                color: Color(0xFFE9F8EE),
+                                shape: BoxShape.circle,
                               ),
-                              child: Container(
-                                padding: EdgeInsets.all(10.r),
-                                decoration: BoxDecoration(
-                                  color:
-                                      (AppColors.whiteColor).withOpacity(0.10),
-                                  borderRadius: BorderRadius.circular(100),
-                                  border: Border.all(
-                                      color: (AppColors.whiteColor)
-                                          .withOpacity(0.7),
-                                      width: 2),
-                                  backgroundBlendMode: BlendMode.color,
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(0.1),
-                                      offset: const Offset(0, -4),
-                                      blurRadius: 5,
-                                      spreadRadius: 0,
-                                    ),
-                                  ],
-                                ),
-                                child: GestureDetector(
-                                  onTap: () =>
-                                      Get.toNamed(AppRoutes.notificationScreen),
-                                  child: SvgPicture.asset(
-                                    Assets.images.bell,
-                                    width: 24.w,
-                                    height: 24.h,
-                                  ),
-                                ), // Use the passed child here
+                              alignment: Alignment.center,
+                              child: SvgPicture.asset(
+                                Assets.images.bell,
+                                width: 20.w,
+                                height: 20.h,
                               ),
                             ),
                           ),
                         ],
                       ),
-                      SizedBox(height: 16.h),
+                      SizedBox(height: 10.h),
                       Row(
                         children: [
                           SvgPicture.asset(
                             Assets.images.greenPin,
-                            width: 20.w,
-                            height: 20.h,
+                            width: 18.w,
+                            height: 18.h,
                           ),
                           SizedBox(width: 8.w),
                           Expanded(
                             child: Text(
                               mapOPTController.currentLocation.value,
                               style: TextStyle(
-                                fontSize: 14.sp,
+                                fontSize: 13.sp,
                                 color: Colors.black,
                                 fontWeight: FontWeight.w600,
                                 fontFamily: FontFamily.poppins,

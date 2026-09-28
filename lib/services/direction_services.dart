@@ -125,15 +125,15 @@ class DirectionsService {
   Future<String> getCurrentAddress() async {
     try {
       final position = await resolveInitialPosition();
-      if (position == null) return 'Fetching location...';
+      if (position == null) return kLocationLoadingAddress;
 
       final parts = await reverseGeocodeAddressParts(
         position.latitude,
         position.longitude,
       );
-      return parts?.full ?? 'Fetching location...';
+      return parts?.full ?? kLocationLoadingAddress;
     } catch (e) {
-      return 'Fetching location...';
+      return kLocationLoadingAddress;
     }
   }
 
@@ -142,7 +142,7 @@ class DirectionsService {
       final position = await resolveInitialPosition();
       if (position == null) {
         return {
-          'firstLine': 'Fetching location...',
+          'firstLine': kLocationLoadingAddress,
           'secondLine': '',
         };
       }
@@ -153,7 +153,7 @@ class DirectionsService {
       );
       if (parts == null) {
         return {
-          'firstLine': 'Fetching location...',
+          'firstLine': kLocationLoadingAddress,
           'secondLine': '',
         };
       }
@@ -163,7 +163,7 @@ class DirectionsService {
       };
     } catch (e) {
       return {
-        'firstLine': 'Fetching location...',
+        'firstLine': kLocationLoadingAddress,
         'secondLine': '',
       };
     }

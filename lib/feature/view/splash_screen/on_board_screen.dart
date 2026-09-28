@@ -117,11 +117,8 @@ class _OnBoardScreenState extends State<OnBoardScreen> {
                     ),
                     GestureDetector(
                       onTap: () {
-                        _pageController.animateToPage(
-                          HelperData.onboardingData.length - 1,
-                          duration: const Duration(milliseconds: 100),
-                          curve: Curves.easeInOut,
-                        );
+                        PrefsHelper.setBool(AppConstants.onBoardKey, true);
+                        Get.offAllNamed(AppRoutes.authInitialScreen);
                       },
                       child: Text(
                         'Skip',

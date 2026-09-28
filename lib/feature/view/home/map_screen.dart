@@ -7,8 +7,9 @@ import 'package:flutter_compass/flutter_compass.dart';
 import 'package:ricardo/feature/models/home/ride_status_model.dart'
     as RideModel;
 import 'package:ricardo/feature/models/socket/accept_ride_model.dart';
+import 'package:ricardo/app/helpers/screen_awake_helper.dart';
 import 'package:ricardo/feature/view/home/map/helpers/live_driver_location_tracker.dart';
-import 'package:ricardo/feature/view/home/map/helpers/vehicle_motion_engine.dart';
+import 'package:ricardo/feature/view/home/map/helpers/map_navigation_camera.dart';
 import 'link_export_file.dart';
 
 part 'map/parts/_bootstrap.part.dart';
@@ -40,6 +41,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
   /// Full driving-route geometry (immutable until refetch). Never trim this —
   /// trimming destroyed turn vertices and let the car cut corners / footpaths.
   List<LatLng> _fullRoutePoints = [];
+
   /// Forward progress cursor into [_fullRoutePoints] so snaps prefer the road
   /// ahead through turns instead of a nearer sidewalk-side segment behind.
   int _routeProgressIndex = 0;
@@ -58,14 +60,17 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
   bool _hasLocation = true;
   String _errorMessage = '';
 
-  final LatLng _defaultLocation = const LatLng(37.7749, -122.4194);
+  final LatLng _defaultLocation = const LatLng(
+    kMapFallbackLatitude,
+    kMapFallbackLongitude,
+  );
 
   StreamSubscription<Position>? _positionStream;
-  StreamSubscription<CompassEvent>? _compassStream;
   Position? _lastSentPosition;
   DateTime? _lastLocationSentAt;
   bool _isTracking = false;
-  DateTime? _lastHeadingUpdateAt;
+  bool _didCaptureDeviceHeading = false;
+  double? _initialDeviceHeading;
   LatLng? _remoteDriverTarget;
   final LiveDriverLocationTracker _liveDriverTracker =
       LiveDriverLocationTracker();
@@ -73,11 +78,16 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
       VehicleMotionEngine(smoothObservedSpeed: true);
   final VehicleMotionEngine _remoteMotionEngine =
       VehicleMotionEngine(smoothObservedSpeed: false);
-  bool _isKeepingCarVisible = false;
-  DateTime? _lastCarTravelCameraAt;
   LatLng? _pendingCameraTarget;
+  late final MapNavigationCamera _navCamera = MapNavigationCamera(
+    onProgrammaticMove: ({Duration hold = const Duration(milliseconds: 500)}) {
+      mapOPTController.beginProgrammaticCamera(hold: hold);
+    },
+  );
   // Toggle live location pipeline diagnostics in debug consoles.
   final bool _liveLocationDiag = false;
+  DateTime? _lastMarkerRenderLogAt;
+  Worker? _screenAwakeWorker;
 
   @override
   void initState() {
@@ -85,10 +95,12 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     initMarkers();
     _bindVehicleMotionEngines();
+    _bindScreenAwake();
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await initializeMap();
       await loadStatus();
+      _syncScreenAwake();
     });
   }
 
@@ -99,16 +111,19 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
       body: Stack(
         fit: StackFit.expand,
         children: [
-          MapView(
+          Positioned.fill(
+            child: MapView(
             mapOPTController: mapOPTController,
             currentZoom: currentZoom,
             defaultLocation: _defaultLocation,
             markersBuilder: buildMarkers,
             polylines: _polylines,
             onMapCreated: _onMapCreated,
-            onCameraMove: (_) {
-              mapOPTController.notifyMapMoved();
+            onCameraMove: (position) {
+              currentZoom = position.zoom;
             },
+            onCameraMoveStarted: _onCameraMoveStarted,
+          ),
           ),
           ...buildPassengerOverlays(
             userController: userController,
@@ -153,6 +168,8 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    _syncScreenAwake(lifecycle: state);
+
     if (state != AppLifecycleState.resumed) return;
     if (!mapOPTController.hasValidCoordinates) {
       unawaited(getCurrentLocation());
@@ -161,116 +178,150 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
     }
   }
 
-  void moveToCurrentLocation() {
-    mapOPTController.hideLocationButton();
+  void _bindScreenAwake() {
+    final sources = <RxInterface<dynamic>>[
+      mapOPTController.rideStatusData,
+      rideController.isRideAccepted,
+    ];
+    if (Get.isRegistered<CustomBottomNavBarController>()) {
+      sources.add(Get.find<CustomBottomNavBarController>().selectedIndex);
+    }
+    _screenAwakeWorker = everAll(sources, (_) => _syncScreenAwake());
+    _syncScreenAwake();
+  }
 
-    _mapController?.animateCamera(
-      duration: const Duration(seconds: 2),
-      CameraUpdate.newCameraPosition(
-        CameraPosition(
-          target: LatLng(
-            mapOPTController.currentLatitudePosition!.value,
-            mapOPTController.currentLongitudePosition!.value,
-          ),
-          zoom: currentZoom,
-          bearing: 0,
-          tilt: 0,
-        ),
+  /// Screen stays awake only while this tracking view is in the foreground
+  /// during an active ride. Leaving the tab, backgrounding, or ending the
+  /// ride restores the system timeout.
+  void _syncScreenAwake({AppLifecycleState? lifecycle}) {
+    if (!mounted) {
+      unawaited(ScreenAwakeHelper.release());
+      return;
+    }
+
+    final state = lifecycle ?? WidgetsBinding.instance.lifecycleState;
+    final inForeground = state == null ||
+        state == AppLifecycleState.resumed ||
+        state == AppLifecycleState.inactive;
+
+    var onTrackingTab = true;
+    if (Get.isRegistered<CustomBottomNavBarController>()) {
+      onTrackingTab =
+          Get.find<CustomBottomNavBarController>().selectedIndex.value == 0;
+    }
+
+    final trackingActive = mapOPTController.isInActiveRide ||
+        rideController.isRideAccepted.value == true;
+
+    unawaited(
+      ScreenAwakeHelper.setDesired(
+        trackingActive && onTrackingTab && inForeground,
       ),
     );
   }
 
-  /// Keep the live car on-screen without zoom jumps.
-  ///
-  /// Uber/Pathao passenger style: **north always up** (`bearing: 0`). The car
-  /// icon rotates on the road; the map does not spin. Fitting a tiny
-  /// start→target LatLngBounds used to zoom wildly and make the marker look
-  /// like it was flying across the screen — we only pan at a stable zoom.
-  Future<void> _ensureCarTravelVisible(
-    LatLng currentPosition,
-    LatLng targetPosition,
-  ) async {
-    final controller = _mapController;
-    if (controller == null || _isKeepingCarVisible || !mounted) return;
-    if (!mapOPTController.isInActiveRide) return;
-
-    final now = DateTime.now();
-    final last = _lastCarTravelCameraAt;
-    // Throttle tile churn; still responsive enough to follow turns.
-    if (last != null && now.difference(last) < const Duration(milliseconds: 750)) {
-      return;
-    }
-
-    _isKeepingCarVisible = true;
+  /// Read the phone compass once at screen open. Never a continuous stream.
+  Future<void> _captureInitialDeviceHeadingOnce() async {
+    if (_didCaptureDeviceHeading) return;
+    _didCaptureDeviceHeading = true;
     try {
-      final bounds = await controller.getVisibleRegion();
-      final latitudeMargin =
-          (bounds.northeast.latitude - bounds.southwest.latitude).abs() * 0.28;
-      final longitudeMargin =
-          (bounds.northeast.longitude - bounds.southwest.longitude).abs() *
-              0.28;
-      final insideSafeArea = targetPosition.latitude >=
-              bounds.southwest.latitude + latitudeMargin &&
-          targetPosition.latitude <=
-              bounds.northeast.latitude - latitudeMargin &&
-          targetPosition.longitude >=
-              bounds.southwest.longitude + longitudeMargin &&
-          targetPosition.longitude <=
-              bounds.northeast.longitude - longitudeMargin;
-
-      if (!insideSafeArea) {
-        _lastCarTravelCameraAt = now;
-        mapOPTController.hideLocationButton();
-        // Pan only — same zoom, north-up. Never bounds-fit two GPS points.
-        await controller.animateCamera(
-          CameraUpdate.newCameraPosition(
-            CameraPosition(
-              target: targetPosition,
-              zoom: currentZoom,
-              bearing: 0,
-              tilt: 0,
-            ),
-          ),
-        );
-      }
-    } finally {
-      _isKeepingCarVisible = false;
+      final events = FlutterCompass.events;
+      if (events == null) return;
+      final event = await events.first.timeout(
+        const Duration(milliseconds: 800),
+      );
+      final heading = event.heading;
+      if (heading == null || !heading.isFinite) return;
+      _initialDeviceHeading = (heading % 360 + 360) % 360;
+      mapOPTController.headingDegrees.value = _initialDeviceHeading!;
+    } catch (_) {
+      // Compass unavailable — driver GPS heading takes over the marker.
     }
   }
 
-  /// Soft recenter while the car is animating along the road (north-up).
-  /// Pauses when the user has panned the map (location button visible).
-  void _softFollowCar(LatLng carPosition) {
-    if (!mapOPTController.isInActiveRide) return;
-    if (mapOPTController.isLocationButtonVisible.value) return;
-    final controller = _mapController;
-    if (controller == null || !mounted) return;
-
-    final now = DateTime.now();
-    final last = _lastCarTravelCameraAt;
-    if (last != null &&
-        now.difference(last) < const Duration(milliseconds: 900)) {
-      return;
+  double _initialMarkerHeading(double? gpsHeading) {
+    if (gpsHeading != null && gpsHeading.isFinite && gpsHeading > 0) {
+      return (gpsHeading % 360 + 360) % 360;
     }
-    _lastCarTravelCameraAt = now;
-    mapOPTController.beginProgrammaticCamera();
-    // moveCamera avoids stacked animateCamera tile floods.
-    controller.moveCamera(
-      CameraUpdate.newCameraPosition(
-        CameraPosition(
-          target: carPosition,
-          zoom: currentZoom,
-          bearing: 0,
-          tilt: 0,
-        ),
+    return _initialDeviceHeading ?? 0;
+  }
+
+  void moveToCurrentLocation() {
+    mapOPTController.hideLocationButton();
+    _navCamera.resumeFollow();
+    final pose = _trackingVehiclePose();
+    if (pose == null) return;
+    unawaited(
+      _navCamera.recapture(
+        target: pose.position,
+        zoom: currentZoom,
       ),
+    );
+  }
+
+  ({LatLng position, double heading, bool moving})? _trackingVehiclePose() {
+    final isPassenger =
+        userController.userModel.value?.userProfile?.role ==
+            AppConstants.passenger;
+    if (isPassenger) {
+      final pos = _remoteMotionEngine.displayedPosition ??
+          mapOPTController.animatedRemoteDriverPosition.value;
+      if (pos == null) return null;
+      return (
+        position: pos,
+        heading: _remoteMotionEngine.displayedHeading,
+        moving: _remoteMotionEngine.smoothedSpeedMps >= 0.5,
+      );
+    }
+    final pos = _selfMotionEngine.displayedPosition ??
+        mapOPTController.animatedCurrentMarkerPosition.value;
+    if (pos == null) {
+      final lat = mapOPTController.currentLatitudePosition?.value;
+      final lng = mapOPTController.currentLongitudePosition?.value;
+      if (!isValidLatLng(lat, lng)) return null;
+      return (
+        position: LatLng(lat!, lng!),
+        heading: _selfMotionEngine.displayedHeading,
+        moving: false,
+      );
+    }
+    return (
+      position: pos,
+      heading: _selfMotionEngine.displayedHeading,
+      moving: _selfMotionEngine.smoothedSpeedMps >= 0.5,
+    );
+  }
+
+  void _onCameraMoveStarted() {
+    if (_navCamera.programmatic) return;
+    if (!_navCamera.initialApplied) return;
+    _navCamera.pauseFollow();
+    mapOPTController.notifyMapMoved();
+  }
+
+  void _followTrackingVehicle(LatLng position) {
+    if (!_navCamera.followEnabled) return;
+    _navCamera.followVisual(
+      visual: position,
+      zoom: currentZoom,
+    );
+  }
+
+  Future<void> _ensureInitialNavCamera(LatLng target) {
+    return _navCamera.applyInitial(
+      target: target,
+      zoom: currentZoom,
     );
   }
 
   @override
   void dispose() {
+    _screenAwakeWorker?.dispose();
+    _screenAwakeWorker = null;
+    unawaited(ScreenAwakeHelper.release());
     _selfMotionEngine.dispose();
     _remoteMotionEngine.dispose();
+    _navCamera.dispose();
     _mapController?.dispose();
     WidgetsBinding.instance.removeObserver(this);
     positionStream?.cancel();

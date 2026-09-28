@@ -7,12 +7,30 @@ import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 
+/// GoogleMap [initialCameraPosition] only — never the user's location.
+const double kMapFallbackLatitude = 37.7749;
+const double kMapFallbackLongitude = -122.4194;
+
+const String kLocationLoadingAddress = 'Getting your location...';
+
 bool isValidLatLng(double? lat, double? lng) {
   if (lat == null || lng == null) return false;
   if (lat.isNaN || lng.isNaN) return false;
   if (lat.abs() < 0.0001 && lng.abs() < 0.0001) return false;
   if (lat.abs() > 90 || lng.abs() > 180) return false;
   return true;
+}
+
+/// San Francisco placeholder used only to construct GoogleMap before GPS.
+bool isAppFallbackCoordinate(double? lat, double? lng) {
+  if (lat == null || lng == null) return false;
+  return (lat - kMapFallbackLatitude).abs() < 1e-4 &&
+      (lng - kMapFallbackLongitude).abs() < 1e-4;
+}
+
+bool isUsableDevicePosition(Position position) {
+  return isValidLatLng(position.latitude, position.longitude) &&
+      !isAppFallbackCoordinate(position.latitude, position.longitude);
 }
 
 bool isUnknownAddressText(String? value) {
@@ -25,44 +43,40 @@ bool isUnknownAddressText(String? value) {
       lower == 'null' ||
       lower.contains('unknown address') ||
       lower == 'fetching location...' ||
+      lower == 'getting your location...' ||
       lower == 'location not available' ||
       lower == 'no address found';
 }
 
-/// Cold start: OS last-known is often null until this app gets a GPS fix.
-/// Timeouts on [Geolocator.getCurrentPosition] used to abort before GPS warmed,
-/// so the map stayed on the default pin and reverse-geocode returned "Unknown".
+/// Fresh device GPS only. OS last-known / other-app cache is never returned —
+/// on first install that is often a stale city and was shown as the user.
 Future<Position?> resolveInitialPosition() async {
-  try {
-    final last = await Geolocator.getLastKnownPosition();
-    if (last != null && isValidLatLng(last.latitude, last.longitude)) {
-      return last;
-    }
-  } catch (e) {
-    debugPrint('getLastKnownPosition failed: $e');
-  }
-
-  try {
-    final current = await Geolocator.getCurrentPosition(
-      desiredAccuracy: LocationAccuracy.medium,
-      timeLimit: const Duration(seconds: 8),
-    );
-    if (isValidLatLng(current.latitude, current.longitude)) return current;
-  } catch (e) {
-    debugPrint('getCurrentPosition(medium) failed: $e');
-  }
-
-  final streamed = await _firstFixFromStream(
-    timeout: const Duration(seconds: 12),
-  );
-  if (streamed != null) return streamed;
-
-  return null;
-}
-
-Future<Position?> _firstFixFromStream({required Duration timeout}) async {
-  StreamSubscription<Position>? sub;
   final completer = Completer<Position?>();
+  StreamSubscription<Position>? sub;
+  Timer? timeout;
+
+  void finish(Position? pos) {
+    if (!completer.isCompleted) completer.complete(pos);
+  }
+
+  void accept(Position pos) {
+    if (!isUsableDevicePosition(pos)) return;
+    finish(pos);
+  }
+
+  timeout = Timer(const Duration(seconds: 10), () => finish(null));
+
+  unawaited(() async {
+    try {
+      final current = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+        timeLimit: const Duration(seconds: 8),
+      );
+      accept(current);
+    } catch (e) {
+      debugPrint('getCurrentPosition(high) failed: $e');
+    }
+  }());
 
   try {
     sub = Geolocator.getPositionStream(
@@ -71,21 +85,17 @@ Future<Position?> _firstFixFromStream({required Duration timeout}) async {
         distanceFilter: 0,
       ),
     ).listen(
-      (pos) {
-        if (!isValidLatLng(pos.latitude, pos.longitude)) return;
-        if (!completer.isCompleted) completer.complete(pos);
-      },
+      accept,
       onError: (Object e) {
         debugPrint('position stream bootstrap failed: $e');
-        if (!completer.isCompleted) completer.complete(null);
       },
     );
-
-    return await completer.future.timeout(timeout, onTimeout: () => null);
+    return await completer.future;
   } catch (e) {
-    debugPrint('first stream fix failed: $e');
+    debugPrint('resolveInitialPosition failed: $e');
     return null;
   } finally {
+    timeout.cancel();
     await sub?.cancel();
   }
 }

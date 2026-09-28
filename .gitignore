@@ -97,6 +97,9 @@ app.*.map.json
 /windows/
 /web/
 
+android/app/src/main/AndroidManifest.xml
+android/app/upload-keystore.jks
+
 # FVM
 .fvm/flutter_sdk
 .fvm/versions

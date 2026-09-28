@@ -96,7 +96,10 @@ class DriverLocationService with WidgetsBindingObserver {
       'speed': position.speed.isFinite ? position.speed : 0,
       'heading': position.heading.isFinite ? position.heading : null,
       'accuracy': position.accuracy.isFinite ? position.accuracy : null,
-      'updatedAt': position.timestamp.toIso8601String(),
+      // Wall-clock emit time, not GPS fix time. GPS timestamps often stall
+      // for 1–3s on Android; using them as updatedAt made the passenger
+      // drop newer coordinates.
+      'updatedAt': DateTime.now().toUtc().toIso8601String(),
       if (_rideId != null) 'rideId': _rideId,
     });
 
@@ -116,8 +119,9 @@ class DriverLocationService with WidgetsBindingObserver {
     if (previous == null || emittedAt == null) return true;
 
     final elapsed = DateTime.now().difference(emittedAt);
-    // ~2–3 Hz while moving — close to Uber/Pathao feel over a pull backend.
-    if (elapsed < const Duration(milliseconds: 400)) {
+    // Floor ~3 Hz while moving. Do not add a second 1s wait — that left the
+    // passenger pulling a stale stored point.
+    if (elapsed < const Duration(milliseconds: 300)) {
       return false;
     }
 
@@ -128,7 +132,9 @@ class DriverLocationService with WidgetsBindingObserver {
       position.longitude,
     );
     final isStopped = position.speed >= 0 && position.speed < 0.5;
-    if (!isStopped && distance < 1.5 && elapsed < const Duration(seconds: 1)) {
+    if (!isStopped &&
+        distance < 1.0 &&
+        elapsed < const Duration(milliseconds: 700)) {
       return false;
     }
     if (isStopped && elapsed < const Duration(seconds: 2)) return false;

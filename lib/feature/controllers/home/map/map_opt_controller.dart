@@ -39,6 +39,7 @@ class MapOPTController extends GetxController {
   final RxDouble animatedCurrentMarkerHeading = 0.0.obs;
   final RxDouble animatedRemoteDriverHeading = 0.0.obs;
   final RxString remoteVehiclePhase = 'idle'.obs;
+
   /// Bumped once per live-marker paint (after lat+heading written).
   /// MapView listens to this alone so position/heading don't each force a rebuild.
   final RxInt liveOverlayRevision = 0.obs;
@@ -65,6 +66,8 @@ class MapOPTController extends GetxController {
   // camera-move callbacks fired by the animation don't re-show the button.
   bool _isCenteringCamera = false;
 
+  int _programmaticCameraGen = 0;
+
   void notifyMapMoved() {
     // Ignore camera events that we triggered ourselves (e.g. animateCamera).
     if (_isCenteringCamera) return;
@@ -76,7 +79,9 @@ class MapOPTController extends GetxController {
     Duration hold = const Duration(milliseconds: 500),
   }) {
     _isCenteringCamera = true;
+    final gen = ++_programmaticCameraGen;
     Future.delayed(hold, () {
+      if (gen != _programmaticCameraGen) return;
       _isCenteringCamera = false;
     });
   }
@@ -84,9 +89,9 @@ class MapOPTController extends GetxController {
   void hideLocationButton() {
     _isCenteringCamera = true;
     isLocationButtonVisible.value = false;
-    // Allow a bit longer than the 2-second camera animation before re-enabling
-    // the flag, so we don't accidentally show the button mid-animation.
-    Future.delayed(const Duration(milliseconds: 2500), () {
+    final gen = ++_programmaticCameraGen;
+    Future.delayed(const Duration(milliseconds: 900), () {
+      if (gen != _programmaticCameraGen) return;
       _isCenteringCamera = false;
     });
   }
@@ -98,9 +103,8 @@ class MapOPTController extends GetxController {
       rideStatusData,
       (status) => unawaited(_syncWaitingState(status)),
     );
-    // Prefetch last GPS only — do not reverse-geocode here. Cold-start
-    // getCurrentPosition races the map screen and often yields "Unknown".
-    unawaited(seedCachedCoordinates());
+    // Do not apply SharedPreferences / last-known as the user location.
+    // First GPS from the map screen is the source of truth.
   }
 
   Timer? _rideRequestTimer;
@@ -146,31 +150,67 @@ class MapOPTController extends GetxController {
   // ******* Current Location Related work are here****
   // ***************************************************
 
-  RxString currentLocation = 'Fetching location...'.obs;
-  RxString currentLocationLine1 = 'Fetching location...'.obs;
+  RxString currentLocation = kLocationLoadingAddress.obs;
+  RxString currentLocationLine1 = kLocationLoadingAddress.obs;
   RxString currentLocationLine2 = ''.obs;
   RxDouble? currentLatitudePosition = 0.0.obs;
   RxDouble? currentLongitudePosition = 0.0.obs;
   DateTime? _lastAddressRefreshAt;
+  DateTime? _lastAppliedGpsAt;
+  LatLng? _lastGeocodedAt;
+  int _geocodeGeneration = 0;
   // Heading in degrees clockwise from North. Used to rotate the car marker so
   // it points the way the driver is moving. Stays at the last valid value when
   // the device is stationary (otherwise the icon spins from GPS jitter).
   RxDouble headingDegrees = 0.0.obs;
 
-  bool get hasValidCoordinates => isValidLatLng(
+  bool get hasValidCoordinates =>
+      isValidLatLng(
+        currentLatitudePosition?.value,
+        currentLongitudePosition?.value,
+      ) &&
+      !isAppFallbackCoordinate(
         currentLatitudePosition?.value,
         currentLongitudePosition?.value,
       );
 
-  bool get needsAddressRefresh =>
-      isUnknownAddressText(currentLocation.value);
+  bool get needsAddressRefresh {
+    if (!hasValidCoordinates) return false;
+    if (isUnknownAddressText(currentLocation.value)) return true;
+    final geocoded = _lastGeocodedAt;
+    if (geocoded == null) return true;
+    final lat = currentLatitudePosition?.value;
+    final lng = currentLongitudePosition?.value;
+    if (lat == null || lng == null) return false;
+    return Geolocator.distanceBetween(
+          geocoded.latitude,
+          geocoded.longitude,
+          lat,
+          lng,
+        ) >=
+        30;
+  }
 
-  Future<void> seedCachedCoordinates() async {
-    final cachedLat = double.tryParse(await PrefsHelper.getString('last_lat'));
-    final cachedLng = double.tryParse(await PrefsHelper.getString('last_lng'));
-    if (!isValidLatLng(cachedLat, cachedLng)) return;
-    currentLatitudePosition?.value = cachedLat!;
-    currentLongitudePosition?.value = cachedLng!;
+  /// Cached prefs are never the live user position. Kept so splash/bootstrap
+  /// callers remain valid; GPS apply is the only writer of current coords.
+  Future<void> seedCachedCoordinates() async {}
+
+  /// Accepts a fresh device GPS sample. Older fixes cannot overwrite newer ones.
+  bool applyCurrentGps({
+    required double latitude,
+    required double longitude,
+    DateTime? gpsTimestamp,
+  }) {
+    if (!isValidLatLng(latitude, longitude)) return false;
+    if (isAppFallbackCoordinate(latitude, longitude)) return false;
+    final ts = gpsTimestamp ?? DateTime.now();
+    if (_lastAppliedGpsAt != null && ts.isBefore(_lastAppliedGpsAt!)) {
+      return false;
+    }
+    _lastAppliedGpsAt = ts;
+    currentLatitudePosition?.value = latitude;
+    currentLongitudePosition?.value = longitude;
+    return true;
   }
 
   Future<void> maybeRefreshAddress() async {
@@ -185,28 +225,42 @@ class MapOPTController extends GetxController {
   }
 
   Future<void> getLocation({Position? knownPosition}) async {
+    final gen = ++_geocodeGeneration;
     try {
-      Position? position = knownPosition;
-      if (position == null && !hasValidCoordinates) {
-        position = await resolveInitialPosition();
+      if (knownPosition != null) {
+        applyCurrentGps(
+          latitude: knownPosition.latitude,
+          longitude: knownPosition.longitude,
+          gpsTimestamp: knownPosition.timestamp,
+        );
+      } else if (!hasValidCoordinates) {
+        final position = await resolveInitialPosition();
+        if (gen != _geocodeGeneration) return;
+        if (position != null) {
+          applyCurrentGps(
+            latitude: position.latitude,
+            longitude: position.longitude,
+            gpsTimestamp: position.timestamp,
+          );
+        }
       }
 
-      if (position != null &&
-          isValidLatLng(position.latitude, position.longitude)) {
-        currentLatitudePosition?.value = position.latitude;
-        currentLongitudePosition?.value = position.longitude;
-      }
+      if (gen != _geocodeGeneration) return;
 
       final lat = currentLatitudePosition?.value;
       final lng = currentLongitudePosition?.value;
-      if (!isValidLatLng(lat, lng)) return;
+      if (!isValidLatLng(lat, lng) || isAppFallbackCoordinate(lat, lng)) {
+        return;
+      }
 
       final parts = await reverseGeocodeAddressParts(lat!, lng!);
+      if (gen != _geocodeGeneration) return;
       if (parts == null) return;
 
       currentLocationLine1.value = parts.firstLine;
       currentLocationLine2.value = parts.secondLine;
       currentLocation.value = parts.full;
+      _lastGeocodedAt = LatLng(lat, lng);
     } catch (e) {
       debugPrint('getLocation failed: $e');
     }
@@ -318,6 +372,7 @@ class MapOPTController extends GetxController {
   final TextEditingController provideTips = TextEditingController();
   RxBool isLoading = false.obs;
   RxBool isTipsSuccess = false.obs;
+
   /// Ride ids the passenger already tipped in this session (no API flag).
   final RxSet<String> tippedRideIds = <String>{}.obs;
 
@@ -693,6 +748,21 @@ class MapOPTController extends GetxController {
         status.ongoingRide == true ||
         status.arrivingRide == true ||
         status.startRide == true;
+  }
+
+  /// Passenger car marker. Hidden after cancel so a late location packet
+  /// cannot put the car back on the map.
+  bool get showPassengerDriverCar {
+    final status = rideStatusData.value;
+    if (status?.driverCancel == true ||
+        status?.passengerCancel == true ||
+        status?.ride?.status == 'cancelled') {
+      return false;
+    }
+    if (isInActiveRide || status?.completeRide == true) return true;
+    final finishedAt = _lastFinishedAt;
+    if (finishedAt == null) return true;
+    return DateTime.now().difference(finishedAt) >= const Duration(minutes: 2);
   }
 
   String? get activeRideId {
