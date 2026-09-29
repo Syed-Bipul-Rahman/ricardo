@@ -724,51 +724,65 @@ class SearchLocationScreen extends StatelessWidget {
           ],
         );
       } else {
-
         if ((cnt.userModel.value?.userProfile?.wallet ?? 0) > 0) {
-          return CustomPrimaryButton(
-          onHandler: () async {
-            final status =
-            await LocationPermissionService.checkAndRequestLocation();
+          final bothReady = controller.canCalculateFare;
+          if (bothReady) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              final messengerContext = Get.context;
+              if (messengerContext == null) return;
+              ScaffoldMessenger.of(messengerContext).hideCurrentSnackBar();
+            });
+          }
 
-            if (status != LocationStatus.granted) {
-              showDialog(
-                context: Get.context!,
-                builder: (context) => AlertDialog(
-                  title: const Text('Location Permission Required'),
-                  content: const Text(
-                      'Please enable location permissions to calculate fare.'),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Get.back(),
-                      child: const Text('OK'),
-                    ),
-                  ],
-                ),
-              );
-              return;
-            }
+          return GestureDetector(
+            onTap: bothReady
+                ? null
+                : () {
+                    showSnackbar(
+                      'Missing Information',
+                      'Please select both pick-up and drop-off locations',
+                      backgroundColor: Colors.orange,
+                      colorText: Colors.white,
+                      duration: const Duration(seconds: 2),
+                    );
+                  },
+            child: CustomPrimaryButton(
+              onHandler: bothReady
+                  ? () async {
+                      final status = await LocationPermissionService
+                          .checkAndRequestLocation();
 
-            if (!controller.canCalculateFare) {
-              showSnackbar(
-                'Missing Information',
-                'Please select both pick-up and drop-off locations',
-                backgroundColor: Colors.orange,
-                colorText: Colors.white,
-                duration: const Duration(seconds: 2),
-              );
-              return;
-            }
+                      if (status != LocationStatus.granted) {
+                        showDialog(
+                          context: Get.context!,
+                          builder: (context) => AlertDialog(
+                            title: const Text('Location Permission Required'),
+                            content: const Text(
+                                'Please enable location permissions to calculate fare.'),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Get.back(),
+                                child: const Text('OK'),
+                              ),
+                            ],
+                          ),
+                        );
+                        return;
+                      }
 
-            await controller.calculateFare();
+                      await controller.calculateFare();
 
-            if (controller.hasFare) {
-              _buildFareCard(Get.context!);
-            }
-          },
-          title: controller.isLoadingFare.value ? 'Calculating...' : 'Find Ride',
-        );
-        }else{
+                      if (controller.hasFare) {
+                        _buildFareCard(Get.context!);
+                      }
+                    }
+                  : null,
+              title: controller.isLoadingFare.value
+                  ? 'Calculating...'
+                  : 'Find Ride',
+            ),
+          );
+        } else {
           return Text('First Added amount in you wallet');
         }
       }
